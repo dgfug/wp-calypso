@@ -5,12 +5,14 @@ import page from 'page';
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+import QueryTheme from 'calypso/components/data/query-theme';
 import WebPreview from 'calypso/components/web-preview';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import { addQueryArgs } from 'calypso/lib/route';
 import StepWrapper from 'calypso/signup/step-wrapper';
 import { getStepUrl } from 'calypso/signup/utils';
 import { submitSignupStep } from 'calypso/state/signup/progress/actions';
+import { getThemeDemoUrl } from 'calypso/state/themes/selectors';
 import PreviewToolbar from './preview-toolbar';
 import './style.scss';
 
@@ -106,25 +108,27 @@ class DesignPickerStep extends Component {
 
 	renderDesignPreview() {
 		const {
+			demoUrl,
 			signupDependencies: { siteSlug },
 			translate,
 		} = this.props;
 
 		const { selectedDesign } = this.state;
 
-		const previewUrl = addQueryArgs(
-			{
-				theme: `pub/${ selectedDesign.theme }`,
-				hide_banners: true,
-				demo: true,
-				iframe: true,
-				theme_preview: true,
-			},
-			`//${ siteSlug }`
-		);
+		const previewUrl = demoUrl
+			? addQueryArgs(
+					{
+						demo: true,
+						iframe: true,
+						theme_preview: true,
+					},
+					demoUrl
+			  )
+			: '';
 
 		return (
 			<div className="design-picker__preview">
+				<QueryTheme siteId="wpcom" themeId={ selectedDesign.theme } />
 				<WebPreview
 					className="design-picker__web-preview"
 					showPreview
@@ -199,4 +203,11 @@ class DesignPickerStep extends Component {
 	}
 }
 
-export default connect( null, { submitSignupStep } )( localize( DesignPickerStep ) );
+export default connect(
+	( state, { stepSectionName: themeId } ) => {
+		return {
+			demoUrl: themeId ? getThemeDemoUrl( state, themeId, 'wpcom' ) : '',
+		};
+	},
+	{ submitSignupStep }
+)( localize( DesignPickerStep ) );
