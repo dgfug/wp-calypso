@@ -1,4 +1,4 @@
-import DesignPicker, { getAvailableDesigns } from '@automattic/design-picker';
+import DesignPicker, { getAvailableDesigns, isBlankCanvasDesign } from '@automattic/design-picker';
 import classnames from 'classnames';
 import { localize } from 'i18n-calypso';
 import page from 'page';
@@ -29,11 +29,16 @@ class DesignPickerStep extends Component {
 		useHeadstart: true,
 		largeThumbnails: false,
 		showOnlyThemes: false,
-		availableDesigns: getAvailableDesigns().featured,
 	};
 
 	state = {
 		selectedDesign: null,
+		// Only offering designs that are also available as themes. This means excluding
+		// designs where the `template` has a layout that's different from what the theme's
+		// default Headstart annotation provides.
+		availableDesigns: getAvailableDesigns().featured.filter(
+			( { features, template, theme } ) => theme === template && ! features.includes( 'anchorfm' )
+		),
 	};
 
 	componentDidUpdate( prevProps ) {
@@ -43,7 +48,8 @@ class DesignPickerStep extends Component {
 	}
 
 	updateSelectedDesign() {
-		const { stepSectionName, availableDesigns } = this.props;
+		const { stepSectionName } = this.props;
+		const { availableDesigns } = this.state;
 
 		this.setState( {
 			selectedDesign: availableDesigns.find( ( { theme } ) => theme === stepSectionName ),
@@ -81,12 +87,7 @@ class DesignPickerStep extends Component {
 		let designs = undefined;
 
 		if ( this.props.showOnlyThemes ) {
-			// Only offering designs that are also available as themes. This means excluding
-			// designs where the `template` has a layout that's different from what the theme's
-			// default Headstart annotation provides.
-			designs = this.props.availableDesigns.filter(
-				( { features, template, theme } ) => theme === template && ! features.includes( 'anchorfm' )
-			);
+			designs = this.state.availableDesigns;
 		}
 
 		return (
@@ -155,25 +156,28 @@ class DesignPickerStep extends Component {
 	}
 
 	render() {
-		const { isReskinned } = this.props;
+		const { isReskinned, translate } = this.props;
 		const { selectedDesign } = this.state;
 		const headerText = this.headerText();
 		const subHeaderText = this.subHeaderText();
 
 		if ( selectedDesign ) {
+			const isBlankCanvas = isBlankCanvasDesign( selectedDesign );
+			const designTitle = isBlankCanvas ? translate( 'Blank Canvas' ) : selectedDesign.title;
+
 			return (
 				<StepWrapper
 					{ ...this.props }
-					fallbackHeaderText={ selectedDesign.title }
-					headerText={ selectedDesign.title }
+					fallbackHeaderText={ designTitle }
+					headerText={ designTitle }
 					fallbackSubHeaderText={ '' }
 					subHeaderText={ '' }
 					stepContent={ this.renderDesignPreview() }
 					align={ 'center' }
 					hideSkip
 					hideNext={ false }
-					nextLabelText={ this.props.translate( 'Start with %(designTitle)s', {
-						args: { designTitle: selectedDesign.title },
+					nextLabelText={ translate( 'Start with %(designTitle)s', {
+						args: { designTitle },
 					} ) }
 					goToNextStep={ this.submitDesign }
 				/>
