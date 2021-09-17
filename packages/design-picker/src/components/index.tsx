@@ -1,6 +1,7 @@
 /* eslint-disable wpcalypso/jsx-classname-namespace */
 
-import { Tooltip } from '@wordpress/components';
+import { Button, Tooltip } from '@wordpress/components';
+import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import classnames from 'classnames';
 import React from 'react';
@@ -90,9 +91,73 @@ const DesignButton: React.FC< DesignButtonProps > = ( {
 	);
 };
 
+interface DesignButtonCoverProps {
+	design: Design;
+	onSelect: ( design: Design ) => void;
+	onPreview: ( design: Design ) => void;
+}
+
+const DesignButtonCover: React.FC< DesignButtonCoverProps > = ( {
+	design,
+	onSelect,
+	onPreview,
+} ) => {
+	const { __ } = useI18n();
+	const isBlankCanvas = isBlankCanvasDesign( design );
+	const designTitle = isBlankCanvas ? __( 'Blank Canvas' ) : design.title;
+
+	return (
+		<div className="design-button-cover">
+			<div className="design-button-cover__button-groups">
+				<Button
+					className="design-button-cover__button"
+					isPrimary
+					onClick={ () => onSelect( design ) }
+				>
+					{
+						// translators: %s is the title of design with currency. Eg: Alves
+						sprintf( __( 'Start with %s', __i18n_text_domain__ ), designTitle )
+					}
+				</Button>
+				<Button className="design-button-cover__button" onClick={ () => onPreview( design ) }>
+					{
+						// translators: %s is the title of design with currency. Eg: Alves
+						sprintf( __( 'Preview %s', __i18n_text_domain__ ), designTitle )
+					}
+				</Button>
+			</div>
+		</div>
+	);
+};
+
+interface DesignButtonContainerProps extends DesignButtonProps {
+	onPreview?: ( design: Design ) => void;
+}
+
+const DesignButtonContainer: React.FC< DesignButtonContainerProps > = ( {
+	onPreview,
+	...props
+} ) => {
+	if ( ! onPreview ) {
+		return <DesignButton { ...props } />;
+	}
+
+	return (
+		<div className="design-button-container">
+			<DesignButtonCover
+				design={ props.design }
+				onSelect={ props.onSelect }
+				onPreview={ onPreview }
+			/>
+			<DesignButton { ...props } />
+		</div>
+	);
+};
+
 export interface DesignPickerProps {
 	locale: string;
 	onSelect: ( design: Design ) => void;
+	onPreview?: ( design: Design ) => void;
 	designs?: Design[];
 	premiumBadge?: React.ReactNode;
 	isGridMinimal?: boolean;
@@ -102,6 +167,7 @@ export interface DesignPickerProps {
 const DesignPicker: React.FC< DesignPickerProps > = ( {
 	locale,
 	onSelect,
+	onPreview,
 	designs = getAvailableDesigns().featured.filter(
 		// By default, exclude anchorfm-specific designs
 		( design ) => design.features.findIndex( ( f ) => f === 'anchorfm' ) < 0
@@ -115,11 +181,12 @@ const DesignPicker: React.FC< DesignPickerProps > = ( {
 		<div className={ classnames( 'design-picker', `design-picker--theme-${ theme }`, className ) }>
 			<div className={ isGridMinimal ? 'design-picker__grid-minimal' : 'design-picker__grid' }>
 				{ designs.map( ( design ) => (
-					<DesignButton
+					<DesignButtonContainer
 						key={ design.slug }
 						design={ design }
 						locale={ locale }
 						onSelect={ onSelect }
+						onPreview={ onPreview }
 						premiumBadge={ premiumBadge }
 					/>
 				) ) }
