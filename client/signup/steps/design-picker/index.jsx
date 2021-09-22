@@ -127,7 +127,7 @@ class DesignPickerStep extends Component {
 			: '';
 
 		return (
-			<div className="design-picker__preview">
+			<>
 				<QueryTheme siteId="wpcom" themeId={ selectedDesign.theme } />
 				<WebPreview
 					className="design-picker__web-preview"
@@ -144,7 +144,7 @@ class DesignPickerStep extends Component {
 					) }
 					toolbarComponent={ PreviewToolbar }
 				/>
-			</div>
+			</>
 		);
 	}
 
@@ -172,6 +172,7 @@ class DesignPickerStep extends Component {
 			return (
 				<StepWrapper
 					{ ...this.props }
+					className="design-picker__preview"
 					fallbackHeaderText={ designTitle }
 					headerText={ designTitle }
 					fallbackSubHeaderText={ '' }
