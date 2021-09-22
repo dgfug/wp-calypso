@@ -43,8 +43,8 @@ describe( DataHelper.createSuiteTitle( 'Reader: View and Comment' ), function ()
 	} );
 
 	it( 'Log in as test site owner', async function () {
-		const loginFlow = new LoginFlow( page, 'notificationsUser' );
-		await loginFlow.logIn();
+		const loginPage = new LoginPage( page );
+		await loginPage.login( { account: 'notificationsUser' } );
 	} );
 
 	it( 'Open Notifications panel', async function () {

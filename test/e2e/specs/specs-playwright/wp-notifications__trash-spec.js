@@ -20,7 +20,7 @@ describe( DataHelper.createSuiteTitle( 'Notifications' ), function () {
 
 	const commentingUser = 'commentingUser';
 	const notificationsUser = 'notificationsUser';
-	const comment = DataHelper.getRandomPhrase() + ' TBD';
+	const comment = DataHelper.getRandomPhrase() + ' notifications-trash-spec';
 
 	setupHooks( ( args ) => {
 		page = args.page;
@@ -31,9 +31,9 @@ describe( DataHelper.createSuiteTitle( 'Notifications' ), function () {
 
 		it( `Log in as ${ commentingUser }`, async function () {
 			testPage = await BrowserManager.newPage( { newContext: true } );
-			const loginPage = new LoginPage( page );
+			const loginPage = new LoginPage( testPage );
 			await loginPage.login( { account: commentingUser } );
-			await testPage.waitForURL( '**/read' );
+			await testPage.waitForURL( DataHelper.getCalypsoURL( 'read' ) );
 		} );
 
 		it( 'View site', async function () {
@@ -50,6 +50,10 @@ describe( DataHelper.createSuiteTitle( 'Notifications' ), function () {
 		it( 'Comment on the post', async function () {
 			const commentsComponent = new CommentsComponent( testPage );
 			await commentsComponent.postComment( comment );
+		} );
+
+		it( `Close browser as ${ commentingUser }`, async function () {
+			await BrowserManager.closePage( testPage, { closeContext: true } );
 		} );
 	} );
 
