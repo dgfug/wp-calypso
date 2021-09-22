@@ -42,8 +42,8 @@ describe(
 			} );
 
 			it( 'Create a new WordPress.com account', async function () {
-				await page.click( 'button:text("Create a WordPress.com Account")' );
 				const userSignupPage = new UserSignupPage( page );
+				await page.pause();
 				await userSignupPage.signupWPCC( email, signupPassword );
 			} );
 
