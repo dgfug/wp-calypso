@@ -1,4 +1,6 @@
 import DesignPicker, { getAvailableDesigns, isBlankCanvasDesign } from '@automattic/design-picker';
+import { withMobileBreakpoint } from '@automattic/viewport-react';
+import { compose } from '@wordpress/compose';
 import classnames from 'classnames';
 import { localize } from 'i18n-calypso';
 import page from 'page';
@@ -160,7 +162,7 @@ class DesignPickerStep extends Component {
 	}
 
 	render() {
-		const { isReskinned, translate } = this.props;
+		const { isReskinned, isBreakpointActive: isMobile, translate } = this.props;
 		const { selectedDesign } = this.state;
 		const headerText = this.headerText();
 		const subHeaderText = this.subHeaderText();
@@ -178,7 +180,7 @@ class DesignPickerStep extends Component {
 					fallbackSubHeaderText={ '' }
 					subHeaderText={ '' }
 					stepContent={ this.renderDesignPreview() }
-					align={ 'center' }
+					align={ isMobile ? 'left' : 'center' }
 					hideSkip
 					hideNext={ false }
 					nextLabelText={ translate( 'Start with %(designTitle)s', {
@@ -204,11 +206,15 @@ class DesignPickerStep extends Component {
 	}
 }
 
-export default connect(
-	( state, { stepSectionName: themeId } ) => {
-		return {
-			demoUrl: themeId ? getThemeDemoUrl( state, themeId, 'wpcom' ) : '',
-		};
-	},
-	{ submitSignupStep }
-)( localize( DesignPickerStep ) );
+export default compose(
+	connect(
+		( state, { stepSectionName: themeId } ) => {
+			return {
+				demoUrl: themeId ? getThemeDemoUrl( state, themeId, 'wpcom' ) : '',
+			};
+		},
+		{ submitSignupStep }
+	),
+	withMobileBreakpoint,
+	localize
+)( DesignPickerStep );
