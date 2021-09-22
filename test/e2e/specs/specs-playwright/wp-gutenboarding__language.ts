@@ -5,7 +5,7 @@
 import {
 	setupHooks,
 	DataHelper,
-	LoginFlow,
+	LoginPage,
 	SidebarComponent,
 	GutenboardingFlow,
 } from '@automattic/calypso-e2e';
@@ -20,8 +20,8 @@ describe( DataHelper.createSuiteTitle( 'Gutenboarding: Language' ), function () 
 	} );
 
 	it( 'Log in', async function () {
-		const loginFlow = new LoginFlow( page, 'defaultUser' );
-		await loginFlow.logIn();
+		const loginPage = new LoginPage( page );
+		await loginPage.login( { account: 'defaultUser' } );
 	} );
 
 	it( 'Click on Add Site on Sidebar', async function () {

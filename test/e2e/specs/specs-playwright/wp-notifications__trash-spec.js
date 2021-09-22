@@ -6,7 +6,7 @@ import {
 	setupHooks,
 	BrowserManager,
 	DataHelper,
-	LoginFlow,
+	LoginPage,
 	PublishedPostsListPage,
 	CommentsComponent,
 	NavbarComponent,
@@ -31,8 +31,8 @@ describe( DataHelper.createSuiteTitle( 'Notifications' ), function () {
 
 		it( `Log in as ${ commentingUser }`, async function () {
 			testPage = await BrowserManager.newPage( { newContext: true } );
-			const loginFlow = new LoginFlow( testPage, commentingUser );
-			await loginFlow.logIn();
+			const loginPage = new LoginPage( page );
+			await loginPage.login( { account: commentingUser } );
 			await testPage.waitForURL( '**/read' );
 		} );
 
@@ -55,8 +55,8 @@ describe( DataHelper.createSuiteTitle( 'Notifications' ), function () {
 
 	describe( `Trash comment as ${ notificationsUser }`, function () {
 		it( `Log in as ${ notificationsUser }`, async function () {
-			const loginFlow = new LoginFlow( page, notificationsUser );
-			await loginFlow.logIn();
+			const loginPage = new LoginPage( page );
+			await loginPage.login( { account: notificationsUser } );
 		} );
 
 		it( 'Open notification using keyboard shortcut', async function () {

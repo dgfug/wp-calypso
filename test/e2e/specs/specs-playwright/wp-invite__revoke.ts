@@ -5,7 +5,7 @@
 import {
 	DataHelper,
 	EmailClient,
-	LoginFlow,
+	LoginPage,
 	SidebarComponent,
 	InvitePeoplePage,
 	PeoplePage,
@@ -32,8 +32,8 @@ describe( DataHelper.createSuiteTitle( `Invite: Revoke` ), function () {
 	} );
 
 	it( 'Log in', async function () {
-		const loginFlow = new LoginFlow( page );
-		await loginFlow.logIn();
+		const loginPage = new LoginPage( page );
+		await loginPage.login( { account: 'defaultUser' } );
 	} );
 
 	it( 'Navigate to Users > All Users', async function () {

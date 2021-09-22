@@ -5,7 +5,7 @@
 import {
 	setupHooks,
 	DataHelper,
-	LoginFlow,
+	LoginPage,
 	GutenbergEditorPage,
 	SidebarComponent,
 	GutenboardingFlow,
@@ -25,8 +25,8 @@ describe( DataHelper.createSuiteTitle( 'Gutenboarding: Create' ), function () {
 	} );
 
 	it( 'Log in', async function () {
-		const loginFlow = new LoginFlow( page, 'defaultUser' );
-		await loginFlow.logIn();
+		const loginPage = new LoginPage( page );
+		await loginPage.login( { account: 'defaultUser' } );
 	} );
 
 	it( 'Click on Add Site on Sidebar', async function () {

@@ -1,7 +1,11 @@
+/**
+ * @group calypso-release
+ */
+
 import {
 	DataHelper,
 	EmailClient,
-	LoginFlow,
+	LoginPage,
 	SidebarComponent,
 	InvitePeoplePage,
 	PeoplePage,
@@ -12,7 +16,7 @@ import {
 } from '@automattic/calypso-e2e';
 import { Page } from 'playwright';
 
-describe.skip( DataHelper.createSuiteTitle( `Invite: New User` ), function () {
+describe( DataHelper.createSuiteTitle( `Invite: New User` ), function () {
 	const inboxId = DataHelper.config.get( 'inviteInboxId' ) as string;
 	const role = 'Editor';
 	const username = `e2eflowtestingeditor${ DataHelper.getTimestamp() }`;
@@ -35,8 +39,8 @@ describe.skip( DataHelper.createSuiteTitle( `Invite: New User` ), function () {
 		let sidebarComponent: SidebarComponent;
 
 		it( 'Log in as inviting user', async function () {
-			const loginFlow = new LoginFlow( page, invitingUser );
-			await loginFlow.logIn();
+			const loginPage = new LoginPage( page );
+			await loginPage.login( { account: invitingUser } );
 		} );
 
 		it( 'Navigate to Users > All Users', async function () {
@@ -107,8 +111,8 @@ describe.skip( DataHelper.createSuiteTitle( `Invite: New User` ), function () {
 		} );
 
 		it( 'Log in as inviting user', async function () {
-			const loginFlow = new LoginFlow( page, invitingUser );
-			await loginFlow.logIn();
+			const loginPage = new LoginPage( page );
+			await loginPage.login( { account: invitingUser } );
 		} );
 
 		it( 'Navigate to Users > All Users', async function () {
