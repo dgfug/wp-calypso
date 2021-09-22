@@ -6,6 +6,7 @@ import {
 	DataHelper,
 	DomainSearchComponent,
 	setupHooks,
+	LoginPage,
 	UserSignupPage,
 	SignupPickPlanPage,
 	BrowserManager,
@@ -201,11 +202,9 @@ describe(
 
 			let cartCheckoutPage: CartCheckoutPage;
 
-			it( 'Navigate to /create page', async function () {
-				// No page object for the https://wordpress.com/create static page.
-				await page.goto( DataHelper.getCalypsoURL( 'create' ) );
-				await page.click( 'a:text("Start your site")' );
-				await page.waitForLoadState( 'networkidle' );
+			it( 'Navigate to Signup page', async function () {
+				const loginPage = new LoginPage( page );
+				await loginPage.clickSignup();
 			} );
 
 			it( 'Set store cookie', async function () {
