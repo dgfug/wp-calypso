@@ -43,7 +43,6 @@ describe(
 
 			it( 'Create a new WordPress.com account', async function () {
 				const userSignupPage = new UserSignupPage( page );
-				await page.pause();
 				await userSignupPage.signupWPCC( email, signupPassword );
 			} );
 
