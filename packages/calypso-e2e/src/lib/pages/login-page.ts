@@ -3,6 +3,7 @@ import { getCalypsoURL, getAccountCredential } from '../../data-helper';
 
 const selectors = {
 	loginContainer: '.wp-login__container',
+	continueAsUser: '.continue-as-user',
 
 	// Login
 	loginButton: 'button:has-text("Log In")',
@@ -70,10 +71,10 @@ export class LoginPage {
 
 		// Change account button takes some time to fade into view if an account
 		// is already logged in.
-		const alreadyLoggedIn = await this.page.isVisible( selectors.changeAccountButton, {
-			timeout: 5000,
-		} );
+		const alreadyLoggedIn = await this.page.isVisible( selectors.continueAsUser );
 		if ( alreadyLoggedIn ) {
+			const elementHandle = await this.page.waitForSelector( selectors.continueAsUser );
+			await elementHandle.waitForElementState( 'stable' );
 			await this.page.click( selectors.changeAccountButton );
 		}
 	}
