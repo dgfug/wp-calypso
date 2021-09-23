@@ -15,7 +15,6 @@ import {
 	EmailClient,
 	BrowserHelper,
 	CloseAccountFlow,
-	LoginFlow,
 } from '@automattic/calypso-e2e';
 import { Page } from 'playwright';
 
@@ -33,7 +32,6 @@ describe(
 
 		let page: Page;
 		let domainSearchComponent: DomainSearchComponent;
-		let selectedDomain: string;
 		let gutenbergEditorPage: GutenbergEditorPage;
 
 		setupHooks( ( args ) => {
@@ -54,7 +52,7 @@ describe(
 			it( 'Select a free .wordpress.com domain', async function () {
 				domainSearchComponent = new DomainSearchComponent( page );
 				await domainSearchComponent.search( blogName );
-				selectedDomain = await domainSearchComponent.selectDomain( '.wordpress.com' );
+				await domainSearchComponent.selectDomain( '.wordpress.com' );
 			} );
 
 			it( 'Select WordPress.com Free plan', async function () {
@@ -116,29 +114,11 @@ describe(
 		} );
 
 		describe( 'Delete user account', function () {
-			let newPage: Page;
-
-			it( 'Launch new context to ensure correct host', async function () {
-				newPage = await BrowserManager.newPage( { newContext: true } );
-			} );
-
-			it( 'Login', async function () {
-				// Logging in and immediately using navbar often leads to race conditions when the redirect
-				// from <rooturl> to <rooturl>/home/<site> redirect takes you out of the navigation you just did.
-				// We need to wait for that to happen before proceeding.
-				const expectedLandngUrl = DataHelper.getCalypsoURL( `home/${ selectedDomain }` );
-				const loginFlow = new LoginFlow( newPage, {
-					username: username,
-					password: signupPassword,
-				} );
-				await Promise.all( [
-					newPage.waitForNavigation( { url: expectedLandngUrl } ),
-					loginFlow.logIn(),
-				] );
-			} );
-
 			it( 'Close account', async function () {
-				const closeAccountFlow = new CloseAccountFlow( newPage );
+				// Magic link only works on production webapp.
+				// Revisit the webapp under test.
+				await page.goto( DataHelper.getCalypsoURL() );
+				const closeAccountFlow = new CloseAccountFlow( page );
 				await closeAccountFlow.closeAccount();
 			} );
 		} );
