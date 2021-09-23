@@ -44,31 +44,31 @@ describe( DataHelper.createSuiteTitle( 'Media: Upload' ), () => {
 			await loginPage.login( { account: user } );
 		} );
 
-		it( 'Navigate to Media', async function () {
-			const sidebarComponent = new SidebarComponent( page );
-			await sidebarComponent.navigate( 'Media' );
-		} );
+		// it( 'Navigate to Media', async function () {
+		// 	const sidebarComponent = new SidebarComponent( page );
+		// 	await sidebarComponent.navigate( 'Media' );
+		// } );
 
-		it( 'See media gallery', async function () {
-			mediaPage = new MediaPage( page );
-		} );
+		// it( 'See media gallery', async function () {
+		// 	mediaPage = new MediaPage( page );
+		// } );
 
-		it( 'Upload image and confirm addition to gallery', async () => {
-			await mediaPage.upload( testFiles.image.fullpath );
-		} );
+		// it( 'Upload image and confirm addition to gallery', async () => {
+		// 	await mediaPage.upload( testFiles.image.fullpath );
+		// } );
 
-		it( 'Upload audio and confirm addition to gallery', async () => {
-			await mediaPage.upload( testFiles.audio.fullpath );
-		} );
+		// it( 'Upload audio and confirm addition to gallery', async () => {
+		// 	await mediaPage.upload( testFiles.audio.fullpath );
+		// } );
 
-		it( 'Upload an unsupported file type and see the rejection notice', async function () {
-			try {
-				await mediaPage.upload( testFiles.unsupported.fullpath );
-			} catch ( error: unknown ) {
-				if ( error instanceof Error ) {
-					assert.match( error.message, /could not be uploaded/i );
-				}
-			}
-		} );
+		// it( 'Upload an unsupported file type and see the rejection notice', async function () {
+		// 	try {
+		// 		await mediaPage.upload( testFiles.unsupported.fullpath );
+		// 	} catch ( error: unknown ) {
+		// 		if ( error instanceof Error ) {
+		// 			assert.match( error.message, /could not be uploaded/i );
+		// 		}
+		// 	}
+		// } );
 	} );
 } );
