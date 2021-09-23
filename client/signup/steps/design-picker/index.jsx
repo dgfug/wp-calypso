@@ -1,20 +1,21 @@
-import DesignPicker, { getAvailableDesigns, isBlankCanvasDesign } from '@automattic/design-picker';
-import { withMobileBreakpoint } from '@automattic/viewport-react';
+import DesignPicker, {
+	getAvailableDesigns,
+	isBlankCanvasDesign,
+	getDesignUrl,
+} from '@automattic/design-picker';
 import { compose } from '@wordpress/compose';
+import { withViewportMatch } from '@wordpress/viewport';
 import classnames from 'classnames';
 import { localize } from 'i18n-calypso';
 import page from 'page';
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import QueryTheme from 'calypso/components/data/query-theme';
 import WebPreview from 'calypso/components/web-preview';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
-import { addQueryArgs } from 'calypso/lib/route';
 import StepWrapper from 'calypso/signup/step-wrapper';
 import { getStepUrl } from 'calypso/signup/utils';
 import { submitSignupStep } from 'calypso/state/signup/progress/actions';
-import { getThemeDemoUrl } from 'calypso/state/themes/selectors';
 import PreviewToolbar from './preview-toolbar';
 import './style.scss';
 
@@ -124,43 +125,30 @@ class DesignPickerStep extends Component {
 
 	renderDesignPreview() {
 		const {
-			demoUrl,
 			signupDependencies: { siteSlug },
+			locale,
 			translate,
 		} = this.props;
 
 		const { selectedDesign } = this.state;
-
-		const previewUrl = demoUrl
-			? addQueryArgs(
-					{
-						demo: true,
-						iframe: true,
-						theme_preview: true,
-					},
-					demoUrl
-			  )
-			: '';
+		const previewUrl = getDesignUrl( selectedDesign, locale );
 
 		return (
-			<>
-				<QueryTheme siteId="wpcom" themeId={ selectedDesign.theme } />
-				<WebPreview
-					className="design-picker__web-preview"
-					showPreview
-					isContentOnly
-					showUrl={ false }
-					showClose={ false }
-					showEdit={ false }
-					externalUrl={ siteSlug }
-					previewUrl={ previewUrl }
-					loadingMessage={ translate(
-						'{{strong}}One moment, please…{{/strong}} loading your site.',
-						{ components: { strong: <strong /> } }
-					) }
-					toolbarComponent={ PreviewToolbar }
-				/>
-			</>
+			<WebPreview
+				className="design-picker__web-preview"
+				showPreview
+				isContentOnly
+				showClose={ false }
+				showEdit={ false }
+				externalUrl={ siteSlug }
+				previewUrl={ previewUrl }
+				loadingMessage={ translate( '{{strong}}One moment, please…{{/strong}} loading your site.', {
+					components: { strong: <strong /> },
+				} ) }
+				toolbarComponent={ PreviewToolbar }
+				// Avoid page direct because checkForIframeLoadFailure inside the WebPreview returns true but I'm not sure why
+				disableRedirects
+			/>
 		);
 	}
 
@@ -176,7 +164,7 @@ class DesignPickerStep extends Component {
 	}
 
 	render() {
-		const { isReskinned, isBreakpointActive: isMobile, translate } = this.props;
+		const { isReskinned, isMobile, translate } = this.props;
 		const { selectedDesign } = this.state;
 		const headerText = this.headerText();
 		const subHeaderText = this.subHeaderText();
@@ -221,14 +209,7 @@ class DesignPickerStep extends Component {
 }
 
 export default compose(
-	connect(
-		( state, { stepSectionName: themeId } ) => {
-			return {
-				demoUrl: themeId ? getThemeDemoUrl( state, themeId, 'wpcom' ) : '',
-			};
-		},
-		{ submitSignupStep }
-	),
-	withMobileBreakpoint,
+	connect( null, { submitSignupStep } ),
+	withViewportMatch( { isMobile: '< small' } ),
 	localize
 )( DesignPickerStep );
