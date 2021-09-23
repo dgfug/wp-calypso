@@ -1,13 +1,13 @@
 import classNames from 'classnames';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
-import React from 'react';
+import { Component } from 'react';
 import AutoDirection from 'calypso/components/auto-direction';
 import Emojify from 'calypso/components/emojify';
 
 import './post-comment-content.scss';
 
-class PostCommentContent extends React.Component {
+class PostCommentContent extends Component {
 	static propTypes = {
 		content: PropTypes.string.isRequired,
 		isPlaceholder: PropTypes.bool,

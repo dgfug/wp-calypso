@@ -1,11 +1,11 @@
 import { omit } from 'lodash';
 import PropTypes from 'prop-types';
-import React from 'react';
+import { Component } from 'react';
 import Emojify from 'calypso/components/emojify';
 import { getStreamUrl } from 'calypso/reader/route';
 import { recordAction, recordGaEvent, recordTrackForPost } from 'calypso/reader/stats';
 
-class ReaderSiteStreamLink extends React.Component {
+class ReaderSiteStreamLink extends Component {
 	static propTypes = {
 		feedId: PropTypes.number,
 		siteId: PropTypes.number,

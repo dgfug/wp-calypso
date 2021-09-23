@@ -1,6 +1,6 @@
 import config from '@automattic/calypso-config';
 import PropTypes from 'prop-types';
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { connect } from 'react-redux';
 import Composer from 'calypso/components/happychat/composer';
 import HappychatConnection from 'calypso/components/happychat/connection-connected';

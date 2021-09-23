@@ -4,7 +4,6 @@
 
 import { expect } from 'chai';
 import { shallow } from 'enzyme';
-import React from 'react';
 import Emojify from 'calypso/components/emojify';
 import AutoDirection from '..';
 

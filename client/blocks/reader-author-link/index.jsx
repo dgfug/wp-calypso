@@ -1,7 +1,6 @@
 import classnames from 'classnames';
 import { get } from 'lodash';
 import PropTypes from 'prop-types';
-import React from 'react';
 import Emojify from 'calypso/components/emojify';
 import { isAuthorNameBlocked } from 'calypso/reader/lib/author-name-blocklist';
 import * as stats from 'calypso/reader/stats';

@@ -1,4 +1,3 @@
-import React from 'react';
 import Emojify from 'calypso/components/emojify';
 
 const EmojifyExample = () => {

@@ -1,6 +1,6 @@
 import { useRtl } from 'i18n-calypso';
 import { get } from 'lodash';
-import React from 'react';
+import { cloneElement, Children } from 'react';
 import Emojify from 'calypso/components/emojify';
 import { stripHTML } from 'calypso/lib/formatting';
 import { isRTLCharacter, isLTRCharacter } from './direction';
@@ -159,12 +159,12 @@ const setChildDirection = ( child, isRtl ) => {
 	const childDirection = getChildDirection( child, isRtl );
 
 	if ( childDirection ) {
-		return React.cloneElement( child, getDirectionProps( child, childDirection ) );
+		return cloneElement( child, getDirectionProps( child, childDirection ) );
 	}
 
 	if ( child && child.props.children ) {
 		let innerChildDirection = null;
-		const children = React.Children.map( child.props.children, ( innerChild ) => {
+		const children = Children.map( child.props.children, ( innerChild ) => {
 			if ( ! innerChild ) {
 				return innerChild;
 			}
@@ -184,7 +184,7 @@ const setChildDirection = ( child, isRtl ) => {
 			return setChildDirection( innerChild, isRtl );
 		} );
 
-		return React.cloneElement(
+		return cloneElement(
 			child,
 			innerChildDirection ? getDirectionProps( child, innerChildDirection ) : null,
 			children

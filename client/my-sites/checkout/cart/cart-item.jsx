@@ -16,7 +16,7 @@ import { getCurrencyObject } from '@automattic/format-currency';
 import { withShoppingCart } from '@automattic/shopping-cart';
 import { localize } from 'i18n-calypso';
 import { get } from 'lodash';
-import React from 'react';
+import { Component } from 'react';
 import { withLocalizedMoment } from 'calypso/components/localized-moment';
 import { gaRecordEvent } from 'calypso/lib/analytics/ga';
 import { canRemoveFromCart } from 'calypso/lib/cart-values';
@@ -27,7 +27,7 @@ import {
 	GSUITE_BUSINESS_SLUG,
 } from 'calypso/lib/gsuite/constants';
 
-export class CartItem extends React.Component {
+export class CartItem extends Component {
 	removeFromCart = ( event ) => {
 		event.preventDefault();
 		gaRecordEvent(

@@ -3,7 +3,7 @@ import classnames from 'classnames';
 import debugFactory from 'debug';
 import { useTranslate } from 'i18n-calypso';
 import PropTypes from 'prop-types';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Component, useCallback, useEffect, useMemo, useRef } from 'react';
 import { connect } from 'react-redux';
 import Emojify from 'calypso/components/emojify';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
@@ -24,7 +24,7 @@ const MessageParagraph = ( { message, isEdited, isOptimistic, twemojiUrl } ) => 
 	</p>
 );
 
-class MessageLink extends React.Component {
+class MessageLink extends Component {
 	handleClick = () => {
 		const { href, messageId, sendEventMessage, userId } = this.props;
 

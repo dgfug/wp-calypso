@@ -5,7 +5,6 @@
 import config from '@automattic/calypso-config';
 import { expect } from 'chai';
 import { shallow, mount } from 'enzyme';
-import React from 'react';
 import Emojify from '..';
 
 describe( 'Emojify', () => {

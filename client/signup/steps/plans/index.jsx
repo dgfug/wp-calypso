@@ -7,7 +7,7 @@ import { localize } from 'i18n-calypso';
 import { intersection } from 'lodash';
 import PropTypes from 'prop-types';
 import { parse as parseQs } from 'qs';
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { connect } from 'react-redux';
 import QueryPlans from 'calypso/components/data/query-plans';
 import PulsingDot from 'calypso/components/pulsing-dot';

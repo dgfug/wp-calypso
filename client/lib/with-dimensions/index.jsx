@@ -1,6 +1,6 @@
 import { debounce } from 'lodash';
 import PropTypes from 'prop-types';
-import React from 'react';
+import { Component } from 'react';
 import afterLayoutFlush from 'calypso/lib/after-layout-flush';
 
 const OVERFLOW_BUFFER = 4; // fairly arbitrary. feel free to tweak
@@ -29,7 +29,7 @@ const OVERFLOW_BUFFER = 4; // fairly arbitrary. feel free to tweak
  * @returns {object} the enhanced component
  */
 export default ( EnhancedComponent ) =>
-	class WithWidth extends React.Component {
+	(class WithWidth extends Component {
 		static displayName = `WithDimensions( ${
 			EnhancedComponent.displayName || EnhancedComponent.name
 		} )`;
@@ -97,4 +97,4 @@ export default ( EnhancedComponent ) =>
 				</div>
 			);
 		}
-	};
+	});
