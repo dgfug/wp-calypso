@@ -69,7 +69,8 @@
 	padding-bottom: 30px;
 
 	.step-wrapper__content {
-		height: 540px;
+		height: calc( 100vh - 256px );
+		max-height: 540px;
 	}
 
 	@include break-small {
@@ -79,7 +80,7 @@
 		}
 
 		.step-wrapper__content {
-			height: 866px;
+			max-height: 960px;
 		}
 	}
 }
