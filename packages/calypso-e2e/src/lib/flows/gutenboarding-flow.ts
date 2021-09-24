@@ -79,8 +79,6 @@ export class GutenboardingFlow {
 	 */
 	async clickWpLogo(): Promise< void > {
 		await Promise.all( [ this.page.waitForNavigation(), this.page.click( selectors.wpLogo ) ] );
-
-		await this.page.waitForLoadState( 'networkidle' );
 	}
 
 	/* Initial (landing) screen */
