@@ -100,6 +100,7 @@ class DesignPickerStep extends Component {
 					className={ classnames( {
 						'design-picker-step__is-large-thumbnails': this.props.largeThumbnails,
 					} ) }
+					highResThumbnails
 				/>
 			</div>
 		);
