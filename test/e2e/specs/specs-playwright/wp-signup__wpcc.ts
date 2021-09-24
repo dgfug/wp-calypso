@@ -38,6 +38,7 @@ describe(
 			it( 'Navigate to CrowdSignal WPCC endpoint', async function () {
 				const calypsoBaseURL = DataHelper.getCalypsoURL();
 				const wpccAuthPath = DataHelper.config.get( 'wpccAuthPath' );
+				console.log( calypsoBaseURL + wpccAuthPath );
 				await page.goto( calypsoBaseURL + wpccAuthPath );
 			} );
 
