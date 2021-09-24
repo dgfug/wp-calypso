@@ -6,7 +6,7 @@ import assert from 'assert';
 import {
 	setupHooks,
 	DataHelper,
-	LoginPage,
+	LoginFlow,
 	MediaPage,
 	SidebarComponent,
 	MediaHelper,
@@ -39,36 +39,36 @@ describe( DataHelper.createSuiteTitle( 'Media: Upload' ), () => {
 	`( 'Upload media files ($siteType)', ( { user } ) => {
 		let mediaPage: MediaPage;
 
-		it( 'Log in', async function () {
-			const loginPage = new LoginPage( page );
-			await loginPage.login( { account: user } );
+		it( 'Log In', async function () {
+			const loginFlow = new LoginFlow( page, user );
+			await loginFlow.logIn();
 		} );
 
-		// it( 'Navigate to Media', async function () {
-		// 	const sidebarComponent = new SidebarComponent( page );
-		// 	await sidebarComponent.navigate( 'Media' );
-		// } );
+		it( 'Navigate to Media', async function () {
+			const sidebarComponent = new SidebarComponent( page );
+			await sidebarComponent.navigate( 'Media' );
+		} );
 
-		// it( 'See media gallery', async function () {
-		// 	mediaPage = new MediaPage( page );
-		// } );
+		it( 'See media gallery', async function () {
+			mediaPage = new MediaPage( page );
+		} );
 
-		// it( 'Upload image and confirm addition to gallery', async () => {
-		// 	await mediaPage.upload( testFiles.image.fullpath );
-		// } );
+		it( 'Upload image and confirm addition to gallery', async () => {
+			await mediaPage.upload( testFiles.image.fullpath );
+		} );
 
-		// it( 'Upload audio and confirm addition to gallery', async () => {
-		// 	await mediaPage.upload( testFiles.audio.fullpath );
-		// } );
+		it( 'Upload audio and confirm addition to gallery', async () => {
+			await mediaPage.upload( testFiles.audio.fullpath );
+		} );
 
-		// it( 'Upload an unsupported file type and see the rejection notice', async function () {
-		// 	try {
-		// 		await mediaPage.upload( testFiles.unsupported.fullpath );
-		// 	} catch ( error: unknown ) {
-		// 		if ( error instanceof Error ) {
-		// 			assert.match( error.message, /could not be uploaded/i );
-		// 		}
-		// 	}
-		// } );
+		it( 'Upload an unsupported file type and see the rejection notice', async function () {
+			try {
+				await mediaPage.upload( testFiles.unsupported.fullpath );
+			} catch ( error: unknown ) {
+				if ( error instanceof Error ) {
+					assert.match( error.message, /could not be uploaded/i );
+				}
+			}
+		} );
 	} );
 } );
