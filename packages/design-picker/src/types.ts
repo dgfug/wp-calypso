@@ -30,3 +30,7 @@ export interface Design {
 	 */
 	hide?: boolean;
 }
+
+export interface DesignUrlOptions {
+	iframe?: boolean;
+}
