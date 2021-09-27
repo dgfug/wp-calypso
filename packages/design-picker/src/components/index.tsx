@@ -35,6 +35,7 @@ interface DesignButtonProps {
 	locale: string;
 	onSelect: ( design: Design ) => void;
 	premiumBadge?: React.ReactNode;
+	disabled?: boolean;
 }
 
 const DesignButton: React.FC< DesignButtonProps > = ( {
@@ -42,6 +43,7 @@ const DesignButton: React.FC< DesignButtonProps > = ( {
 	onSelect,
 	design,
 	premiumBadge,
+	disabled,
 } ) => {
 	const { __ } = useI18n();
 
@@ -54,6 +56,7 @@ const DesignButton: React.FC< DesignButtonProps > = ( {
 	return (
 		<button
 			className="design-picker__design-option"
+			disabled={ disabled }
 			data-e2e-button={ design.is_premium ? 'paidOption' : 'freeOption' }
 			onClick={ () => onSelect( design ) }
 		>
@@ -157,7 +160,7 @@ const DesignButtonContainer: React.FC< DesignButtonContainerProps > = ( {
 				onSelect={ props.onSelect }
 				onPreview={ onPreview }
 			/>
-			<DesignButton { ...props } />
+			<DesignButton { ...props } disabled />
 		</div>
 	);
 };
