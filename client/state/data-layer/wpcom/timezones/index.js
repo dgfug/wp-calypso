@@ -14,7 +14,6 @@ const noop = () => {};
  * @example
  * valueLabelToObject( [ { value: 'foo', label: 'bar' }, { value: 'biz', label: 'bat' } ] )
  * // returns { foo: 'bar', biz: 'bat' }
- *
  * @param {ValueLabelRecord[]} pairs - timezone values and display labels
  * @returns {ValueLabelMap} object whose keys are timezone values, values are timezone labels
  */
