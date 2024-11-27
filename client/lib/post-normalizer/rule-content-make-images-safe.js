@@ -1,6 +1,5 @@
-import { getUrlParts, getUrlFromParts } from '@automattic/calypso-url';
+import { getUrlParts, getUrlFromParts, safeImageUrl } from '@automattic/calypso-url';
 import { forEach, startsWith, some, includes, filter } from 'lodash';
-import safeImageURL from 'calypso/lib/safe-image-url';
 import { resolveRelativePath } from 'calypso/lib/url';
 import { maxWidthPhotonishURL } from './utils';
 
@@ -24,14 +23,14 @@ const removeUnwantedAttributes = ( node ) => {
 	node.removeAttribute( 'srcset' );
 };
 
-/** Checks whether or not imageUrl should be removed from the dom
- *
+/**
+ * Checks whether or not imageUrl should be removed from the dom
  * @param {string} imageUrl - the url of the image
  * @returns {boolean} whether or not it should be removed from the dom
  */
 const imageShouldBeRemovedFromContent = ( imageUrl ) => {
 	if ( ! imageUrl ) {
-		return;
+		return false;
 	}
 
 	const bannedUrlParts = [
@@ -75,8 +74,8 @@ function makeImageSafe( post, image, maxWidth ) {
 	}
 
 	let safeSource = maxWidth
-		? maxWidthPhotonishURL( safeImageURL( imgSource ), maxWidth )
-		: safeImageURL( imgSource );
+		? maxWidthPhotonishURL( safeImageUrl( imgSource ), maxWidth )
+		: safeImageUrl( imgSource );
 
 	// When the image URL is not photoned, try providing protocol
 	if ( ! safeSource ) {

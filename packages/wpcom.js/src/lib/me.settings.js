@@ -5,9 +5,8 @@ import MeProfileLinks from './me.settings.profile-links';
  * `MeSettings` constructor.
  *
  * Use a `WPCOM#Me` instance to create a new `MeSettings` instance.
- *
  * @param {WPCOM} wpcom - wpcom instance
- * @returns {null} null
+ * @returns {MeSettings|undefined}
  */
 export default function MeSettings( wpcom ) {
 	if ( ! ( this instanceof MeSettings ) ) {
@@ -20,16 +19,15 @@ export default function MeSettings( wpcom ) {
 /**
  * Get settings for the current user.
  *
- * *Example:*
- *    // Get settings for the current user
- *    wpcom
- *    .me()
- *    .settings()
- *    .get( function( err, data ) {
- *      // user settings data object
- *    } );
- *
- * @param {object} [query] - query object parameter
+ * Example:
+ * // Get settings for the current user
+ * wpcom
+ * .me()
+ * .settings()
+ * .get( function( err, data ) {
+ * // user settings data object
+ * } );
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -39,9 +37,8 @@ MeSettings.prototype.get = function ( query, fn ) {
 
 /**
  * Update settings of the current user
- *
- * @param {object} [query] - query object parameter
- * @param {object} body - body object parameter
+ * @param {Object} [query] - query object parameter
+ * @param {Object} body - body object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -52,10 +49,9 @@ MeSettings.prototype.update = function ( query, body, fn ) {
 /**
  * Return `MeProfileLinks` instance
  *
- * *Example:*
- *    // Create a MeProfileLinks instance
- *    var profile_links = wpcom.me().settings().profileLinks();
- *
+ * Example:
+ * // Create a MeProfileLinks instance
+ * var profile_links = wpcom.me().settings().profileLinks();
  * @returns {MeProfileLinks} MeProfileLinks instance
  */
 MeSettings.prototype.profileLinks = function () {
@@ -64,7 +60,6 @@ MeSettings.prototype.profileLinks = function () {
 
 /**
  * Return `MeSettingsPassword` instance
- *
  * @returns {MeSettingsPassword} MeSettingsPassword instance
  */
 MeSettings.prototype.password = function () {

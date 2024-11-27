@@ -1,4 +1,7 @@
+import config from '@automattic/calypso-config';
+import page from '@automattic/calypso-router';
 import debugModule from 'debug';
+import { translate } from 'i18n-calypso';
 import {
 	defer,
 	difference,
@@ -13,9 +16,9 @@ import {
 	reject,
 	reduce,
 } from 'lodash';
-import page from 'page';
 import { Store, Unsubscribe as ReduxUnsubscribe } from 'redux';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
+import { logToLogstash } from 'calypso/lib/logstash';
 import wpcom from 'calypso/lib/wp';
 import flows from 'calypso/signup/config/flows';
 import untypedSteps from 'calypso/signup/config/steps';
@@ -27,7 +30,10 @@ import {
 	updateDependencies,
 	removeSiteSlugDependency,
 } from 'calypso/state/signup/actions';
-import { getSignupDependencyStore } from 'calypso/state/signup/dependency-store/selectors';
+import {
+	getSignupDependencyStore,
+	getSignupDependencyProgress,
+} from 'calypso/state/signup/dependency-store/selectors';
 import { resetExcludedSteps } from 'calypso/state/signup/flow/actions';
 import {
 	getCurrentFlowName,
@@ -42,6 +48,7 @@ import {
 import { ProgressState } from 'calypso/state/signup/progress/schema';
 import { getSignupProgress } from 'calypso/state/signup/progress/selectors';
 import { getSiteSlug } from 'calypso/state/sites/selectors';
+import { getPlanCartItem } from '../cart-values/cart-items';
 import type { Flow, Dependencies } from '../../signup/types';
 
 const debug = debugModule( 'calypso:signup' );
@@ -83,7 +90,7 @@ function progressStoreListener(
 	};
 }
 
-type OnCompleteCallback = ( dependencies: Dependencies, destination: string ) => void;
+type OnCompleteCallback = ( dependencies: Dependencies, destination: string ) => Promise< void >;
 
 interface SignupFlowControllerOptions {
 	flowName: string;
@@ -272,15 +279,35 @@ export default class SignupFlowController {
 			);
 
 			if ( dependenciesNotProvided.length > 0 ) {
-				throw new Error(
+				const errorMessage =
 					'The dependencies [' +
-						dependenciesNotProvided +
-						'] were listed as provided by the ' +
-						step.stepName +
-						' step but were not provided by it [ current flow: ' +
-						this._flowName +
-						' ].'
-				);
+					dependenciesNotProvided +
+					'] were listed as provided by the ' +
+					step.stepName +
+					' step but were not provided by it [ current flow: ' +
+					this._flowName +
+					' ].';
+
+				logToLogstash( {
+					feature: 'calypso_client',
+					message: errorMessage,
+					severity: config( 'env_id' ) === 'production' ? 'error' : 'debug',
+					blog_id: this._flow.providesDependenciesInQuery?.includes( 'siteId' ),
+					properties: {
+						env: config( 'env_id' ),
+						type: 'calypso_dependency_check_error',
+					},
+				} );
+
+				if ( config( 'env_id' ) === 'production' ) {
+					throw new Error(
+						translate(
+							'We’re sorry, something went wrong. Please try again in a few minutes or contact our support channel'
+						)
+					);
+				} else {
+					throw new Error( errorMessage );
+				}
 			}
 		} );
 	}
@@ -292,7 +319,6 @@ export default class SignupFlowController {
 	/**
 	 * Returns a list of non-excluded steps in the flow which enable the branch steps. Otherwise, return a list
 	 * of all steps
-	 *
 	 * @returns {Array} a list of dependency names
 	 */
 	_getFlowSteps() {
@@ -310,7 +336,6 @@ export default class SignupFlowController {
 
 	/**
 	 * Returns a list of the dependencies provided in the flow configuration.
-	 *
 	 * @returns {Array} a list of dependency names
 	 */
 	_getFlowProvidesDependencies() {
@@ -437,10 +462,30 @@ export default class SignupFlowController {
 		return pick( dependencyStore, keysToSelect ?? [] );
 	}
 
+	_getNeedsToGoThroughCheckout() {
+		const progress = getSignupDependencyProgress( this._reduxStore.getState() );
+
+		if ( ! progress?.plans?.cartItems ) {
+			return false;
+		}
+
+		return (
+			progress.plans.cartItems.length && Boolean( getPlanCartItem( progress.plans.cartItems ) )
+		);
+	}
+
 	_destination( dependencies: Dependencies ): string {
 		if ( typeof this._flow.destination === 'function' ) {
+			const goesThroughCheckout = this._getNeedsToGoThroughCheckout();
 			const localeSlug = getCurrentLocaleSlug( this._reduxStore.getState() );
-			return this._flow.destination( dependencies, localeSlug );
+			return this._flow.destination(
+				{
+					flowName: this._flowName,
+					...dependencies,
+				},
+				localeSlug,
+				goesThroughCheckout
+			);
 		}
 
 		return this._flow.destination;
@@ -486,6 +531,10 @@ export default class SignupFlowController {
 
 		this._flowName = flowName;
 		this._flow = flows.getFlow( flowName, userLoggedIn );
+
+		if ( this._flow.onEnterFlow ) {
+			this._flow.onEnterFlow( flowName );
+		}
 	}
 
 	getDestination() {

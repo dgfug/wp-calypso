@@ -1,5 +1,6 @@
 import { isEnabled } from '@automattic/calypso-config';
 import { Dialog, Gridicon } from '@automattic/components';
+import { Icon, linkOff } from '@wordpress/icons';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { PureComponent } from 'react';
@@ -42,17 +43,19 @@ class PublicizeActionsList extends PureComponent {
 		this.setState( { selectedShareTab } );
 	};
 
-	togglePreviewModal = ( message = '', service = '' ) => () => {
-		if ( this.state.showPreviewModal ) {
-			return this.setState( { showPreviewModal: false } );
-		}
+	togglePreviewModal =
+		( message = '', service = '' ) =>
+		() => {
+			if ( this.state.showPreviewModal ) {
+				return this.setState( { showPreviewModal: false } );
+			}
 
-		this.setState( {
-			showPreviewModal: true,
-			previewMessage: message,
-			previewService: service,
-		} );
-	};
+			this.setState( {
+				showPreviewModal: true,
+				previewMessage: message,
+				previewService: service,
+			} );
+		};
 
 	renderActionItem( item, index ) {
 		const { service, connectionName, date, message } = item;
@@ -62,7 +65,11 @@ class PublicizeActionsList extends PureComponent {
 			<div className="post-share__footer-items" key={ index }>
 				<div className="post-share__footer-item">
 					<div className="post-share__handle">
-						<SocialLogo icon={ service === 'google_plus' ? 'google-plus' : service } />
+						{ service ? (
+							<SocialLogo icon={ service === 'google_plus' ? 'google-plus' : service } />
+						) : (
+							<Icon icon={ linkOff } />
+						) }
 						<span className="post-share__handle-value">{ connectionName }</span>
 					</div>
 					<div className="post-share__timestamp">
@@ -166,7 +173,7 @@ class PublicizeActionsList extends PureComponent {
 					status="is-info"
 					showDismiss={ false }
 					text={ translate(
-						'Did you know you can decide exactly when Publicize shares your post? You can! ' +
+						'Did you know you can decide exactly when Jetpack Social shares your post? You can! ' +
 							'Click the calendar icon next to "Share post" to schedule your social shares.'
 					) }
 				/>

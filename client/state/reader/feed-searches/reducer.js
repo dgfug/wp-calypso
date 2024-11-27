@@ -1,4 +1,4 @@
-import { uniqBy } from 'lodash';
+import { uniqueBy } from '@automattic/js-utils';
 import { READER_FEED_SEARCH_RECEIVE } from 'calypso/state/reader/action-types';
 import { combineReducers, keyedReducer } from 'calypso/state/utils';
 
@@ -9,20 +9,22 @@ import { combineReducers, keyedReducer } from 'calypso/state/utils';
  * The query key is supplied by the action, making it opaque to the reducer.
  * Here is what the state tree may look like:
  * feedSearches: {
-		items: {
-			'wordpress tavern-X': [ feed1, feed2, ],
-			...
-		},
-	}
- *
+ * items: {
+ * 'wordpress tavern-X': [ feed1, feed2, ],
+ * ...
+ * },
+ * }
  * @param  {Array} state  Current state
- * @param  {object} action Action payload
+ * @param  {Object} action Action payload
  * @returns {Array}        Updated state
  */
 export const items = keyedReducer( 'queryKey', ( state = null, action ) => {
 	switch ( action.type ) {
 		case READER_FEED_SEARCH_RECEIVE:
-			return uniqBy( ( state || [] ).concat( action.payload.feeds ), 'feed_URL' );
+			return uniqueBy(
+				( state ?? [] ).concat( action.payload.feeds ),
+				( a, b ) => a.feed_URL === b.feed_URL
+			);
 	}
 
 	return state;
@@ -35,16 +37,15 @@ export const items = keyedReducer( 'queryKey', ( state = null, action ) => {
  * The query key is supplied by the action, making it opaque to the reducer.
  * Here is what the state tree may look like:
  * feedSearches: {
-		total: {
-			'wordpress tavern-X': 4,
-			'thingsldkjflskjfsdf-A': 0,
-			'chickens-A': 4000,
-			...
-		},
-	}
- *
+ * total: {
+ * 'wordpress tavern-X': 4,
+ * 'thingsldkjflskjfsdf-A': 0,
+ * 'chickens-A': 4000,
+ * ...
+ * },
+ * }
  * @param  {Array}  state  Current state
- * @param  {object} action Action payload
+ * @param  {Object} action Action payload
  * @returns {Array}         Updated state
  */
 export const total = keyedReducer( 'queryKey', ( state = null, action ) => {

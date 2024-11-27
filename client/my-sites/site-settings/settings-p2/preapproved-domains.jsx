@@ -1,12 +1,11 @@
-import { Card } from '@automattic/components';
+import { Card, FormLabel } from '@automattic/components';
 import { ToggleControl } from '@wordpress/components';
 import { useEffect, useState } from '@wordpress/element';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { includes, pickBy, filter } from 'lodash';
 import { useSelector } from 'react-redux';
 import QuerySiteSettings from 'calypso/components/data/query-site-settings';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import TokenField from 'calypso/components/token-field';
 import wpcom from 'calypso/lib/wp';
@@ -27,7 +26,7 @@ const P2PreapprovedDomainsForm = ( {
 	updateFields,
 } ) => {
 	const SETTING_KEY_PREAPPROVED_DOMAINS = 'p2_preapproved_domains';
-	const DEFAULT_ROLE = 'author';
+	const DEFAULT_ROLE = 'editor';
 
 	const isWPForTeamsSite = useSelector( ( state ) => isSiteWPForTeams( state, siteId ) );
 	const isP2Hub = useSelector( ( state ) => isSiteP2Hub( state, siteId ) );
@@ -63,7 +62,7 @@ const P2PreapprovedDomainsForm = ( {
 		};
 
 		if ( ! domains?.[ 0 ] ) {
-			updateFields( { [ SETTING_KEY_PREAPPROVED_DOMAINS ]: '' } );
+			updateFields( { [ SETTING_KEY_PREAPPROVED_DOMAINS ]: { domains: [], role: '' } } );
 			return;
 		}
 
@@ -194,7 +193,7 @@ const P2PreapprovedDomainsForm = ( {
 
 	return (
 		<div
-			className={ classNames( 'p2-preapproved-domains', {
+			className={ clsx( 'p2-preapproved-domains', {
 				'is-loading': isRequestingSettings,
 			} ) }
 		>

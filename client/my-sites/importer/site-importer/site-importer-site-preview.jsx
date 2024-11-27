@@ -1,10 +1,10 @@
-import classNames from 'classnames';
+import { Spinner } from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import ExternalLink from 'calypso/components/external-link';
-import Spinner from 'calypso/components/spinner';
 import { loadmShotsPreview } from 'calypso/lib/mshots';
 import ErrorPane from 'calypso/my-sites/importer/error-pane';
 import ImporterActionButton from 'calypso/my-sites/importer/importer-action-buttons/action-button';
@@ -76,7 +76,7 @@ class SiteImporterSitePreview extends Component {
 		const isLoading = this.props.isLoading || this.state.loadingPreviewImage;
 		const isError = this.state.sitePreviewFailed;
 
-		const containerClass = classNames( 'site-importer__site-preview-overlay-container', {
+		const containerClass = clsx( 'site-importer__site-preview-overlay-container', {
 			isLoading,
 		} );
 

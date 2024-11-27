@@ -1,12 +1,13 @@
 import ActionCard from 'calypso/components/action-card';
+import type { SiteDetails } from '@automattic/data-stores';
 import type { ResponseDomain } from 'calypso/lib/domains/types';
 import type { Purchase } from 'calypso/lib/purchases/types';
-import type { SiteData } from 'calypso/state/ui/selectors/site-data';
 import type { TranslateResult } from 'i18n-calypso';
 
 type ActionCardPropsBase = {
 	title: TranslateResult;
 	description: TranslateResult;
+	buttonDisabled?: boolean;
 };
 
 type ActionCardPropsInfoOnly = ActionCardPropsBase & {
@@ -41,10 +42,10 @@ export type GenericActionCardProps =
 
 export type DomainInfoCardProps = {
 	domain: ResponseDomain;
-	selectedSite: SiteData;
+	selectedSite: SiteDetails;
 };
 export type DomainDeleteInfoCardProps = DomainInfoCardProps & {
-	selectedSite: SiteData;
+	selectedSite: SiteDetails;
 	purchase?: Purchase | null;
 	isLoadingPurchase: boolean;
 };

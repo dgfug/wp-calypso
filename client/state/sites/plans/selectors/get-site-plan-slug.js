@@ -3,8 +3,7 @@ import { getCurrentPlan } from 'calypso/state/sites/plans/selectors/get-current-
 
 /**
  * Returns a site's current plan's product slug
- *
- * @param  {object}  state   Global State tree
+ * @param  {Object}  state   Global State tree
  * @param  {number}  siteId  Site ID
  * @returns {?string}          The site's current plan's product slug
  */

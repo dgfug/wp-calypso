@@ -8,9 +8,8 @@ import { getTransientDate, getBaseTime } from 'calypso/state/media/utils/transie
  * items being uploaded at the same time as it will put all the transient
  * items into the store together. Then we can upload serially without
  * each image popping in only when it is actually being uploaded.
- *
- * @param {object[]} files List of files to create transient items for
- * @param {object} site The site
+ * @param {Object[]} files List of files to create transient items for
+ * @param {Object} site The site
  */
 export function createTransientMediaItems( files, site ) {
 	return ( dispatch ) => {
@@ -39,7 +38,7 @@ export function createTransientMediaItems( files, site ) {
 
 			dispatch( createMediaItem( site, transientMedia ) );
 
-			return [ file, transientMedia ];
+			return transientMedia;
 		} );
 	};
 }

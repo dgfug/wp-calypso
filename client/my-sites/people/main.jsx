@@ -3,15 +3,15 @@ import { Component } from 'react';
 import { connect } from 'react-redux';
 import titlecase from 'to-title-case';
 import EmptyContent from 'calypso/components/empty-content';
-import FormattedHeader from 'calypso/components/formatted-header';
 import InlineSupportLink from 'calypso/components/inline-support-link';
 import Main from 'calypso/components/main';
-import ScreenOptionsTab from 'calypso/components/screen-options-tab';
+import NavigationHeader from 'calypso/components/navigation-header';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import P2TeamBanner from 'calypso/my-sites/people/p2-team-banner';
 import PeopleSectionNav from 'calypso/my-sites/people/people-section-nav';
 import TeamList from 'calypso/my-sites/people/team-list';
 import { canCurrentUser } from 'calypso/state/selectors/can-current-user';
+import isEligibleForSubscriberImporter from 'calypso/state/selectors/is-eligible-for-subscriber-importer';
 import isPrivateSite from 'calypso/state/selectors/is-private-site';
 import isSiteComingSoon from 'calypso/state/selectors/is-site-coming-soon';
 import isSiteP2Hub from 'calypso/state/selectors/is-site-p2-hub';
@@ -146,6 +146,7 @@ class People extends Component {
 			isPrivate,
 			translate,
 			isWPForTeamsSite,
+			includeSubscriberImporter,
 		} = this.props;
 
 		if ( siteId && ! canViewPeople ) {
@@ -157,38 +158,35 @@ class People extends Component {
 					/>
 					<EmptyContent
 						title={ translate( 'You are not authorized to view this page' ) }
-						illustration={ '/calypso/images/illustrations/illustration-404.svg' }
+						illustration="/calypso/images/illustrations/illustration-404.svg"
 					/>
 				</Main>
 			);
 		}
+
 		return (
 			<Main>
-				<ScreenOptionsTab wpAdminPath="users.php" />
 				<PageViewTracker
 					path={ `/people/${ filter }/:site` }
 					title={ `People > ${ titlecase( filter ) }` }
 				/>
-				<FormattedHeader
-					brandFont
-					className="people__page-heading"
-					headerText={ this.renderHeaderText() }
-					subHeaderText={ this.renderSubheaderText() }
-					align="left"
-					hasScreenOptions
+				<NavigationHeader
+					screenOptionsTab="users.php"
+					navigationItems={ [] }
+					title={ this.renderHeaderText() }
+					subtitle={ this.renderSubheaderText() }
 				/>
 				<div>
-					{
-						<PeopleSectionNav
-							isJetpack={ isJetpack }
-							isPrivate={ isPrivate }
-							isComingSoon={ isComingSoon }
-							canViewPeople={ canViewPeople }
-							search={ search }
-							filter={ filter }
-							site={ site }
-						/>
-					}
+					<PeopleSectionNav
+						isJetpack={ isJetpack }
+						isPrivate={ isPrivate }
+						isComingSoon={ isComingSoon }
+						canViewPeople={ canViewPeople }
+						search={ search }
+						filter={ filter }
+						site={ site }
+						includeSubscriberImporter={ includeSubscriberImporter }
+					/>
 					{ isWPForTeamsSite && <P2TeamBanner context={ filter } site={ site } /> }
 					{ this.renderPeopleList() }
 				</div>
@@ -199,6 +197,7 @@ class People extends Component {
 
 export default connect( ( state ) => {
 	const siteId = getSelectedSiteId( state );
+
 	return {
 		siteId,
 		site: getSelectedSite( state ),
@@ -208,5 +207,6 @@ export default connect( ( state ) => {
 		isComingSoon: isSiteComingSoon( state, siteId ),
 		isWPForTeamsSite: isSiteWPForTeams( state, siteId ),
 		isP2HubSite: isSiteP2Hub( state, siteId ),
+		includeSubscriberImporter: isEligibleForSubscriberImporter( state ),
 	};
 } )( localize( People ) );

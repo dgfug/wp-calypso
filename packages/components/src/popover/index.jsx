@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { useRtl } from 'i18n-calypso';
 import { defer } from 'lodash';
 import PropTypes from 'prop-types';
@@ -8,6 +8,7 @@ import RootChild from '../root-child';
 import {
 	bindWindowListeners,
 	unbindWindowListeners,
+	onViewportChange,
 	suggested as suggestPosition,
 	constrainLeft,
 	offset,
@@ -30,19 +31,20 @@ class PopoverInner extends Component {
 		onClose: noop,
 		onMouseEnter: noop,
 		onMouseLeave: noop,
+		hideArrow: false,
+		autoRepositionOnInitialLoad: false, // use with caution, read comment about autoRepositionOnInitialLoad below
+		ignoreViewportSize: false, // To avoid constraining the popover to the viewport that causes the arrow shows in the wrong place
 	};
 
 	/**
 	 * Timeout ID that determines if repositioning the Popover is currently scheduled and lets us
 	 * cancel the task.
-	 *
 	 * @type {number|null} `setTimeout` handle or null
 	 */
 	scheduledPositionUpdate = null;
 
 	/**
 	 * Timeout ID for the scheduled focus. Lets us cancel the task when hiding/unmounting.
-	 *
 	 * @type {number|null} `setTimeout` handle or null
 	 */
 	scheduledFocus = null;
@@ -56,10 +58,20 @@ class PopoverInner extends Component {
 		positionClass: this.getPositionClass( this.props.position ),
 	};
 
+	/**
+	 * Used to prevent inifinite repositioning when autoReposition is enabled.
+	 * @type {number} Number of times the position has not changed after this.setPosition()
+	 */
+	autoRepositionStability = 0;
+
 	componentDidMount() {
+		// make sure to set the viewport when mounting, because it might have been changed between two mounts of this
+		// component, e.g. when the viewport is changed while the popover is hidden
+		onViewportChange();
 		this.bindListeners();
 		this.setPosition();
 		this.show();
+		this.autoRepositionOnInitialLoad();
 	}
 
 	componentDidUpdate() {
@@ -77,6 +89,7 @@ class PopoverInner extends Component {
 
 	componentWillUnmount() {
 		this.unbindListeners();
+		this.clearAutoRepositionOnInitialLoad();
 	}
 
 	bindListeners() {
@@ -210,7 +223,6 @@ class PopoverInner extends Component {
 	/**
 	 * Adjusts position swapping left and right values
 	 * when right-to-left directionality is found.
-	 *
 	 * @param {string} position Original position
 	 * @returns {string} Adjusted position
 	 */
@@ -246,8 +258,7 @@ class PopoverInner extends Component {
 	/**
 	 * Computes the position of the Popover in function
 	 * of its main container and the target.
-	 *
-	 * @returns {object} reposition parameters
+	 * @returns {Object} reposition parameters
 	 */
 	computePosition() {
 		const { position, relativePosition } = this.props;
@@ -272,7 +283,8 @@ class PopoverInner extends Component {
 			{},
 			constrainLeft(
 				offset( suggestedPosition, domContainer, domContext, relativePosition ),
-				domContainer
+				domContainer,
+				this.props.ignoreViewportSize
 			),
 			{ positionClass: this.getPositionClass( suggestedPosition ) }
 		);
@@ -298,6 +310,37 @@ class PopoverInner extends Component {
 
 		if ( position ) {
 			this.setState( position );
+		}
+		return position;
+	};
+
+	/**
+	 * Last resort to position the popover in its correct position initially.
+	 * Might be due to other components have delayed render, for example, rendering based on API results,
+	 * causing the target object to "jump positions".
+	 *
+	 * This results in the popover to be rendered in the wrong position, so we need to reposition it.
+	 * @returns {void}
+	 */
+	autoRepositionOnInitialLoad = () => {
+		if ( this.props.autoRepositionOnInitialLoad ) {
+			this.autoRepositionOnInitialLoadInterval = setInterval( () => {
+				const lastPosition = this.state;
+				const { left, top } = this.setPosition();
+				if ( lastPosition.left === left || lastPosition.top === top ) {
+					this.autoRepositionStability += 1;
+				}
+				// Arbitrary number to stop trying to reposition if the position has stabilized for performance reasons.
+				if ( this.autoRepositionStability > 5 ) {
+					clearInterval( this.autoRepositionOnInitialLoadInterval );
+				}
+			}, 500 );
+		}
+	};
+
+	clearAutoRepositionOnInitialLoad = () => {
+		if ( this.autoRepositionOnInitialLoadInterval ) {
+			clearInterval( this.autoRepositionOnInitialLoadInterval );
 		}
 	};
 
@@ -335,7 +378,7 @@ class PopoverInner extends Component {
 			return null;
 		}
 
-		const classes = classNames( 'popover', this.props.className, this.state.positionClass );
+		const classes = clsx( 'popover', this.props.className, this.state.positionClass );
 
 		return (
 			<div
@@ -349,7 +392,7 @@ class PopoverInner extends Component {
 				onMouseEnter={ this.handleOnMouseEnter }
 				onMouseLeave={ this.handleOnMouseLeave }
 			>
-				<div className="popover__arrow" />
+				{ ! this.props.hideArrow ? <div className="popover__arrow" /> : null }
 				<div ref={ this.popoverInnerNodeRef } className="popover__inner">
 					{ this.props.children }
 				</div>
@@ -367,7 +410,7 @@ class PopoverInner extends Component {
 // the outer `isVisible` prop by the `showDelay` timeout. One consequence is that the `RootChild`
 // is created on show and destroyed on hide, making sure that the last shown popover will be
 // also the last DOM element inside `document.body`, ensuring that it has a higher z-index.
-function Popover( { isVisible = false, showDelay = 0, ...props } ) {
+function Popover( { isVisible = false, showDelay = 0, hideArrow = false, ...props } ) {
 	const isRtl = useRtl();
 	const [ show, setShow ] = useState( isVisible );
 
@@ -398,7 +441,7 @@ function Popover( { isVisible = false, showDelay = 0, ...props } ) {
 
 	return (
 		<RootChild>
-			<PopoverInner { ...props } isRtl={ isRtl } />
+			<PopoverInner { ...props } isRtl={ isRtl } hideArrow={ hideArrow } />
 		</RootChild>
 	);
 }
@@ -411,6 +454,7 @@ const PropTypeElement = PropTypes.oneOfType( [
 ] );
 
 Popover.propTypes = {
+	hideArrow: PropTypes.bool,
 	autoPosition: PropTypes.bool,
 	autoRtl: PropTypes.bool,
 	className: PropTypes.string,

@@ -7,16 +7,19 @@ import {
 } from '@automattic/calypso-products';
 import { useTranslate } from 'i18n-calypso';
 import * as React from 'react';
-import { useSelector } from 'react-redux';
 import { JetpackBenefitsCard } from 'calypso/blocks/jetpack-benefits/benefit-card';
 import {
 	productHasSearch,
 	productHasBackups,
 	productHasScan,
 	productHasAntiSpam,
+	productHasVideoPress,
+	productHasBoost,
 } from 'calypso/blocks/jetpack-benefits/feature-checks';
 import JetpackBenefitsScanHistory from 'calypso/blocks/jetpack-benefits/scan-history';
 import JetpackBenefitsSiteBackups from 'calypso/blocks/jetpack-benefits/site-backups';
+import JetpackBenefitsVideoPress from 'calypso/blocks/jetpack-benefits/videopress';
+import { useSelector } from 'calypso/state';
 import getRewindState from 'calypso/state/selectors/get-rewind-state';
 import getSiteScanState from 'calypso/state/selectors/get-site-scan-state';
 
@@ -56,11 +59,19 @@ const JetpackBenefits: React.FC< Props > = ( { siteId, productSlug } ) => {
 					) }
 				/>
 			) }
+			{ productHasBoost( productSlug ) && (
+				<JetpackBenefitsCard
+					headline={ translate( 'Boost' ) }
+					description={ translate(
+						'Jetpack Boost improves your site performance and automatically generates critical CSS.'
+					) }
+				/>
+			) }
 			{ productHasAntiSpam( productSlug ) && (
 				<JetpackBenefitsCard
-					headline={ translate( 'Anti-spam' ) }
+					headline={ translate( 'Akismet Anti-spam' ) }
 					description={ translate(
-						'Jetpack Anti-spam automatcally clears spam from comments and forms.'
+						'Jetpack Akismet Anti-spam automatcally clears spam from comments and forms.'
 					) }
 				/>
 			) }
@@ -86,6 +97,7 @@ const JetpackBenefits: React.FC< Props > = ( { siteId, productSlug } ) => {
 					) }
 				/>
 			) }
+			{ productHasVideoPress( productSlug ) && <JetpackBenefitsVideoPress siteId={ siteId } /> }
 		</React.Fragment>
 	);
 };

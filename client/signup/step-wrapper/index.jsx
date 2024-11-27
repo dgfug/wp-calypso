@@ -1,12 +1,21 @@
 import { ActionButtons } from '@automattic/onboarding';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
+import { connect } from 'react-redux';
 import FormattedHeader from 'calypso/components/formatted-header';
+import { usePresalesChat } from 'calypso/lib/presales-chat';
+import flows from 'calypso/signup/config/flows';
 import NavigationLink from 'calypso/signup/navigation-link';
-import { isReskinnedFlow } from '../utils';
+import { isUserLoggedIn } from 'calypso/state/current-user/selectors';
+import { isReskinnedFlow } from '../is-flow';
 import './style.scss';
+
+function PresalesChat() {
+	usePresalesChat( 'wpcom' );
+	return null;
+}
 
 class StepWrapper extends Component {
 	static propTypes = {
@@ -17,6 +26,7 @@ class StepWrapper extends Component {
 		hideBack: PropTypes.bool,
 		hideSkip: PropTypes.bool,
 		hideNext: PropTypes.bool,
+		isSticky: PropTypes.bool,
 		// Allows to force a back button in the first step for example.
 		// You should only force this when you're passing a backUrl.
 		allowBackFirstStep: PropTypes.bool,
@@ -33,6 +43,7 @@ class StepWrapper extends Component {
 		isHorizontalLayout: PropTypes.bool,
 		queryParams: PropTypes.object,
 		customizedActionButtons: PropTypes.element,
+		userLoggedIn: PropTypes.bool,
 	};
 
 	static defaultProps = {
@@ -88,7 +99,7 @@ class StepWrapper extends Component {
 					flowName={ flowName }
 					stepName={ stepName }
 					labelText={ skipLabelText }
-					cssClass={ classNames( 'step-wrapper__navigation-link', 'has-underline', {
+					cssClass={ clsx( 'step-wrapper__navigation-link', 'has-underline', {
 						'has-skip-heading': skipHeadingText,
 					} ) }
 					borderless={ borderless }
@@ -165,6 +176,7 @@ class StepWrapper extends Component {
 			flowName,
 			stepContent,
 			headerButton,
+			headerContent,
 			hideFormattedHeader,
 			hideBack,
 			hideSkip,
@@ -177,6 +189,8 @@ class StepWrapper extends Component {
 			headerImageUrl,
 			isHorizontalLayout,
 			customizedActionButtons,
+			isExtraWideLayout,
+			isSticky,
 		} = this.props;
 
 		const backButton = ! hideBack && this.renderBack();
@@ -186,21 +200,27 @@ class StepWrapper extends Component {
 			this.renderSkip( { borderless: true, forwardIcon: null } );
 		const nextButton = ! hideNext && this.renderNext();
 		const hasNavigation = backButton || skipButton || nextButton || customizedActionButtons;
-		const classes = classNames( 'step-wrapper', this.props.className, {
+		const classes = clsx( 'step-wrapper', this.props.className, {
 			'is-horizontal-layout': isHorizontalLayout,
 			'is-wide-layout': isWideLayout,
+			'is-extra-wide-layout': isExtraWideLayout,
 			'is-full-layout': isFullLayout,
 			'is-large-skip-layout': isLargeSkipLayout,
 			'has-navigation': hasNavigation,
 		} );
+		const enablePresales = flows.getFlow( flowName, this.props.userLoggedIn )?.enablePresales;
+
+		let sticky = false;
+		if ( isSticky !== undefined ) {
+			sticky = isSticky;
+		} else {
+			sticky = isReskinnedFlow( flowName ) ? null : false;
+		}
 
 		return (
 			<>
 				<div className={ classes }>
-					<ActionButtons
-						className="step-wrapper__navigation"
-						sticky={ isReskinnedFlow( flowName ) ? null : false }
-					>
+					<ActionButtons className="step-wrapper__navigation" sticky={ sticky }>
 						{ backButton }
 						{ skipButton }
 						{ nextButton }
@@ -209,15 +229,20 @@ class StepWrapper extends Component {
 					{ ! hideFormattedHeader && (
 						<div className="step-wrapper__header">
 							<FormattedHeader
-								id={ 'step-header' }
+								id="step-header"
 								headerText={ this.headerText() }
 								subHeaderText={ this.subHeaderText() }
 								align={ align }
+								disablePreventWidows
 							/>
 							{ headerImageUrl && (
 								<div className="step-wrapper__header-image">
 									<img src={ headerImageUrl } alt="" />
 								</div>
+							) }
+
+							{ headerContent && (
+								<div className="step-wrapper__header-content">{ headerContent }</div>
 							) }
 							{ headerButton && (
 								<div className="step-wrapper__header-button">{ headerButton }</div>
@@ -234,9 +259,14 @@ class StepWrapper extends Component {
 						</div>
 					) }
 				</div>
+				{ enablePresales && <PresalesChat /> }
 			</>
 		);
 	}
 }
 
-export default localize( StepWrapper );
+export default connect( ( state ) => {
+	return {
+		userLoggedIn: isUserLoggedIn( state ),
+	};
+} )( localize( StepWrapper ) );

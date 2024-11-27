@@ -9,14 +9,14 @@ import {
 	CURRENT_USER_FETCH,
 	CURRENT_USER_RECEIVE,
 	CURRENT_USER_SET_EMAIL_VERIFIED,
+	CURRENT_USER_SET_JETPACK_PARTNER_TYPE,
 } from 'calypso/state/action-types';
 import { getCurrentUser } from 'calypso/state/current-user/selectors';
 
 /**
  * Returns an action object that sets the current user object on the store
- *
- * @param  {object} user user object
- * @returns {object}        Action object
+ * @param  {Object} user user object
+ * @returns {Object}        Action object
  */
 export function setCurrentUser( user ) {
 	return {
@@ -77,5 +77,12 @@ export function setUserEmailVerified( verified ) {
 	return {
 		type: CURRENT_USER_SET_EMAIL_VERIFIED,
 		verified,
+	};
+}
+
+export function setUserJetpackPartnerType( partnerType ) {
+	return {
+		type: CURRENT_USER_SET_JETPACK_PARTNER_TYPE,
+		jetpack_partner_type: partnerType,
 	};
 }

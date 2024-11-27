@@ -3,11 +3,11 @@ import { html as toHtml } from '../indices-to-html';
 /**
  * Adds markup to some common text patterns
  *
- *  - Bullet lists
- *  - Todo lists, WP style
- *  - Inline `code` snippets
- *  - Code fences
- *  - Header: description/explanation paragraphs
+ * - Bullet lists
+ * - Todo lists, WP style
+ * - Inline `code` snippets
+ * - Code fences
+ * - Header: description/explanation paragraphs
  *
  * Note: This code is only meant to serve until a
  * proper parser can be built up to convert the
@@ -16,7 +16,6 @@ import { html as toHtml } from '../indices-to-html';
  * and on every render this function will serve
  * sufficiently but it should not be looked upon
  * as good example code!
- *
  * @param {string} text input list of blocks as HTML string
  * @returns {string} marked-up text
  */
@@ -218,7 +217,10 @@ export function getSignature( blocks, note ) {
 			return { type: type, id: id };
 		}
 
-		if ( 'undefined' !== typeof block.meta.ids.comment ) {
+		if ( 'undefined' !== typeof block.meta.ids.prompt ) {
+			type = 'prompt';
+			id = block.meta.ids.prompt;
+		} else if ( 'undefined' !== typeof block.meta.ids.comment ) {
 			type = 'comment';
 			id = block.meta.ids.comment;
 		} else if ( 'undefined' !== typeof block.meta.ids.post ) {
@@ -253,7 +255,8 @@ export function zipWithSignature( blocks, note ) {
 	} );
 }
 
-export const validURL = /^(?:http(?:s?):\/\/|~\/|\/)?(?:\w+:\w+@)?((?:(?:[-\w\d{1-3}]+\.)+(?:com|org|net|gov|mil|biz|info|mobi|name|aero|jobs|edu|co\.uk|ac\.uk|it|fr|tv|museum|asia|local|travel|blog|[a-z]{2}))|((\b25[0-5]\b|\b[2][0-4][0-9]\b|\b[0-1]?[0-9]?[0-9]\b)(\.(\b25[0-5]\b|\b[2][0-4][0-9]\b|\b[0-1]?[0-9]?[0-9]\b)){3}))(?::[\d]{1,5})?(?:(?:(?:\/(?:[-\w~!$+|.,=]|%[a-f\d]{2})+)+|\/)+|\?|#)?(?:(?:\?(?:[-\w~!$+|.,*:]|%[a-f\d{2}])+=?(?:[-\w~!$+|.,*:=]|%[a-f\d]{2})*)(?:&(?:[-\w~!$+|.,*:]|%[a-f\d{2}])+=?(?:[-\w~!$+|.,*:=]|%[a-f\d]{2})*)*)*(?:#(?:[-\w~!$ |/.,*:;=]|%[a-f\d]{2})*)?$/i;
+export const validURL =
+	/^(?:http(?:s?):\/\/|~\/|\/)?(?:\w+:\w+@)?((?:(?:[-\w\d{1-3}]+\.)+(?:com|org|net|gov|mil|biz|info|mobi|name|aero|jobs|edu|co\.uk|ac\.uk|it|fr|tv|museum|asia|local|travel|blog|[a-z]{2}))|((\b25[0-5]\b|\b[2][0-4][0-9]\b|\b[0-1]?[0-9]?[0-9]\b)(\.(\b25[0-5]\b|\b[2][0-4][0-9]\b|\b[0-1]?[0-9]?[0-9]\b)){3}))(?::[\d]{1,5})?(?:(?:(?:\/(?:[-\w~!$+|.,=]|%[a-f\d]{2})+)+|\/)+|\?|#)?(?:(?:\?(?:[-\w~!$+|.,*:]|%[a-f\d{2}])+=?(?:[-\w~!$+|.,*:=]|%[a-f\d]{2})*)(?:&(?:[-\w~!$+|.,*:]|%[a-f\d{2}])+=?(?:[-\w~!$+|.,*:=]|%[a-f\d]{2})*)*)*(?:#(?:[-\w~!$ |/.,*:;=]|%[a-f\d]{2})*)?$/i;
 
 export const linkProps = ( note, block ) => {
 	const { site: noteSite, comment, post } = note?.meta?.ids ?? {};

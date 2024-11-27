@@ -1,94 +1,37 @@
 /**
  * @group calypso-pr
+ * @group jetpack-remote-site
  */
 
-import { DataHelper, TestAccount, PluginsPage, envVariables } from '@automattic/calypso-e2e';
+import {
+	DataHelper,
+	TestAccount,
+	PluginsPage,
+	envVariables,
+	getTestAccountByFeature,
+	envToFeatureKey,
+} from '@automattic/calypso-e2e';
 import { Page, Browser } from 'playwright';
 
 declare const browser: Browser;
 
-describe( DataHelper.createSuiteTitle( 'Plugins page /plugins' ), function () {
-	let page: Page;
-	let pluginsPage: PluginsPage;
-
-	beforeAll( async () => {
-		page = await browser.newPage();
-		const testAccount = new TestAccount( 'defaultUser' );
-		await testAccount.authenticate( page );
-	} );
-
-	it( 'Visit plugins page', async function () {
-		pluginsPage = new PluginsPage( page );
-		await pluginsPage.visit();
-	} );
-
-	it.each( [ 'Premium', 'Featured', 'Popular', 'New' ] )(
-		'Plugins page loads %s section',
-		async function ( section: string ) {
-			await pluginsPage.validateHasSection( section );
-		}
-	);
-
-	it( 'Can browse all popular plugins', async function () {
-		await pluginsPage.clickBrowseAllPopular();
-		await pluginsPage.validateHasSection( 'All Popular Plugins' );
-	} );
-
-	it( 'Can return via breadcrumb', async function () {
-		if ( envVariables.VIEWPORT_NAME !== 'mobile' ) {
-			await pluginsPage.clickPluginsBreadcrumb();
-		} else {
-			await pluginsPage.clickBackBreadcrumb();
-		}
-		await pluginsPage.validateHasSection( 'Premium' );
-	} );
-
-	it.each( [
-		'WooCommerce',
-		'Yoast SEO',
-		'MailPoet – emails and newsletters in WordPress',
-		'Jetpack CRM – Clients, Invoices, Leads, & Billing for WordPress',
-		'Contact Form 7',
-		'Site Kit by Google – Analytics, Search Console, AdSense, Speed',
-	] )( 'Featured Plugins section should show the %s plugin', async function ( plugin: string ) {
-		await pluginsPage.validateHasPluginOnSection( 'featured', plugin );
-	} );
-} );
-
-describe( DataHelper.createSuiteTitle( 'Plugins page /plugins/:wpcom-site' ), function () {
+describe( DataHelper.createSuiteTitle( 'Plugins: Browse' ), function () {
 	let page: Page;
 	let pluginsPage: PluginsPage;
 	let siteUrl: string;
 
 	beforeAll( async () => {
 		page = await browser.newPage();
-		const testAccount = new TestAccount( 'defaultUser' );
+		const testUser = getTestAccountByFeature( envToFeatureKey( envVariables ), [
+			{
+				gutenberg: 'stable',
+				siteType: 'simple',
+				accountName: 'defaultUser',
+			},
+		] );
+		const testAccount = new TestAccount( testUser );
 		await testAccount.authenticate( page );
-		siteUrl = testAccount.getSiteURL( { protocol: false } );
-	} );
 
-	it( 'Visit plugins page', async function () {
-		pluginsPage = new PluginsPage( page );
-		await pluginsPage.visit( siteUrl );
-	} );
-
-	it.each( [ 'Premium', 'Featured', 'Popular', 'New' ] )(
-		'Plugins page loads %s section',
-		async function ( section: string ) {
-			await pluginsPage.validateHasSection( section );
-		}
-	);
-} );
-
-describe( DataHelper.createSuiteTitle( 'Plugins page /plugins/:jetpack-site' ), function () {
-	let page: Page;
-	let pluginsPage: PluginsPage;
-	let siteUrl: string;
-
-	beforeAll( async () => {
-		page = await browser.newPage();
-		const testAccount = new TestAccount( 'jetpackUserPREMIUM' );
-		await testAccount.authenticate( page );
 		siteUrl = testAccount
 			.getSiteURL( { protocol: false } )
 			.replace( 'https://', '' )
@@ -100,15 +43,72 @@ describe( DataHelper.createSuiteTitle( 'Plugins page /plugins/:jetpack-site' ), 
 		await pluginsPage.visit( siteUrl );
 	} );
 
-	it.each( [ 'Featured', 'Popular', 'New' ] )(
-		'Plugins page loads %s section',
-		async function ( section: string ) {
-			await pluginsPage.validateHasSection( section );
+	const expectedSections = [ PluginsPage.featuredSection, PluginsPage.freeSection ];
+	if ( envVariables.JETPACK_TARGET !== 'remote-site' ) {
+		// On WPCOM sites, we should premium plugins.
+		// These are hidden on self hosted sites due to source code download restrictions.
+		expectedSections.push( PluginsPage.paidSection );
+	}
+
+	it.each( expectedSections )( 'Plugins page loads %s section', async function ( section: string ) {
+		await pluginsPage.validateHasSection( section );
+	} );
+
+	it( 'Can browse all free plugins', async function () {
+		await pluginsPage.clickBrowseAllFreePlugins();
+		await pluginsPage.validateHasHeaderTitle( PluginsPage.freeSection );
+	} );
+
+	it( 'Can return via category', async function () {
+		if ( envVariables.VIEWPORT_NAME !== 'mobile' ) {
+			await pluginsPage.clickCategory( 'Discover' );
+		} else {
+			await pluginsPage.clickDropdownCategory( 'Discover' );
+		}
+		await pluginsPage.validateHasSection( PluginsPage.freeSection );
+	} );
+
+	// See above -- premium marketplace plugins are not supported on self hosted sites.
+	if ( envVariables.JETPACK_TARGET !== 'remote-site' ) {
+		it( 'Can browse all premium plugins', async function () {
+			await pluginsPage.clickBrowseAllPaidPlugins();
+			await pluginsPage.validateHasHeaderTitle( PluginsPage.paidSection );
+		} );
+
+		it( 'Can return via breadcrumb from premium plugins', async function () {
+			if ( envVariables.VIEWPORT_NAME !== 'mobile' ) {
+				await pluginsPage.clickCategory( 'Discover' );
+			} else {
+				await pluginsPage.clickDropdownCategory( 'Discover' );
+			}
+			await pluginsPage.validateHasSection( PluginsPage.paidSection );
+		} );
+	} else {
+		it( 'Plugins page does not load premium plugins on Jetpack sites', async function () {
+			await pluginsPage.validateNotHasSection( PluginsPage.paidSection );
+		} );
+	}
+
+	it.each( [
+		'WooCommerce',
+		'MailPoet – emails and newsletters in WordPress',
+		'Jetpack CRM – Clients, Invoices, Leads, & Billing for WordPress',
+	] )( 'Featured Plugins section should show the %s plugin', async function ( plugin: string ) {
+		await pluginsPage.validateHasPluginOnSection( PluginsPage.featuredSection, plugin );
+	} );
+
+	it( 'Can browse SEO category', async function () {
+		await pluginsPage.validateCategoryButton(
+			'Search Engine Optimization',
+			envVariables.VIEWPORT_NAME !== 'mobile' ? true : false
+		);
+		await page.waitForURL( new RegExp( `/plugins/browse/seo/${ siteUrl }$` ) );
+	} );
+
+	it.each( [ 'Yoast SEO' ] )(
+		'SEO category should show the %s plugin',
+		async function ( plugin: string ) {
+			await pluginsPage.validateHasPluginInCategory( 'Search Engine Optimization', plugin );
 		}
 	);
-
-	// We don't support marketplace plugin purchases on self hosted sites. (Source code download restrictions)
-	it( 'Plugins page does not load premium plugins on Jetpack sites', async function () {
-		await pluginsPage.validateNotHasSection( 'Premium' );
-	} );
 } );

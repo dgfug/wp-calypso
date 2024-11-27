@@ -1,6 +1,6 @@
+import page from '@automattic/calypso-router';
 import { translate } from 'i18n-calypso';
 import { get, includes, map } from 'lodash';
-import page from 'page';
 import DocumentHead from 'calypso/components/data/document-head';
 import ConnectDomainStep from 'calypso/components/domains/connect-domain-step';
 import TransferDomainStep from 'calypso/components/domains/transfer-domain-step';
@@ -32,6 +32,7 @@ import {
 	getSelectedSite,
 	getSelectedSiteSlug,
 } from 'calypso/state/ui/selectors';
+import RedirectComponent from './domain-redirect-to-site';
 import DomainSearch from './domain-search';
 import SiteRedirect from './domain-search/site-redirect';
 import EmailProvidersUpsell from './email-providers-upsell';
@@ -70,7 +71,16 @@ const domainSearch = ( context, next ) => {
 			<PageViewTracker path="/domains/add/:site" title="Domain Search > Domain Registration" />
 			<DocumentHead title={ translate( 'Domain Search' ) } />
 			<CalypsoShoppingCartProvider>
-				<DomainSearch basePath={ sectionify( context.path ) } context={ context } />
+				<DomainSearch
+					basePath={ sectionify( context.path ) }
+					context={ context }
+					isAddNewDomainContext={ context.path.includes( 'domains/add' ) }
+					domainAndPlanUpsellFlow={
+						context.query.domainAndPlanPackage !== undefined
+							? context.query.domainAndPlanPackage === 'true'
+							: undefined
+					}
+				/>
 			</CalypsoShoppingCartProvider>
 		</Main>
 	);
@@ -78,6 +88,7 @@ const domainSearch = ( context, next ) => {
 };
 
 const siteRedirect = ( context, next ) => {
+	const backUrl = context.query?.redirect_to;
 	context.primary = (
 		<Main>
 			<PageViewTracker
@@ -86,7 +97,7 @@ const siteRedirect = ( context, next ) => {
 			/>
 			<DocumentHead title={ translate( 'Redirect a Site' ) } />
 			<CalypsoShoppingCartProvider>
-				<SiteRedirect />
+				<SiteRedirect backUrl={ backUrl } />
 			</CalypsoShoppingCartProvider>
 		</Main>
 	);
@@ -94,12 +105,13 @@ const siteRedirect = ( context, next ) => {
 };
 
 const mapDomain = ( context, next ) => {
+	const backUrl = context.query?.redirect_to;
 	context.primary = (
 		<Main wideLayout>
 			<PageViewTracker path={ domainMapping( ':site' ) } title="Domain Search > Domain Mapping" />
 			<DocumentHead title={ translate( 'Map a Domain' ) } />
 			<CalypsoShoppingCartProvider>
-				<MapDomain initialQuery={ context.query.initialQuery } />
+				<MapDomain backUrl={ backUrl } initialQuery={ context.query.initialQuery } />
 			</CalypsoShoppingCartProvider>
 		</Main>
 	);
@@ -109,6 +121,8 @@ const mapDomain = ( context, next ) => {
 const mapDomainSetup = ( context, next ) => {
 	const showErrors = context.query?.showErrors === 'true' || context.query?.showErrors === '1';
 	const isFirstVisit = context.query?.firstVisit === 'true' || context.query?.firstVisit === '1';
+	const error = context.query?.error;
+	const errorDescription = context.query?.error_description;
 
 	context.primary = (
 		<Main wideLayout>
@@ -123,6 +137,8 @@ const mapDomainSetup = ( context, next ) => {
 					initialStep={ context.query.step }
 					isFirstVisit={ isFirstVisit }
 					showErrors={ showErrors }
+					queryError={ error }
+					queryErrorDescription={ errorDescription }
 				/>
 			</CalypsoShoppingCartProvider>
 		</Main>
@@ -188,8 +204,11 @@ const useMyDomain = ( context, next ) => {
 			path += `?suggestion=${ context.query.initialQuery }`;
 
 			if ( context.query.initialMode ) {
-				path = `/domains/manage/${ context.params.site }`;
+				path = `/domains/manage/${ context.query.initialQuery }/edit/${ context.params.site }`;
 			}
+		}
+		if ( context.query.redirect_to ) {
+			path = context.query.redirect_to;
 		}
 
 		page( path );
@@ -221,7 +240,7 @@ const transferDomainPrecheck = ( context, next ) => {
 
 	const handleGoBack = () => {
 		if ( context.query.goBack === 'use-my-domain' ) {
-			page( domainUseMyDomain( siteSlug, domain ) );
+			page( domainUseMyDomain( siteSlug, { domain } ) );
 			return;
 		}
 		page( domainManagementTransferIn( siteSlug, domain ) );
@@ -234,11 +253,7 @@ const transferDomainPrecheck = ( context, next ) => {
 			/>
 			<CalypsoShoppingCartProvider>
 				<div>
-					<TransferDomainStep
-						forcePrecheck={ true }
-						initialQuery={ domain }
-						goBack={ handleGoBack }
-					/>
+					<TransferDomainStep forcePrecheck initialQuery={ domain } goBack={ handleGoBack } />
 				</div>
 			</CalypsoShoppingCartProvider>
 		</Main>
@@ -258,7 +273,11 @@ const emailUpsellForDomainRegistration = ( context, next ) => {
 					args: { domain: context.params.domain },
 				} ) }
 			/>
-			<EmailProvidersUpsell domain={ context.params.domain } />
+			<EmailProvidersUpsell
+				selectedDomainName={ context.params.domain }
+				selectedEmailProviderSlug={ context.query.provider }
+				selectedIntervalLength={ context.query.interval }
+			/>
 		</Main>
 	);
 
@@ -328,6 +347,11 @@ const jetpackNoDomainsWarning = ( context, next ) => {
 	}
 };
 
+const redirectDomainToSite = ( context, next ) => {
+	context.primary = <RedirectComponent domainName={ context.params.domain } />;
+	next();
+};
+
 export default {
 	domainsAddHeader,
 	domainsAddRedirectHeader,
@@ -344,4 +368,5 @@ export default {
 	transferDomainPrecheck,
 	useMyDomain,
 	useYourDomain,
+	redirectDomainToSite,
 };

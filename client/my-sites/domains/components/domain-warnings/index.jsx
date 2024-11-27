@@ -1,3 +1,14 @@
+import { localizeUrl } from '@automattic/i18n-utils';
+import {
+	CHANGE_NAME_SERVERS,
+	DOMAINS,
+	INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS,
+	MAP_EXISTING_DOMAIN_UPDATE_DNS,
+	MAP_SUBDOMAIN,
+	SETTING_PRIMARY_DOMAIN,
+	MAP_DOMAIN_CHANGE_NAME_SERVERS,
+	DOMAIN_EXPIRATION_AUCTION,
+} from '@automattic/urls';
 import _debug from 'debug';
 import { localize } from 'i18n-calypso';
 import { intersection, map, find, get } from 'lodash';
@@ -15,22 +26,13 @@ import {
 	gdprConsentStatus,
 } from 'calypso/lib/domains/constants';
 import { isPendingGSuiteTOSAcceptance } from 'calypso/lib/gsuite';
-import {
-	CHANGE_NAME_SERVERS,
-	DOMAINS,
-	INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS,
-	MAP_EXISTING_DOMAIN_UPDATE_DNS,
-	MAP_SUBDOMAIN,
-	SETTING_PRIMARY_DOMAIN,
-	MAP_DOMAIN_CHANGE_NAME_SERVERS,
-} from 'calypso/lib/url/support';
 import { purchasesRoot } from 'calypso/me/purchases/paths';
 import {
 	domainManagementEdit,
 	domainManagementList,
-	domainManagementNameServers,
 	domainManagementTransferIn,
 	domainManagementManageConsent,
+	domainMappingSetup,
 } from 'calypso/my-sites/domains/paths';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import PendingGSuiteTosNotice from './pending-gsuite-tos-notice';
@@ -40,9 +42,8 @@ import './style.scss';
 const debug = _debug( 'calypso:domain-warnings' );
 
 const newWindowLink = ( linkUrl ) => (
-	<a href={ linkUrl } target="_blank" rel="noopener noreferrer" />
+	<a href={ localizeUrl( linkUrl ) } target="_blank" rel="noopener noreferrer" />
 );
-const domainsLink = newWindowLink( DOMAINS );
 const pNode = <p />;
 
 const expiredDomainsCanManageWarning = 'expired-domains-can-manage';
@@ -91,14 +92,26 @@ export class DomainWarnings extends PureComponent {
 		} );
 		const domain = domains[ 0 ].name;
 		const subscriptionId = domains[ 0 ].subscriptionId;
+		const productSlug = domains[ 0 ].productSlug;
 		const link =
 			count === 1
-				? `/checkout/domain_map:${ domain }/renew/${ subscriptionId }/${ selectedSite.slug }`
+				? `/checkout/${ productSlug }:${ domain }/renew/${ subscriptionId }/${ selectedSite.slug }`
 				: purchasesRoot;
 
 		return (
 			<NoticeAction href={ link } onClick={ onClick }>
 				{ this.props.isCompact ? compactMessage : fullMessage }
+			</NoticeAction>
+		);
+	}
+
+	expiredDomainLink( onClick ) {
+		const { translate } = this.props;
+		return (
+			<NoticeAction href={ DOMAIN_EXPIRATION_AUCTION } onClick={ onClick }>
+				{ translate( 'Learn more', {
+					context: 'Call to action link for support page of expired domains in auction.',
+				} ) }
 			</NoticeAction>
 		);
 	}
@@ -220,7 +233,13 @@ export class DomainWarnings extends PureComponent {
 		if ( this.props.isCompact ) {
 			noticeProps.text = translate( 'Complete domain setup' );
 			children = (
-				<NoticeAction href={ domainManagementList( this.props.selectedSite.slug ) }>
+				<NoticeAction
+					href={
+						wrongMappedDomains.length === 1
+							? domainMappingSetup( this.props.selectedSite.slug, wrongMappedDomains[ 0 ].name )
+							: domainManagementList( this.props.selectedSite.slug )
+					}
+				>
 					{ translate( 'Go' ) }
 				</NoticeAction>
 			);
@@ -228,7 +247,7 @@ export class DomainWarnings extends PureComponent {
 			children = (
 				<span>
 					{ text }{ ' ' }
-					<a href={ learnMoreUrl } target="_blank" rel="noopener noreferrer">
+					<a href={ localizeUrl( learnMoreUrl ) } target="_blank" rel="noopener noreferrer">
 						{ translate( 'Learn more' ) }
 					</a>
 					{ offendingList }
@@ -253,6 +272,10 @@ export class DomainWarnings extends PureComponent {
 			return null;
 		}
 
+		const expiredDomainsNotAuctionLocked = expiredDomains.filter(
+			( domain ) => ! domain.aftermarketAuction
+		);
+
 		const { translate, moment } = this.props;
 		let text;
 		if ( expiredDomains.length === 1 ) {
@@ -265,6 +288,28 @@ export class DomainWarnings extends PureComponent {
 				context: 'Expired domain notice',
 				comment: '%(timeSince)s is something like "a year ago"',
 			} );
+			if ( expiredDomains[ 0 ].aftermarketAuction ) {
+				text = translate(
+					'The domain {{strong}}%(domainName)s{{/strong}} expired %(timeSince)s. ' +
+						"It's no longer available to manage or renew. " +
+						'We may be able to restore it after {{strong}}%(aftermarketAuctionEnd)s{{/strong}}.',
+					{
+						components: {
+							strong: <strong />,
+						},
+						args: {
+							timeSince: moment( expiredDomains[ 0 ].expiry ).fromNow(),
+							domainName: expiredDomains[ 0 ].name,
+							owner: expiredDomains[ 0 ].owner,
+							aftermarketAuctionEnd: moment
+								.utc( expiredDomains[ 0 ].aftermarketAuctionEnd )
+								.format( 'LL' ),
+						},
+						context: 'Expired domain notice',
+						comment: '%(timeSince)s is something like "a year ago"',
+					}
+				);
+			}
 		} else {
 			text = translate( 'Some of your domains have expired.', {
 				context: 'Expired domain notice',
@@ -279,7 +324,9 @@ export class DomainWarnings extends PureComponent {
 				key={ expiredDomainsCanManageWarning }
 				text={ text }
 			>
-				{ this.renewLink( expiredDomains, this.onExpiredDomainsNoticeClick ) }
+				{ expiredDomainsNotAuctionLocked.length > 0
+					? this.renewLink( expiredDomainsNotAuctionLocked, this.onExpiredDomainsNoticeClick )
+					: this.expiredDomainLink( this.onExpiredDomainsNoticeClick ) }
 				{ this.trackImpression( expiredDomainsCanManageWarning, expiredDomains.length ) }
 			</Notice>
 		);
@@ -297,6 +344,7 @@ export class DomainWarnings extends PureComponent {
 
 		const { translate, moment } = this.props;
 		let text;
+		let cta;
 		if ( expiredDomains.length === 1 ) {
 			text = translate(
 				'The domain {{strong}}%(domainName)s{{/strong}} expired %(timeSince)s. ' +
@@ -312,13 +360,33 @@ export class DomainWarnings extends PureComponent {
 					comment: '%(timeSince)s is something like "a year ago"',
 				}
 			);
+			if ( expiredDomains[ 0 ].aftermarketAuction ) {
+				text = translate(
+					'The domain {{strong}}%(domainName)s{{/strong}} expired %(timeSince)s. ' +
+						"It's no longer available to manage or renew. " +
+						'We may be able to restore it after {{strong}}%(aftermarketAuctionEnd)s{{/strong}}.',
+					{
+						components: {
+							strong: <strong />,
+						},
+						args: {
+							timeSince: moment( expiredDomains[ 0 ].expiry ).fromNow(),
+							domainName: expiredDomains[ 0 ].name,
+							owner: expiredDomains[ 0 ].owner,
+							aftermarketAuctionEnd: moment
+								.utc( expiredDomains[ 0 ].aftermarketAuctionEnd )
+								.format( 'LL' ),
+						},
+						context: 'Expired domain notice',
+						comment: '%(timeSince)s is something like "a year ago"',
+					}
+				);
+				cta = this.expiredDomainLink( this.onExpiredDomainsNoticeClick );
+			}
 		} else {
-			text = translate(
-				'Some domains on this site expired recently. They can be renewed by their owners.',
-				{
-					context: 'Expired domain notice',
-				}
-			);
+			text = translate( 'Some domains on this site expired recently.', {
+				context: 'Expired domain notice',
+			} );
 		}
 
 		return (
@@ -328,6 +396,7 @@ export class DomainWarnings extends PureComponent {
 				key={ expiredDomainsCannotManageWarning }
 				text={ text }
 			>
+				{ cta }
 				{ this.trackImpression( expiredDomainsCannotManageWarning, expiredDomains.length ) }
 			</Notice>
 		);
@@ -467,7 +536,7 @@ export class DomainWarnings extends PureComponent {
 			);
 		} else {
 			const domain = newTransfers[ 0 ].name;
-			actionLink = domainManagementNameServers( this.props.selectedSite.slug, domain );
+			actionLink = domainManagementEdit( this.props.selectedSite.slug, domain );
 			actionText = translate( 'Update now', {
 				comment: 'Call to action link for updating the nameservers on a newly transferred domain',
 			} );
@@ -553,7 +622,7 @@ export class DomainWarnings extends PureComponent {
 					'We are setting up your new domains for you. They should start working immediately, ' +
 						'but may be unreliable during the first 30 minutes. ' +
 						'{{domainsLink}}Learn more{{/domainsLink}}.',
-					{ components: { domainsLink } }
+					{ components: { domainsLink: newWindowLink( DOMAINS ) } }
 				);
 			}
 		} else {
@@ -585,7 +654,7 @@ export class DomainWarnings extends PureComponent {
 					{
 						args: { domainName: domain.name },
 						components: {
-							domainsLink,
+							domainsLink: newWindowLink( DOMAINS ),
 							tryNowLink: newWindowLink( `http://${ domain.name }` ),
 							strong: <strong />,
 						},
@@ -919,7 +988,7 @@ export class DomainWarnings extends PureComponent {
 							strong: <strong />,
 							a: (
 								<a
-									href={ INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS }
+									href={ localizeUrl( INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS ) }
 									rel="noopener noreferrer"
 									target="_blank"
 								/>
@@ -941,7 +1010,7 @@ export class DomainWarnings extends PureComponent {
 								strong: <strong />,
 								a: (
 									<a
-										href={ INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS }
+										href={ localizeUrl( INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS ) }
 										rel="noopener noreferrer"
 										target="_blank"
 									/>
@@ -964,7 +1033,7 @@ export class DomainWarnings extends PureComponent {
 							strong: <strong />,
 							a: (
 								<a
-									href={ INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS }
+									href={ localizeUrl( INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS ) }
 									rel="noopener noreferrer"
 									target="_blank"
 								/>

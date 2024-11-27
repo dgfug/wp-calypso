@@ -68,8 +68,7 @@ import { compact, flowRight as compose, get, map, matchesProperty, reduce } from
  *
  * Since the editor constrains us to a single block, we can
  * safely assume that we only need to convert the first one
- *
- * @param {object} content Content of editor
+ * @param {Object} content Content of editor
  * @returns {Array} title format
  */
 export const fromEditor = ( content ) => {
@@ -120,7 +119,6 @@ const emptyBlockMap = {
  * was being trimmed implicitly somewhere in WebKit and
  * raising exceptions and causing visual glitches.
  * See #8047
- *
  * @param {string} title - Token's title
  * @returns string - Processed title
  */
@@ -128,21 +126,19 @@ export const mapTokenTitleForEditor = ( title ) => `\u205f\u205f${ title }\u205f
 
 /**
  * Returns the translated name for the chip
- *
  * @param {string} type chip name, e.g. 'siteName'
- * @param {object} tokens available tokens, e.g. { siteName: 'Site Name', tagline: 'Tagline' }
+ * @param {Object} tokens available tokens, e.g. { siteName: 'Site Name', tagline: 'Tagline' }
  * @returns {string} translated chip name
  */
 const tokenTitle = ( type, tokens ) => mapTokenTitleForEditor( get( tokens, type, '' ).trim() );
 
 /**
  * Creates a new entity reference for a blockMap
- *
  * @param {number} offset start of entity inside of block text
  * @param {string} type token name for entity reference
- * @param {object} tokens mapping between token names and translated titles
- * @param {object} entityGuide mapping between tokens and entity keys
- * @returns {object} entityRange for use in blockMap in ContentState
+ * @param {Object} tokens mapping between token names and translated titles
+ * @param {Object} entityGuide mapping between tokens and entity keys
+ * @returns {Object} entityRange for use in blockMap in ContentState
  */
 const newEntityAt = ( offset, type, tokens, entityGuide ) => ( {
 	key: entityGuide.length,
@@ -154,23 +150,22 @@ const newEntityAt = ( offset, type, tokens, entityGuide ) => ( {
  * Converts native format object to block map
  *
  * E.g.
- *     From: [
- *         { type: 'siteName' },
- *         { type: 'string', value: ' | ' },
- *         { type: 'tagline' }
- *     ]
- *     To: {
- *         text: 'siteName | tagline',
- *         entityRanges: [
- *             { key: 0, offset: 0, length: 8 },
- *             { key: 1, offset: 11, length: 7 }
- *         ]
- *     }
- *
+ * From: [
+ * { type: 'siteName' },
+ * { type: 'string', value: ' | ' },
+ * { type: 'tagline' }
+ * ]
+ * To: {
+ * text: 'siteName | tagline',
+ * entityRanges: [
+ * { key: 0, offset: 0, length: 8 },
+ * { key: 1, offset: 11, length: 7 }
+ * ]
+ * }
  * @param {Array} format native Calypso title format object
- * @param {object} tokens mapping between token names and translated titles
- * @param {object} entityGuide mapping between tokens and entity keys
- * @returns {object} blockMap for use in ContentState
+ * @param {Object} tokens mapping between token names and translated titles
+ * @param {Object} entityGuide mapping between tokens and entity keys
+ * @returns {Object} blockMap for use in ContentState
  */
 const buildBlockMap = compose( ( format, tokens ) =>
 	reduce(
@@ -193,10 +188,9 @@ const buildBlockMap = compose( ( format, tokens ) =>
 
 /**
  * Converts Calypso-native title format into RawDraftContentState for Editor
- *
  * @param {Array} format pieces used to build title format
- * @param {object} tokens mapping between token names and translated titles
- * @returns {object} content for editor
+ * @param {Object} tokens mapping between token names and translated titles
+ * @returns {Object} content for editor
  */
 export const toEditor = ( format, tokens ) => {
 	const [ blocks /* lastIndex */, , entityGuide ] = buildBlockMap( format, tokens );

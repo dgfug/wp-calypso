@@ -1,12 +1,12 @@
 /* eslint-disable jsdoc/no-undefined-types */
 
-import getEmbedMetadata from 'get-video-id';
 import { map, compact, includes, some, filter } from 'lodash';
+import getEmbedMetadata from 'calypso/lib/get-video-id';
 import { READER_CONTENT_WIDTH } from 'calypso/state/reader/posts/sizes';
 import { iframeIsAllowed, maxWidthPhotonishURL, deduceImageWidthAndHeight } from './utils';
 
-/** Checks whether or not an image is a tracking pixel
- *
+/**
+ * Checks whether or not an image is a tracking pixel
  * @param {Node} image - DOM node for an img
  * @returns {boolean} isTrackingPixel - returns true if image is probably a tracking pixel
  */
@@ -19,8 +19,8 @@ function isTrackingPixel( image ) {
 	return edgeLength === 1 || edgeLength === 2;
 }
 
-/** Returns true if image should be considered
- *
+/**
+ * Returns true if image should be considered
  * @param {Node} image - DOM node for an image
  * @returns {boolean} true/false depending on if it should be included as a potential featured image
  */
@@ -40,10 +40,10 @@ function isCandidateForContentImage( image ) {
 	return ! ( isTrackingPixel( image ) || imageShouldBeExcludedFromCandidacy );
 }
 
-/** Detects and returns metadata if it should be considered as a content image
- *
+/**
+ * Detects and returns metadata if it should be considered as a content image
  * @param {image} image - the image
- * @returns {object} metadata - regarding the image or null
+ * @returns {Object} metadata - regarding the image or null
  */
 const detectImage = ( image ) => {
 	if ( isCandidateForContentImage( image ) ) {
@@ -58,14 +58,15 @@ const detectImage = ( image ) => {
 	return false;
 };
 
-/**  For an iframe we know how to process, return a string for an autoplaying iframe
- *
+/**
+ *  For an iframe we know how to process, return a string for an autoplaying iframe
  * @param {Node} iframe - DOM node for an iframe
  * @returns {string} html src for an iframe that autoplays if from a source we understand.  else null;
  */
 const getAutoplayIframe = ( iframe ) => {
-	const KNOWN_SERVICES = [ 'youtube', 'vimeo', 'videopress' ];
+	const KNOWN_SERVICES = [ 'youtube', 'vimeo', 'videopress', 'pocketcasts' ];
 	const metadata = getEmbedMetadata( iframe.src );
+
 	if ( metadata && includes( KNOWN_SERVICES, metadata.service ) ) {
 		const autoplayIframe = iframe.cloneNode();
 		if ( autoplayIframe.src.indexOf( '?' ) === -1 ) {
@@ -73,6 +74,12 @@ const getAutoplayIframe = ( iframe ) => {
 		} else {
 			autoplayIframe.src += '&autoplay=1';
 		}
+
+		// ?autoplay=1 is no longer sufficient for YouTube - we also need to add autoplay to the allow attribute.
+		const allow = ( autoplayIframe.allow || '' ).split( /\s*;\s*/g );
+		allow.push( 'autoplay' );
+		autoplayIframe.setAttribute( 'allow', allow.filter( ( s ) => s.length > 0 ).join( '; ' ) );
+
 		return autoplayIframe.outerHTML;
 	}
 	return null;
@@ -86,7 +93,15 @@ const getEmbedType = ( iframe ) => {
 		if ( ! node.className ) {
 			continue;
 		}
+
+		// Match elements like <span class="embed-youtube"><iframe ... /></span>
 		matches = node.className.match( /\bembed-([-a-zA-Z0-9_]+)\b/ );
+		if ( matches ) {
+			return matches[ 1 ];
+		}
+
+		// Match elements like <figure class="wp-block-video wp-block-embed is-type-video is-provider-videopress">...</figure>
+		matches = node.className.match( /\bis-provider-([-a-zA-Z0-9_]+)\b/ );
 		if ( matches ) {
 			return matches[ 1 ];
 		}
@@ -95,8 +110,8 @@ const getEmbedType = ( iframe ) => {
 	return null;
 };
 
-/** Detects and returns metadata if it should be considered as a content iframe
- *
+/**
+ * Detects and returns metadata if it should be considered as a content iframe
  * @param {Node} iframe - a DOM node for an iframe
  * @returns {metadata} metadata - metadata for an embed
  */
@@ -121,8 +136,8 @@ const detectEmbed = ( iframe ) => {
 	};
 };
 
-/** Adds an ordered list of all of the content_media to the post
- *
+/**
+ * Adds an ordered list of all of the content_media to the post
  * @param {post} post - the post object to add content_media to
  * @param {dom} dom - the dom of the post to scan for media
  * @returns {PostMetadata} post - the post object mutated to also have content_media

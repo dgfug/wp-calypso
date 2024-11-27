@@ -10,12 +10,12 @@ import ActionCard from 'calypso/components/action-card';
 function render() {
 	return (
 		<ActionCard
-			headerText={ 'Header' }
-			mainText={ 'Some text' }
-			className={ classnames( 'my-classname-1', 'my-classname-2' ) }
-			buttonText={ 'Call to action!' }
+			headerText="Header"
+			mainText="Some text"
+			className={ clsx( 'my-classname-1', 'my-classname-2' ) }
+			buttonText="Call to action!"
 			buttonIcon="external"
-			buttonPrimary={ true }
+			buttonPrimary
 			buttonHref="https://wordpress.com"
 			buttonTarget="_blank"
 			buttonOnClick={ noop }

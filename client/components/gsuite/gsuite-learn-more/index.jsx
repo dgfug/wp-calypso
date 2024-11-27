@@ -1,7 +1,8 @@
+import { localizeUrl } from '@automattic/i18n-utils';
+import { ADDING_GSUITE_TO_YOUR_SITE } from '@automattic/urls';
 import { useTranslate } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { getGoogleMailServiceFamily } from 'calypso/lib/gsuite';
-import { ADDING_GSUITE_TO_YOUR_SITE } from 'calypso/lib/url/support';
 
 import './style.scss';
 
@@ -26,7 +27,7 @@ const GSuiteLearnMore = ( { onLearnMoreClick, productSlug } ) => {
 							a: (
 								<a
 									className="gsuite-learn-more__link"
-									href={ ADDING_GSUITE_TO_YOUR_SITE }
+									href={ localizeUrl( ADDING_GSUITE_TO_YOUR_SITE ) }
 									target="_blank"
 									rel="noopener noreferrer"
 									onClick={ onLearnMoreClick }

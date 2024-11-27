@@ -1,11 +1,9 @@
-import { addLocaleToPath } from 'calypso/lib/i18n-utils';
+import { addLocaleToPath } from '@automattic/i18n-utils';
 import { addQueryArgs } from 'calypso/lib/url';
 
 /**
  * @param {{
 	isJetpack?: boolean;
-	isGutenboarding?: boolean;
-	isWhiteLogin?: boolean;
 	locale?: string;
 	redirectTo?: string;
 	twoFactorAuthType?: string;
@@ -24,8 +22,6 @@ import { addQueryArgs } from 'calypso/lib/url';
  */
 export function login( {
 	isJetpack = undefined,
-	isGutenboarding = undefined,
-	isWhiteLogin = undefined,
 	locale = undefined,
 	redirectTo = undefined,
 	twoFactorAuthType = undefined,
@@ -39,6 +35,14 @@ export function login( {
 	from = undefined,
 	allowSiteConnection = undefined,
 	signupUrl = undefined,
+	useQRCode = undefined,
+	isPartnerSignup = undefined,
+	action = undefined,
+	lostpasswordFlow = undefined,
+	usernameOnly = undefined,
+	gravatarFrom = undefined,
+	gravatarFlow = undefined,
+	pluginName = undefined,
 } = {} ) {
 	let url = '/log-in';
 
@@ -46,18 +50,18 @@ export function login( {
 		url += '/' + socialService + '/callback';
 	} else if ( twoFactorAuthType && isJetpack ) {
 		url += '/jetpack/' + twoFactorAuthType;
-	} else if ( twoFactorAuthType && ( isGutenboarding || isWhiteLogin ) ) {
-		url += '/new/' + twoFactorAuthType;
 	} else if ( twoFactorAuthType ) {
 		url += '/' + twoFactorAuthType;
 	} else if ( socialConnect ) {
 		url += '/social-connect';
 	} else if ( isJetpack ) {
 		url += '/jetpack';
-	} else if ( isGutenboarding || isWhiteLogin ) {
-		url += '/new';
 	} else if ( useMagicLink ) {
 		url += '/link';
+	} else if ( useQRCode ) {
+		url += '/qr';
+	} else if ( action ) {
+		url += '/' + action;
 	}
 
 	if ( locale && locale !== 'en' ) {
@@ -96,6 +100,30 @@ export function login( {
 
 	if ( allowSiteConnection ) {
 		url = addQueryArgs( { allow_site_connection: '1' }, url );
+	}
+
+	if ( isPartnerSignup ) {
+		url = addQueryArgs( { is_partner_signup: true }, url );
+	}
+
+	if ( lostpasswordFlow ) {
+		url = addQueryArgs( { lostpassword_flow: true }, url );
+	}
+
+	if ( usernameOnly ) {
+		url = addQueryArgs( { username_only: true }, url );
+	}
+
+	if ( gravatarFrom ) {
+		url = addQueryArgs( { gravatar_from: gravatarFrom }, url );
+	}
+
+	if ( gravatarFlow ) {
+		url = addQueryArgs( { gravatar_flow: '1' }, url );
+	}
+
+	if ( pluginName ) {
+		url = addQueryArgs( { plugin_name: pluginName }, url );
 	}
 
 	return url;

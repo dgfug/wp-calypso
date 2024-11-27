@@ -1,7 +1,29 @@
+/**
+ * @jest-environment jsdom
+ */
 jest.mock( 'calypso/lib/analytics/tracks', () => ( {} ) );
 jest.mock( 'calypso/lib/analytics/page-view', () => ( {} ) );
 jest.mock( 'calypso/lib/analytics/page-view-tracker', () => 'PageViewTracker' );
-jest.mock( 'calypso/blocks/upsell-nudge', () => 'UpsellNudge' );
+jest.mock( 'calypso/blocks/upsell-nudge', () => ( {
+	__esModule: true,
+	default: ( { plan } ) => <div data-testid="upsell-nudge-plan">{ plan }</div>,
+} ) );
+jest.mock( 'calypso/state/selectors/can-current-user', () => ( {
+	canCurrentUser: jest.fn(),
+} ) );
+jest.mock( '@automattic/data-stores', () => ( {
+	...jest.requireActual( '@automattic/data-stores' ),
+	Plans: {
+		...jest.requireActual( '@automattic/data-stores' ).Plans,
+		usePlans: jest.fn(),
+		useCurrentPlan: jest.fn(),
+		usePricingMetaForGridPlans: jest.fn(),
+	},
+} ) );
+jest.mock( '@automattic/calypso-products', () => ( {
+	...jest.requireActual( '@automattic/calypso-products' ),
+	findFirstSimilarPlanKey: jest.fn(),
+} ) );
 
 import {
 	PLAN_FREE,
@@ -23,32 +45,66 @@ import {
 	PLAN_JETPACK_BUSINESS_MONTHLY,
 	PLAN_ECOMMERCE,
 	PLAN_ECOMMERCE_2_YEARS,
+	findFirstSimilarPlanKey,
 } from '@automattic/calypso-products';
-import { shallow } from 'enzyme';
-import { UpgradeToPremiumNudgePure } from '../nudges';
+import { Plans } from '@automattic/data-stores';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen } from '@testing-library/react';
+import { useMemo } from 'react';
+import { Provider as ReduxProvider } from 'react-redux';
+import { createReduxStore } from 'calypso/state';
+import { canCurrentUser } from 'calypso/state/selectors/can-current-user';
+import { UpgradeToPremiumNudge } from '../nudges';
 
 const props = {
-	translate: ( x ) => x,
-	canUserUpgrade: true,
+	siteId: undefined,
 };
 
-describe( 'UpgradeToPremiumNudgePure basic tests', () => {
+const Wrapper = ( { children } ) => {
+	const queryClient = useMemo( () => new QueryClient(), [] );
+	const store = createReduxStore();
+
+	return (
+		<ReduxProvider store={ store }>
+			<QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider>
+		</ReduxProvider>
+	);
+};
+
+describe( 'UpgradeToPremiumNudge basic tests', () => {
+	beforeEach( () => {
+		jest.clearAllMocks();
+		findFirstSimilarPlanKey.mockImplementation( () => PLAN_PREMIUM );
+		Plans.useCurrentPlan.mockImplementation( () => ( { planSlug: PLAN_PERSONAL } ) );
+		Plans.usePricingMetaForGridPlans.mockImplementation( () => ( {
+			[ PLAN_PREMIUM ]: {
+				originalPrice: { full: 24000, monthly: 2000 },
+				discountedPrice: { full: 12000, monthly: 1000 },
+				currencyCode: 'USD',
+			},
+		} ) );
+	} );
+
 	test( 'should not blow up', () => {
-		const comp = shallow( <UpgradeToPremiumNudgePure { ...props } /> );
-		expect( comp.find( 'UpsellNudge' ).length ).toBe( 1 );
+		canCurrentUser.mockReturnValue( true );
+		render( <UpgradeToPremiumNudge { ...props } />, { wrapper: Wrapper } );
+		expect( screen.getByTestId( 'upsell-nudge-plan' ) ).toBeVisible();
 	} );
 
 	test( 'hide when user cannot upgrade', () => {
-		const localProps = {
-			translate: ( x ) => x,
-			canUserUpgrade: false,
-		};
-		const comp = shallow( <UpgradeToPremiumNudgePure { ...localProps } /> );
-		expect( comp.find( 'UpsellNudge' ).length ).toBe( 0 );
+		canCurrentUser.mockReturnValue( false );
+		render( <UpgradeToPremiumNudge { ...props } />, { wrapper: Wrapper } );
+		expect( screen.queryByTestId( 'upsell-nudge-plan' ) ).not.toBeInTheDocument();
 	} );
 } );
 
-describe( 'UpgradeToPremiumNudgePure.render()', () => {
+describe( 'UpgradeToPremiumNudge - upsell-nudge', () => {
+	beforeEach( () => {
+		jest.clearAllMocks();
+		Plans.useCurrentPlan.mockImplementation( () => ( { planSlug: PLAN_PERSONAL } ) );
+		canCurrentUser.mockReturnValue( true );
+	} );
+
 	[
 		PLAN_JETPACK_FREE,
 		PLAN_JETPACK_PERSONAL,
@@ -71,10 +127,21 @@ describe( 'UpgradeToPremiumNudgePure.render()', () => {
 		PLAN_ECOMMERCE_2_YEARS,
 	].forEach( ( plan ) => {
 		test( `Should pass 2-years wp.com premium plan for 2-years plans ${ plan }`, () => {
-			const comp = shallow(
-				<UpgradeToPremiumNudgePure { ...props } isJetpack={ false } planSlug={ plan } />
-			);
-			expect( comp.find( 'UpsellNudge' ).props().plan ).toBe( plan );
+			/**
+			 * These act as sending directly the plan to the upsell component,
+			 * bypassing findFirstSimilarPlanKey logic (which is an imported utility)
+			 */
+			findFirstSimilarPlanKey.mockImplementation( () => plan );
+			Plans.usePricingMetaForGridPlans.mockImplementation( () => ( {
+				[ plan ]: {
+					originalPrice: { full: 24000, monthly: 2000 },
+					discountedPrice: { full: 12000, monthly: 1000 },
+					currencyCode: 'USD',
+				},
+			} ) );
+
+			render( <UpgradeToPremiumNudge { ...props } />, { wrapper: Wrapper } );
+			expect( screen.getByTestId( 'upsell-nudge-plan' ) ).toHaveTextContent( plan );
 		} );
 	} );
 } );

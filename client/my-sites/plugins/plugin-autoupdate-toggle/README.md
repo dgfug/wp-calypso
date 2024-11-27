@@ -10,7 +10,7 @@ import PluginAutoupdateToggle from 'calypso/my-sites/plugins/plugin-autoupdate-t
 function render() {
 	return (
 		<div className="your-plugins-list">
-			<PluginAutoupdateToggle plugin={ plugin } site={ site } notices={ notices } wporg={ true } />
+			<PluginAutoupdateToggle plugin={ plugin } site={ site } notices={ notices } wporg />
 		</div>
 	);
 }
@@ -22,5 +22,4 @@ function render() {
 - `site`: a site object.
 - `notices`: a notices object.
 - `wporg`: whether the plugin is from .org or not
-- `isMock`: a boolean indicating if the toggle should not launch any real action when interacted
 - `disabled`: a boolean indicating whether the toggle is disabled (grayed out and non interactive) or not

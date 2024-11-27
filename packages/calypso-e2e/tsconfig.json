@@ -4,6 +4,6 @@
 		"outDir": "dist/esm",
 		"declarationDir": "dist/types"
 	},
-	"include": [ "src", "test" ],
-	"references": [ { "path": "../languages" } ]
+	"include": [ "src", "test", "src/secrets/decrypted-secrets.json" ],
+	"references": [ { "path": "../languages" }, { "path": "../jest-circus-allure-reporter" } ]
 }

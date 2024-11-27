@@ -1,32 +1,31 @@
-import classnames from 'classnames';
-import { ReactNode, RefObject } from 'react';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
+import { FormInputValidation, FormLabel } from '@automattic/components';
+import clsx from 'clsx';
 import PhoneInput from 'calypso/components/phone-input';
+import type { CountryListItem } from '@automattic/wpcom-checkout';
+import type { PhoneInputValue } from 'calypso/components/phone-input';
+import type { FC, MutableRefObject, ReactNode } from 'react';
 
-type FormPhoneMediaInputProps = {
-	additionalClasses?: string[];
+export type FormPhoneMediaInputProps = {
+	additionalClasses?: string;
 	label: string;
 	name?: string;
-	value: string;
-	countryCode: string;
+	value: PhoneInputValue;
 	className?: string;
 	disabled?: boolean;
-	errorMessage?: string;
+	errorMessage?: ReactNode;
 	isError?: boolean;
-	onChange: ( _: { value: string; countryCode: string } ) => void;
-	countriesList: { code: string; name: string }[];
+	onChange: ( newValueAndCountry: PhoneInputValue ) => void;
+	countriesList: CountryListItem[];
 	enableStickyCountry?: boolean;
-	inputRef?: RefObject< HTMLInputElement >;
-	children: ReactNode;
+	inputRef?: MutableRefObject< HTMLInputElement | undefined >;
+	children?: React.ReactNode;
 };
 
-export default function FormPhoneMediaInput( {
+const FormPhoneMediaInput: FC< FormPhoneMediaInputProps > = ( {
 	additionalClasses,
 	label,
 	name,
 	value,
-	countryCode,
 	className,
 	disabled,
 	errorMessage,
@@ -36,19 +35,18 @@ export default function FormPhoneMediaInput( {
 	enableStickyCountry,
 	inputRef,
 	children,
-}: FormPhoneMediaInputProps ): JSX.Element {
+} ) => {
 	return (
-		<div className={ classnames( additionalClasses, 'phone' ) }>
+		<div className={ clsx( additionalClasses, 'phone' ) }>
 			<div>
 				<FormLabel htmlFor={ name }>{ label }</FormLabel>
 				<PhoneInput
 					inputRef={ inputRef }
 					name={ name }
 					onChange={ onChange }
-					value={ value }
+					value={ { phoneNumber: value.phoneNumber, countryCode: value.countryCode.toUpperCase() } }
 					countriesList={ countriesList }
 					enableStickyCountry={ enableStickyCountry }
-					countryCode={ countryCode.toUpperCase() }
 					className={ className }
 					isError={ isError }
 					disabled={ disabled }
@@ -58,4 +56,6 @@ export default function FormPhoneMediaInput( {
 			{ errorMessage && <FormInputValidation text={ errorMessage } isError /> }
 		</div>
 	);
-}
+};
+
+export default FormPhoneMediaInput;

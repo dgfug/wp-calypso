@@ -1,5 +1,11 @@
-import { FEATURE_UPLOAD_THEMES_PLUGINS, planHasFeature } from '@automattic/calypso-products';
+import {
+	FEATURE_UPLOAD_THEMES_PLUGINS,
+	PLAN_BUSINESS,
+	getPlan,
+	planHasFeature,
+} from '@automattic/calypso-products';
 import { Button, CompactCard } from '@automattic/components';
+import { Button as WpButton } from '@wordpress/components';
 import { localize } from 'i18n-calypso';
 import { get } from 'lodash';
 import PropTypes from 'prop-types';
@@ -64,11 +70,18 @@ class StepImportOrMigrate extends Component {
 		return planSlug && planHasFeature( planSlug, FEATURE_UPLOAD_THEMES_PLUGINS );
 	};
 
+	installJetpack = () => {
+		this.props.recordTracksEvent( 'calypso_site_importer_install_jetpack' );
+		const { sourceSiteInfo } = this.props;
+		const sourceSiteDomain = get( sourceSiteInfo, 'site_url', '' );
+		const source = 'import';
+		window.open( `/jetpack/connect/?url=${ sourceSiteDomain }&source=${ source }`, '_blank' );
+	};
+
 	getJetpackOrUpgradeMessage = () => {
-		const { sourceSiteInfo, sourceHasJetpack, isTargetSiteAtomic, translate } = this.props;
+		const { sourceHasJetpack, isTargetSiteAtomic, translate } = this.props;
 
 		if ( ! sourceHasJetpack ) {
-			const sourceSiteDomain = get( sourceSiteInfo, 'site_url', '' );
 			return (
 				<p>
 					{ translate(
@@ -78,9 +91,7 @@ class StepImportOrMigrate extends Component {
 							' Jetpack{{/jetpackInstallLink}}.',
 						{
 							components: {
-								jetpackInstallLink: (
-									<a href={ `https://wordpress.com/jetpack/connect/?url=${ sourceSiteDomain }` } />
-								),
+								jetpackInstallLink: <WpButton isLink onClick={ this.installJetpack } />,
 							},
 						}
 					) }
@@ -89,7 +100,13 @@ class StepImportOrMigrate extends Component {
 		}
 
 		if ( ! isTargetSiteAtomic ) {
-			return <p>{ translate( 'Import your entire site with the Business Plan.' ) }</p>;
+			return (
+				<p>
+					{ translate( 'Import your entire site with the %(planName)s plan.', {
+						args: { planName: getPlan( PLAN_BUSINESS )?.getTitle() ?? '' },
+					} ) }
+				</p>
+			);
 		}
 	};
 
@@ -98,14 +115,8 @@ class StepImportOrMigrate extends Component {
 	}
 
 	render() {
-		const {
-			targetSite,
-			targetSiteSlug,
-			sourceHasJetpack,
-			sourceSite,
-			sourceSiteInfo,
-			translate,
-		} = this.props;
+		const { targetSite, targetSiteSlug, sourceHasJetpack, sourceSite, sourceSiteInfo, translate } =
+			this.props;
 		const backHref = `/migrate/${ targetSiteSlug }`;
 
 		const everythingLabels = [];
@@ -115,7 +126,7 @@ class StepImportOrMigrate extends Component {
 
 		return (
 			<>
-				<HeaderCake backHref={ backHref }>Import from WordPress</HeaderCake>
+				<HeaderCake backHref={ backHref }>{ translate( 'Import from WordPress' ) }</HeaderCake>
 
 				<SitesBlock
 					sourceSite={ sourceSite }
@@ -134,7 +145,7 @@ class StepImportOrMigrate extends Component {
 								title: translate( 'Everything' ),
 								labels: everythingLabels,
 								description: translate(
-									"All your site's content, themes, plugins, users and settings"
+									"All your site's content, themes, plugins, users and settings."
 								),
 								enabled: sourceHasJetpack,
 							},

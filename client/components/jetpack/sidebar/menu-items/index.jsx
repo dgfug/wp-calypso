@@ -1,10 +1,12 @@
 import { useTranslate } from 'i18n-calypso';
 import { useDispatch, useSelector } from 'react-redux';
 import QueryScanState from 'calypso/components/data/query-jetpack-scan';
+import BackupBadge from 'calypso/components/jetpack/backup-badge';
 import ScanBadge from 'calypso/components/jetpack/scan-badge';
 import SidebarItem from 'calypso/layout/sidebar/item';
 import { backupPath, scanPath } from 'calypso/lib/jetpack/paths';
 import { itemLinkMatches } from 'calypso/my-sites/sidebar/utils';
+import { isSectionNameEnabled } from 'calypso/sections-filter';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import { canCurrentUser } from 'calypso/state/selectors/can-current-user';
 import getSiteScanProgress from 'calypso/state/selectors/get-site-scan-progress';
@@ -25,6 +27,7 @@ export default ( { path, showIcons, tracksEventNames, expandSection } ) => {
 	const isWPForTeamsSite = useSelector( ( state ) => isSiteWPForTeams( state, siteId ) );
 
 	const isWPCOM = useSelector( ( state ) => getIsSiteWPCOM( state, siteId ) );
+
 	const scanProgress = useSelector( ( state ) => getSiteScanProgress( state, siteId ) );
 	const scanThreats = useSelector( ( state ) => getSiteScanThreats( state, siteId ) );
 
@@ -34,7 +37,7 @@ export default ( { path, showIcons, tracksEventNames, expandSection } ) => {
 		setNextLayoutFocus( 'content' );
 		window.scrollTo( 0, 0 );
 	};
-	const currentPathMatches = ( url ) => itemLinkMatches( [ url ], path );
+	const currentPathMatches = ( url ) => itemLinkMatches( url, path );
 
 	const isAdmin = useSelector( ( state ) => canCurrentUser( state, siteId, 'manage_options' ) );
 
@@ -57,14 +60,16 @@ export default ( { path, showIcons, tracksEventNames, expandSection } ) => {
 			{ isAdmin && ! isWPForTeamsSite && (
 				<SidebarItem
 					customIcon={ showIcons && <JetpackIcons icon="backup" /> }
-					label={ translate( 'Backup', {
+					label={ translate( 'VaultPress Backup', {
 						comment: 'Jetpack sidebar menu item',
 					} ) }
 					link={ backupPath( siteSlug ) }
 					onNavigate={ onNavigate( tracksEventNames.backupClicked ) }
 					selected={ currentPathMatches( backupPath( siteSlug ) ) }
 					expandSection={ expandSection }
-				/>
+				>
+					<BackupBadge siteId={ siteId } />
+				</SidebarItem>
 			) }
 			{ isAdmin && ! isWPCOM && ! isWPForTeamsSite && (
 				<SidebarItem
@@ -91,6 +96,19 @@ export default ( { path, showIcons, tracksEventNames, expandSection } ) => {
 				selected={ currentPathMatches( `/jetpack-search/${ siteSlug }` ) }
 				expandSection={ expandSection }
 			/>
+			{ isSectionNameEnabled( 'jetpack-social' ) && isAdmin && ! isWPForTeamsSite && (
+				<SidebarItem
+					customIcon={ showIcons && <JetpackIcons icon="social" /> }
+					label={ translate( 'Social', {
+						context: 'Jetpack product name',
+						comment: 'Jetpack sidebar menu item',
+					} ) }
+					link={ `/jetpack-social/${ siteSlug }` }
+					onNavigate={ onNavigate( tracksEventNames.socialClicked ) }
+					selected={ currentPathMatches( `/jetpack-social/${ siteSlug }` ) }
+					expandSection={ expandSection }
+				/>
+			) }
 		</>
 	);
 };

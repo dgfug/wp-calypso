@@ -1,5 +1,5 @@
 import { Gridicon } from '@automattic/components';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { omit } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
@@ -10,14 +10,15 @@ const noop = () => {};
 export default class PopoverMenuItem extends Component {
 	static propTypes = {
 		href: PropTypes.string,
+		disabled: PropTypes.bool,
 		className: PropTypes.string,
 		isSelected: PropTypes.bool,
-		icon: PropTypes.string,
+		icon: PropTypes.oneOfType( [ PropTypes.object, PropTypes.string ] ),
 		focusOnHover: PropTypes.bool,
 		onClick: PropTypes.func,
 		onMouseOver: PropTypes.func,
 		isExternalLink: PropTypes.bool,
-		itemComponent: PropTypes.oneOfType( [ PropTypes.func, PropTypes.string ] ),
+		itemComponent: PropTypes.elementType,
 	};
 
 	static defaultProps = {
@@ -38,7 +39,7 @@ export default class PopoverMenuItem extends Component {
 	};
 
 	render() {
-		const { children, className, href, icon, isExternalLink, isSelected } = this.props;
+		const { children, className, disabled, href, icon, isExternalLink, isSelected } = this.props;
 		const itemProps = omit(
 			this.props,
 			'icon',
@@ -48,16 +49,21 @@ export default class PopoverMenuItem extends Component {
 			'className',
 			'itemComponent'
 		);
-		const classes = classnames( 'popover__menu-item', className, {
+		const classes = clsx( 'popover__menu-item', className, {
 			'is-selected': isSelected,
 		} );
 
 		let ItemComponent = this.props.itemComponent;
-		if ( isExternalLink && href ) {
+		if ( isExternalLink && href && ! disabled ) {
 			ItemComponent = ExternalLink;
 			itemProps.icon = true;
-		} else if ( href ) {
+		} else if ( href && ! disabled ) {
 			ItemComponent = 'a';
+		}
+
+		let itemIcon = icon;
+		if ( typeof icon === 'string' ) {
+			itemIcon = <Gridicon icon={ icon } size={ 18 } />;
 		}
 
 		return (
@@ -68,7 +74,7 @@ export default class PopoverMenuItem extends Component {
 				{ ...itemProps }
 				onMouseOver={ this.handleMouseOver }
 			>
-				{ icon && <Gridicon icon={ icon } size={ 18 } /> }
+				{ itemIcon }
 				{ children }
 			</ItemComponent>
 		);

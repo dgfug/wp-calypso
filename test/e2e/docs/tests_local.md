@@ -1,4 +1,4 @@
-<div style="width:454%; float:left" align="left"><a href="./test_environment.md"><-- Test Environment</a> </div>
+<div style="width:45%; float:left" align="left"><a href="./test_environment.md"><-- Test Environment</a> </div>
 <div style="width: 5%; float:left" align="center"><a href="./../README.md">Top</a></div>
 <div style="width: 45%; float:right"align="right"><a href="./tests_ci.md">Running tests on CI --></a> </div>
 
@@ -14,9 +14,9 @@
     - [Individual spec files](#individual-spec-files)
     - [Test Group](#test-group)
   - [Advanced techniques](#advanced-techniques)
-    - [Use the mobile viewport](#use-the-mobile-viewport)
     - [Save authentication cookies](#save-authentication-cookies)
-    - [Target local webapp](#target-local-webapp)
+    - [Use the mobile viewport](#use-the-mobile-viewport)
+    - [Target a different environment](#target-a-different-environment)
     - [Debug mode](#debug-mode)
       - [Notes on TypeScript](#notes-on-typescript)
 
@@ -26,14 +26,22 @@
 
 Prior to running any tests, transpile TypeScript code:
 
-```
-yarn workspace @automattic/calypso-e2e build
+```bash
+# If within test/e2e directory
+yarn build
+
+# If at repo root
+yarn workspace wp-e2e-tests build
 ```
 
 Alternatively, open a separate Terminal window:
 
-```
-yarn workspace @automattic/calypso-e2e build --watch
+```bash
+# If within test/e2e directory
+yarn build --watch
+
+# If at repo root
+yarn workspace wp-e2e-tests build --watch
 ```
 
 ## Running tests
@@ -42,8 +50,8 @@ yarn workspace @automattic/calypso-e2e build --watch
 
 Specify the file(s) directly:
 
-```
-yarn jest <path_to-File_1> <path_to_file_2>
+```bash
+yarn test -- <path_to-File_1> <path_to_file_2>
 ```
 
 ### Test Group
@@ -52,58 +60,65 @@ We use [jest-runner-groups](https://github.com/eugene-manuilov/jest-runner-group
 
 Use the `--group` arg to provide a suite to test `Jest`. For example, to run all specs that are executed on CI for a commit:
 
-```
-yarn jest --group=calypso-pr
+```bash
+# If within test/e2e directory
+yarn test --group=calypso-pr
+
+# If at repo root
+yarn workspace wp-e2e-tests test --group=calypso-pr
 ```
 
-See the [list of groups](docs/overview.md#what-is-tested).
+See the [list of groups](tests_ci.md#featuretest-groups).
 
 ## Advanced techniques
 
 ### Save authentication cookies
 
-Specify accounts to be pre-authenticated by saving authentication cookies and reusing them for each test that is run against those accounts.
+Specified accounts will be pre-authenticated prior to the main test suite executions and their cookies saved to be re-used until expiry (typically 3 days).
 
-**Enable**
+Specify a list of user accounts found in [Secret Manager](packages/calypso-e2e/src/secrets/secrets-manager.ts), separated by commas:
 
-```
-export AUTHENTICATE_ACCOUNTS=simpleSitePersonalPlanUser,eCommerceUser,defaultUser
+```bash
+export AUTHENTICATE_ACCOUNTS=simpleSitePersonalPlanUser,atomicUser,defaultUser
 ```
 
 ### Use the mobile viewport
 
 By default, tests run against the `desktop` viewport size, approximately 1920x1080. The following viewports are currently supported:
+
 - mobile
 - desktop
 
-```
-VIEWPORT_NAME=mobile yarn jest ...
-```
+To launch a spec with mobile viewport:
 
-### Target local webapp
-
-Local webapp refers to a locally served instance of the `wp-calypso` frontend.
-
-1. override the `calypsoBaseURL` value to point to `http://calypso.localhost:3000` using one of the following methods:
-
-   a. change the `calypsoBaseURL` value in `test/e2e/config/default.json`.
-
-   b. create a new local configuration. See [Test Environment](./test_environment.md#local-configs).
-
-   c. export `calypsoBaseURL` override as part of environment variable: `export NODE_CONFIG="{\"calypsoBaseURL\":\"${'$'}{URL/}\"}"`
-
-2. start the webapp:
-
-```shell
-yarn start
+```bash
+yarn test:mobile -- <path_to_spec>
 ```
 
-3. once webapp is started, open `http://calypso.localhost:3000` in your browser.
+To use the manual method, either:
 
-![](./resources/calypso-local-webapp-start-screen.png)
-<sup><center>Local webapp start page.</center></sup>
+a. set the viewport size to persist in the shell: `export VIEWPORT_NAME=<viewport>`
 
-The local environment is now ready for testing. When a test is run, it will hit the locally run webapp instead of the WordPress.com staging environment.
+b. set the viewport size for the command only: `VIEWPORT_NAME=<viewport> yarn jest <test_path>`
+
+### Target a different environment
+
+To target a webapp running in a different environment:
+
+1. determine the base URL to use for the appropriate environment.
+
+   - for local webapp: `http://calypso.localhost:3000`
+   - for staging webapp: `https://wordpress.com`
+   - for wpcalypso webapp: `https://wpcalypso.wordpress.com`
+
+2. set the `CALYPSO_BASE_URL` environment variable:
+
+   a. set the variable to persist in the shell: `export CALYPSO_BASE_URL=<url>`
+
+   b. set the variable for the command only: `CALYPSO_BASE_URL=<url> yarn jest <test_path>`
+
+<img alt="Local Calypso Webapp" src="https://cldup.com/1WwDmUXWen.png" />
+<sup><center>Example: webapp running on localhost.</center></sup>
 
 ### Debug mode
 

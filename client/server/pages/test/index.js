@@ -56,6 +56,7 @@ jest.mock( 'calypso/login', () => {
 jest.mock( 'calypso/server/isomorphic-routing', () => ( {
 	serverRouter: jest.fn(),
 	getNormalizedPath: jest.fn(),
+	getCacheKey: jest.fn(),
 } ) );
 
 jest.mock( 'calypso/server/render', () => ( {
@@ -66,7 +67,7 @@ jest.mock( 'calypso/server/render', () => ( {
 	attachI18n: jest.fn(),
 } ) );
 
-jest.mock( 'calypso/server/state-cache', () => jest.fn() );
+jest.mock( 'calypso/server/state-cache', () => new Map() );
 
 jest.mock( 'calypso/server/user-bootstrap', () => jest.fn() );
 
@@ -108,16 +109,6 @@ jest.mock( 'calypso/lib/oauth2-clients', () => ( {
 	isWooOAuth2Client: jest.fn(),
 } ) );
 
-jest.mock( 'calypso/landing/gutenboarding/section', () => ( {
-	GUTENBOARDING_SECTION_DEFINITION: {
-		name: 'gutenboarding',
-		paths: [ '/new' ],
-		module: 'gutenboarding',
-		group: 'gutenboarding',
-		enableLoggedOut: true,
-	},
-} ) );
-
 /**
  * Builds an app for an specific environment.
  *
@@ -127,7 +118,6 @@ jest.mock( 'calypso/landing/gutenboarding/section', () => ( {
  *
  * As it uses isolated registries, any mock set outside this builder won't be visible for the
  * built app. That's why we need to require mocks here and expose them via getMocks();
- *
  * @param environment the environment
  */
 const buildApp = ( environment ) => {
@@ -173,11 +163,10 @@ const buildApp = ( environment ) => {
 					port: 3000,
 					env_id: environment,
 					rtl: false,
-					discover_logged_out_redirect_url: 'http://discover.url/',
 					i18n_default_locale_slug: 'en',
 					favicon_url: 'http://favicon.url/',
 					enable_all_sections: true,
-				}[ key ] )
+				} )[ key ]
 		);
 
 		appFactory = require( '../index' ).default;
@@ -274,8 +263,11 @@ const buildApp = ( environment ) => {
 			tearDown.push( () => {
 				// If there was an old value, restore it. Otherwise delete
 				// the mocked value. This is required for process.env
-				if ( valueExists ) object[ name ] = oldValue;
-				else delete object[ name ];
+				if ( valueExists ) {
+					object[ name ] = oldValue;
+				} else {
+					delete object[ name ];
+				}
 			} );
 		},
 		withRenderJSX( value ) {
@@ -1015,24 +1007,6 @@ describe( 'main app', () => {
 		} );
 	} );
 
-	describe( 'Route /discover', () => {
-		it( 'redirects to discover url for anonymous users', async () => {
-			const { response } = await app.run( { request: { url: '/discover' } } );
-			expect( response.redirect ).toHaveBeenCalledWith( 'http://discover.url/' );
-		} );
-	} );
-
-	describe( 'Route /read/search', () => {
-		it( 'redirects to public search for anonymous users', async () => {
-			const { response } = await app.run( {
-				request: { url: '/read/search', query: { q: 'my query' } },
-			} );
-			expect( response.redirect ).toHaveBeenCalledWith(
-				'https://en.search.wordpress.com/?q=my%20query'
-			);
-		} );
-	} );
-
 	describe( 'Route /plans', () => {
 		it( 'redirects to login if the request is for jetpack', async () => {
 			const { response } = await app.run( {
@@ -1047,7 +1021,7 @@ describe( 'main app', () => {
 				'jetpack-cloud/connect': false,
 			} );
 			const { response } = await app.run( { request: { url: '/plans' } } );
-			expect( response.redirect ).toHaveBeenCalledWith( 'https://wordpress.com/pricing' );
+			expect( response.redirect ).toHaveBeenCalledWith( 'https://wordpress.com/pricing/' );
 		} );
 	} );
 
@@ -1144,11 +1118,19 @@ describe( 'main app', () => {
 		} );
 	} );
 
+	describe( `Route /home`, () => {
+		assertSection( {
+			url: '/home',
+			sectionName: 'home',
+			sectionGroup: 'sites',
+		} );
+	} );
+
 	describe( `Route /sites`, () => {
 		assertSection( {
 			url: '/sites',
-			sectionName: 'sites',
-			sectionGroup: 'sites',
+			sectionName: 'sites-dashboard',
+			sectionGroup: 'sites-dashboard',
 		} );
 	} );
 
@@ -1201,7 +1183,7 @@ describe( 'main app', () => {
 				} );
 
 				expect( response.redirect ).toHaveBeenCalledWith(
-					'https://en.search.wordpress.com/?q=my%20search'
+					'https://wordpress.com/read/search?q=my%20search'
 				);
 			} );
 
@@ -1216,7 +1198,7 @@ describe( 'main app', () => {
 				} );
 
 				expect( response.redirect ).toHaveBeenCalledWith(
-					'https://en.search.wordpress.com/?q=my%20search'
+					'https://wordpress.com/read/search?q=my%20search'
 				);
 			} );
 
@@ -1252,12 +1234,22 @@ describe( 'main app', () => {
 		} );
 	} );
 
-	describe( `Route /new`, () => {
-		assertSection( {
-			url: '/new',
-			sectionName: 'gutenboarding',
-			sectionGroup: 'gutenboarding',
-			entry: 'entry-gutenboarding',
+	describe( `Route deprecated /new`, () => {
+		it( 'redirects to start flow', async () => {
+			const { response } = await app.run( { request: { url: '/new' } } );
+			expect( response.redirect ).toHaveBeenCalledWith( 301, '/start' );
+		} );
+
+		it( 'redirects to start flow with locale', async () => {
+			const { response } = await app.run( { request: { url: '/new/fr' } } );
+			expect( response.redirect ).toHaveBeenCalledWith( 301, '/start/fr' );
+		} );
+	} );
+
+	describe( 'Route /start/domain-transfer', () => {
+		it( 'redirects to /setup/domain-transfer', async () => {
+			const { response } = await app.run( { request: { url: '/start/domain-transfer' } } );
+			expect( response.redirect ).toHaveBeenCalledWith( 301, '/setup/domain-transfer' );
 		} );
 	} );
 

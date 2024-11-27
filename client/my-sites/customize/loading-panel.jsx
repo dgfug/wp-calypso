@@ -1,8 +1,9 @@
-import classnames from 'classnames';
+/* eslint-disable wpcalypso/jsx-classname-namespace */
+import { Spinner } from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
-import Spinner from 'calypso/components/spinner';
 
 class CustomizerLoadingPanel extends Component {
 	static displayName = 'CustomizerLoadingPanel';
@@ -16,7 +17,7 @@ class CustomizerLoadingPanel extends Component {
 	};
 
 	render() {
-		const noticeClassNames = classnames( 'customizer-loading-panel__notice', {
+		const noticeClassNames = clsx( 'customizer-loading-panel__notice', {
 			'is-iframe-loaded': this.props.isLoaded,
 		} );
 

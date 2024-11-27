@@ -1,14 +1,13 @@
+import page from '@automattic/calypso-router';
 import DomainPicker from '@automattic/domain-picker';
 import { useShoppingCart } from '@automattic/shopping-cart';
 import { isDesktop } from '@automattic/viewport';
 import { ThemeProvider } from '@emotion/react';
 import styled from '@emotion/styled';
 import { HorizontalRule } from '@wordpress/components';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
-import page from 'page';
 import { useEffect, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
 import ExternalLink from 'calypso/components/external-link';
 import Item from 'calypso/layout/masterbar/item';
 import Masterbar from 'calypso/layout/masterbar/masterbar';
@@ -21,6 +20,7 @@ import {
 	ANALYTICS_UI_LOCATION_MARKETPLACE_DOMAIN_SELECTION,
 } from 'calypso/my-sites/marketplace/constants';
 import theme from 'calypso/my-sites/marketplace/theme';
+import { useSelector, useDispatch } from 'calypso/state';
 import { setPrimaryDomainCandidate } from 'calypso/state/marketplace/purchase-flow/actions';
 import getPreviousPath from 'calypso/state/selectors/get-previous-path';
 import { fetchSiteDomains } from 'calypso/state/sites/domains/actions';
@@ -63,7 +63,7 @@ function MarketplaceDomainUpsellHeader() {
 
 const getSiteNameFromURL = ( url: string ) => url?.split( '.' )?.[ 0 ] ?? url;
 
-function CalypsoWrappedMarketplaceDomainUpsell(): JSX.Element {
+function CalypsoWrappedMarketplaceDomainUpsell() {
 	const [ selectedDomainProductUUID, setDomainProductUUID ] = useState< string >( '' );
 	const [ selectedDomain, setDomain ] = useState< DomainSuggestions.DomainSuggestion | undefined >(
 		undefined
@@ -162,7 +162,7 @@ function CalypsoWrappedMarketplaceDomainUpsell(): JSX.Element {
 				/>
 			</Masterbar>
 			<div
-				className={ classnames( 'marketplace-domain-upsell__root', {
+				className={ clsx( 'marketplace-domain-upsell__root', {
 					'expanded-basket-view': isExpandedBasketView,
 				} ) }
 			>

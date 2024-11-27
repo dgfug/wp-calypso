@@ -28,18 +28,17 @@ const shouldCheckForDuplicatePackages = ! process.env.DISABLE_DUPLICATE_PACKAGE_
  *
  * Arguments to this function replicate webpack's so this config can be used on the command line,
  * with individual options overridden by command line args.
- *
  * @see {@link https://webpack.js.org/configuration/configuration-types/#exporting-a-function}
  * @see {@link https://webpack.js.org/api/cli/}
- * @param  {object}  env                                 environment options
- * @param  {object}  argv                                options map
- * @param  {object}  argv.entry                          Entry point(s)
+ * @param  {Object}  env                                 environment options
+ * @param  {Object}  argv                                options map
+ * @param  {Object}  argv.entry                          Entry point(s)
  * @param  {string}  argv.'output-chunk-filename'        Output chunk filename
  * @param  {string}  argv.'output-path'                  Output path
  * @param  {string}  argv.'output-filename'              Output filename pattern
  * @param  {string}  argv.'output-library-target'        Output library target
  * @param  {string}  argv.'output-chunk-loading-global'  Output chunk loading global
- * @returns {object}                                     webpack config
+ * @returns {Object}                                     webpack config
  */
 function getWebpackConfig(
 	env = {},
@@ -88,15 +87,7 @@ function getWebpackConfig(
 		},
 		optimization: {
 			minimize: ! isDevelopment,
-			minimizer: Minify( {
-				parallel: workerCount,
-				extractComments: false,
-				terserOptions: {
-					ecma: 5,
-					safari10: true,
-					mangle: { reserved: [ '__', '_n', '_nx', '_x' ] },
-				},
-			} ),
+			minimizer: Minify(),
 		},
 		module: {
 			strictExportPresence: true,
@@ -127,10 +118,14 @@ function getWebpackConfig(
 			mainFields: [ 'browser', 'calypso:src', 'module', 'main' ],
 			conditionNames: [ 'calypso:src', 'import', 'module', 'require' ],
 			modules: [ 'node_modules' ],
+			fallback: {
+				stream: require.resolve( 'stream-browserify' ),
+			},
 		},
 		node: false,
 		plugins: [
 			new webpack.DefinePlugin( {
+				'typeof window': JSON.stringify( 'object' ),
 				'process.env.NODE_ENV': JSON.stringify( process.env.NODE_ENV ),
 				'process.env.FORCE_REDUCED_MOTION': JSON.stringify(
 					!! process.env.FORCE_REDUCED_MOTION || false

@@ -1,31 +1,44 @@
 import { Button } from '@wordpress/components';
-import classnames from 'classnames';
-import { StorageUsageLevels } from '../storage-usage-levels';
+import clsx from 'clsx';
+import { TranslateResult, useTranslate } from 'i18n-calypso';
+import { SelectorProduct } from 'calypso/my-sites/plans/jetpack-plans/types';
+import { StorageUsageLevelName } from 'calypso/state/rewind/storage/types';
 import useStorageStatusText from './use-storage-status-text';
-import type { TranslateResult } from 'i18n-calypso';
 
 type OwnProps = {
 	className?: string;
-	usageLevel: StorageUsageLevels;
-	actionText: TranslateResult;
+	usageLevel: StorageUsageLevelName;
 	href?: string;
+	upsellSlug: SelectorProduct | null;
+	storage: TranslateResult;
 	onClick?: React.MouseEventHandler;
+	price: JSX.Element;
+	daysOfBackupsSaved: number;
+	minDaysOfBackupsAllowed: number;
 };
 
 const ActionButton: React.FC< OwnProps > = ( {
 	className,
 	usageLevel,
-	actionText,
 	href,
+	storage,
 	onClick,
+	price,
+	daysOfBackupsSaved,
+	minDaysOfBackupsAllowed,
 } ) => {
-	const storageStatusText = useStorageStatusText( usageLevel );
+	const storageStatusText = useStorageStatusText(
+		usageLevel,
+		daysOfBackupsSaved,
+		minDaysOfBackupsAllowed
+	);
 
 	const hasClickableAction = Boolean( href || onClick );
+	const translate = useTranslate();
 
 	return (
 		<Button
-			className={ classnames( className, 'usage-warning__action-button', {
+			className={ clsx( className, 'usage-warning__action-button', {
 				'has-clickable-action': hasClickableAction,
 			} ) }
 			href={ href }
@@ -33,7 +46,12 @@ const ActionButton: React.FC< OwnProps > = ( {
 		>
 			<div className="action-button__copy">
 				<div className="action-button__status">{ storageStatusText }</div>
-				<div className="action-button__action-text">{ actionText }</div>
+				<div className="action-button__action-text">
+					{ translate( 'Add %(storage)s additional storage for {{price/}}', {
+						components: { price: price },
+						args: { storage },
+					} ) }
+				</div>
 			</div>
 			{ hasClickableAction && <span className="action-button__arrow">&#8594;</span> }
 		</Button>

@@ -25,6 +25,8 @@ export interface BaseNoticeOptions {
 	displayOnNextPage?: boolean;
 	duration?: null | number;
 	href?: string;
+	icon?: string;
+	isLoading?: boolean;
 	isPersistent?: boolean;
 	onClick?: () => void;
 	showDismiss?: boolean;
@@ -62,9 +64,7 @@ export type NoticeActionCreatorWithStatus = (
 ) => NoticeAction;
 
 // Notice removal action creator function
-export type NoticeRemovalActionCreator = (
-	noticeId: NoticeId
-) => {
+export type NoticeRemovalActionCreator = ( noticeId: NoticeId ) => {
 	noticeId: NoticeId;
 	type: NoticeRemovalActionType;
 };

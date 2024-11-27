@@ -1,5 +1,7 @@
-jest.mock( 'calypso/signup/step-wrapper', () => 'step-wrapper' );
-jest.mock( 'calypso/my-sites/plan-features', () => 'plan-features' );
+/** @jest-environment jsdom */
+jest.mock( 'calypso/signup/step-wrapper', () => () => <div data-testid="step-wrapper" /> );
+jest.mock( 'calypso/components/marketing-message', () => 'marketing-message' );
+jest.mock( 'calypso/lib/wp', () => ( { req: { post: () => {} } } ) );
 
 import {
 	PLAN_FREE,
@@ -21,7 +23,7 @@ import {
 	PLAN_JETPACK_BUSINESS,
 	PLAN_JETPACK_BUSINESS_MONTHLY,
 } from '@automattic/calypso-products';
-import { shallow } from 'enzyme';
+import { render, screen, waitFor } from '@testing-library/react';
 import { PlansStep, isDotBlogDomainRegistration } from '../index';
 
 const noop = () => {};
@@ -36,10 +38,21 @@ const props = {
 	translate: ( string ) => string,
 };
 
+function getCartItems( overrides ) {
+	return [
+		{
+			product_slug: PLAN_FREE,
+			...overrides,
+		},
+	];
+}
+
 describe( 'Plans basic tests', () => {
-	test( 'should not blow up and have proper CSS class', () => {
-		const comp = shallow( <PlansStep { ...props } /> );
-		expect( comp.find( '.plans-step' ).length ).toBe( 1 );
+	test( 'should not blow up and have proper CSS class', async () => {
+		render( <PlansStep { ...props } /> );
+		const stepWrapper = await waitFor( () => screen.getByTestId( 'step-wrapper' ) );
+		expect( stepWrapper ).toBeVisible();
+		expect( stepWrapper.parentNode ).toHaveClass( 'plans-step' );
 	} );
 } );
 
@@ -56,23 +69,22 @@ describe( 'Plans.onSelectPlan', () => {
 			goToNextStep: jest.fn(),
 		};
 		const comp = new PlansStep( myProps );
-		comp.onSelectPlan( { product_slug: PLAN_FREE } );
+		comp.onSelectPlan( getCartItems() );
 		expect( myProps.goToNextStep ).toHaveBeenCalled();
 	} );
 
 	test( 'Should call submitSignupStep with step details', () => {
 		const submitSignupStep = jest.fn();
-
+		const cartItems = getCartItems();
 		const comp = new PlansStep( { ...tplProps, submitSignupStep } );
-		const cartItem = { product_slug: PLAN_FREE };
-		comp.onSelectPlan( cartItem );
+		comp.onSelectPlan( cartItems );
 		expect( submitSignupStep ).toHaveBeenCalled();
 
 		const calls = submitSignupStep.mock.calls;
 		const args = calls[ calls.length - 1 ];
 		expect( args[ 0 ].stepName ).toEqual( 'Step name' );
 		expect( args[ 0 ].stepSectionName ).toEqual( 'Step section name' );
-		expect( args[ 0 ].cartItem ).toBe( cartItem );
+		expect( args[ 0 ].cartItems ).toBe( cartItems );
 		expect( 'test' in args[ 0 ] ).toEqual( false );
 	} );
 
@@ -83,10 +95,8 @@ describe( 'Plans.onSelectPlan', () => {
 			additionalStepData: { test: 23 },
 			submitSignupStep,
 		};
-
 		const comp = new PlansStep( myProps );
-		const cartItem = { product_slug: PLAN_FREE };
-		comp.onSelectPlan( cartItem );
+		comp.onSelectPlan( getCartItems() );
 		expect( submitSignupStep ).toHaveBeenCalled();
 
 		const calls = submitSignupStep.mock.calls;
@@ -97,20 +107,19 @@ describe( 'Plans.onSelectPlan', () => {
 	test( 'Should call submitSignupStep with correct providedDependencies', () => {
 		const submitSignupStep = jest.fn();
 		const comp = new PlansStep( { ...tplProps, submitSignupStep } );
-		const cartItem = { product_slug: PLAN_FREE };
-		comp.onSelectPlan( cartItem );
+		const cartItems = getCartItems();
+		comp.onSelectPlan( cartItems );
 		expect( submitSignupStep ).toHaveBeenCalled();
 
 		const calls = submitSignupStep.mock.calls;
 		const args = calls[ calls.length - 1 ];
-		expect( args[ 1 ].cartItem ).toBe( cartItem );
+		expect( args[ 1 ].cartItems ).toBe( cartItems );
 	} );
 
 	test( 'Should call recordEvent when cartItem is specified', () => {
 		const recordTracksEvent = jest.fn();
 		const comp = new PlansStep( { ...tplProps, recordTracksEvent } );
-		const cartItem = { product_slug: PLAN_FREE, free_trial: false };
-		comp.onSelectPlan( cartItem );
+		comp.onSelectPlan( getCartItems( {} ) );
 
 		expect( recordTracksEvent ).toHaveBeenCalled();
 
@@ -119,53 +128,56 @@ describe( 'Plans.onSelectPlan', () => {
 		expect( args[ 0 ] ).toEqual( 'calypso_signup_plan_select' );
 		expect( args[ 1 ] ).toEqual( {
 			product_slug: PLAN_FREE,
-			free_trial: false,
 			from_section: 'Step section name',
 		} );
 	} );
 
-	[
+	test.each( [
 		PLAN_BUSINESS_MONTHLY,
 		PLAN_BUSINESS,
 		PLAN_BUSINESS_2_YEARS,
 		PLAN_ECOMMERCE,
 		PLAN_ECOMMERCE_2_YEARS,
-	].forEach( ( plan ) => {
-		test( `Should add is_store_signup to cartItem.extra when processing wp.com business and eCommerce plans (${ plan })`, () => {
+	] )(
+		`Should add is_store_signup to cartItem.extra when processing wp.com business and eCommerce plans (%s)`,
+		( plan ) => {
 			const myProps = {
 				...tplProps,
 				goToNextStep: jest.fn(),
 			};
-			const cartItem = { product_slug: plan };
+			const cartItems = getCartItems( { product_slug: plan } );
+			const [ planCartItem ] = cartItems;
 			const comp = new PlansStep( myProps );
-			comp.onSelectPlan( cartItem );
+			comp.onSelectPlan( cartItems );
 			expect( myProps.goToNextStep ).toHaveBeenCalled();
-			expect( cartItem.extra ).toEqual( {
+			expect( planCartItem.extra ).toEqual( {
 				is_store_signup: true,
 			} );
-		} );
-	} );
+		}
+	);
 
-	[
+	test.each( [
 		PLAN_BUSINESS_MONTHLY,
 		PLAN_BUSINESS,
 		PLAN_BUSINESS_2_YEARS,
 		PLAN_ECOMMERCE,
 		PLAN_ECOMMERCE_2_YEARS,
-	].forEach( ( plan ) => {
-		test( `Should not add is_store_signup to cartItem.extra when flowName is different than 'ecommerce' (${ plan })`, () => {
+	] )(
+		`Should not add is_store_signup to cartItem.extra when flowName is different than 'ecommerce' (%s)`,
+		( plan ) => {
 			const myProps = {
 				...tplProps,
 				flowName: 'signup',
 				goToNextStep: jest.fn(),
 			};
-			const cartItem = { product_slug: plan };
+			const cartItems = getCartItems( { product_slug: plan } );
+			const [ planCartItem ] = cartItems;
 			const comp = new PlansStep( myProps );
-			comp.onSelectPlan( cartItem );
+			comp.onSelectPlan( cartItems );
 			expect( myProps.goToNextStep ).toHaveBeenCalled();
-			expect( cartItem.extra ).toEqual( undefined );
-		} );
-	} );
+			expect( planCartItem.extra ).toEqual( undefined );
+		}
+	);
 
 	test( 'Should not add is_store_signup to cartItem.extra when processing wp.com business plans and designType is not "store"', () => {
 		const myProps = {
@@ -175,13 +187,14 @@ describe( 'Plans.onSelectPlan', () => {
 				designType: 'other',
 			},
 		};
-		const cartItem = { product_slug: PLAN_FREE };
+		const cartItems = getCartItems();
+		const [ planCartItem ] = cartItems;
 		const comp = new PlansStep( myProps );
-		comp.onSelectPlan( cartItem );
-		expect( cartItem.extra ).toEqual( undefined );
+		comp.onSelectPlan( cartItems );
+		expect( planCartItem.extra ).toEqual( undefined );
 	} );
 
-	[
+	test.each( [
 		PLAN_PREMIUM,
 		PLAN_PREMIUM_2_YEARS,
 		PLAN_PERSONAL,
@@ -194,24 +207,22 @@ describe( 'Plans.onSelectPlan', () => {
 		PLAN_JETPACK_PREMIUM_MONTHLY,
 		PLAN_JETPACK_BUSINESS,
 		PLAN_JETPACK_BUSINESS_MONTHLY,
-	].forEach( ( plan ) => {
-		test( `Should not add is_store_signup to cartItem.extra when processing non-wp.com non-business plan (${ plan })`, () => {
-			const cartItem = { product_slug: plan };
+	] )(
+		`Should not add is_store_signup to cartItem.extra when processing non-wp.com non-business plan (%s)`,
+		( plan ) => {
+			const cartItems = getCartItems( { product_slug: plan } );
+			const [ planCartItem ] = cartItems;
 			const comp = new PlansStep( tplProps );
-			comp.onSelectPlan( cartItem );
-			expect( cartItem.extra ).toEqual( undefined );
-		} );
-	} );
+			comp.onSelectPlan( cartItems );
+			expect( planCartItem.extra ).toEqual( undefined );
+		}
+	);
 } );
 
 describe( 'Plans.getCustomerType', () => {
-	test( 'Should return site type property is siteType is provided', () => {
-		const comp = new PlansStep( { ...props, siteType: 'online-store' } );
-		expect( comp.getCustomerType() ).toEqual( 'business' );
-	} );
 	test( "Should return customerType prop when it's provided", () => {
-		const comp = new PlansStep( { ...props, customerType: 'personal' } );
-		expect( comp.getCustomerType() ).toEqual( 'personal' );
+		const comp = new PlansStep( { ...props, customerType: 'customerType' } );
+		expect( comp.getCustomerType() ).toEqual( 'customerType' );
 	} );
 } );
 

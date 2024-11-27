@@ -27,7 +27,7 @@ class SecurityCheckupAccountRecoveryEmail extends Component {
 		} = this.props;
 
 		if ( accountRecoveryEmailActionInProgress ) {
-			return <SecurityCheckupNavigationItem isPlaceholder={ true } />;
+			return <SecurityCheckupNavigationItem isPlaceholder />;
 		}
 
 		let icon;
@@ -66,7 +66,7 @@ class SecurityCheckupAccountRecoveryEmail extends Component {
 
 		return (
 			<SecurityCheckupNavigationItem
-				path={ '/me/security/account-recovery' }
+				path="/me/security/account-recovery"
 				materialIcon={ icon }
 				text={ translate( 'Recovery Email' ) }
 				description={ description }

@@ -1,5 +1,5 @@
-import { BlockFlow, EditorContext, PublishedPostContext } from '..';
 import { createTestFile } from '../../../media-helper';
+import { BlockFlow, EditorContext, PublishedPostContext } from '.';
 
 interface ConfigurationData {
 	imagePaths: string[];
@@ -8,7 +8,7 @@ interface ConfigurationData {
 const blockParentSelector = '[aria-label="Block: Slideshow"]';
 const selectors = {
 	fileInput: `${ blockParentSelector } input[type=file]`,
-	uploadingIndicator: `${ blockParentSelector } .components-spinner`,
+	uploadingIndicator: `${ blockParentSelector } .swiper-slide-active .components-spinner`,
 	publishedImage: ( fileName: string ) => `.wp-block-jetpack-slideshow img[src*="${ fileName }"]`,
 };
 
@@ -43,10 +43,17 @@ export class SlideshowBlockFlow implements BlockFlow {
 			const testFile = await createTestFile( imagePath );
 			// We keep track of the names for later validation in the published post.
 			this.preparedImageFileNames.push( testFile.basename );
-			await context.editorIframe.setInputFiles( selectors.fileInput, testFile.fullpath );
-			await context.editorIframe.waitForSelector( selectors.uploadingIndicator, {
-				state: 'detached',
-			} );
+
+			const editorCanvas = await context.editorPage.getEditorCanvas();
+			const fileInputLocator = editorCanvas.locator( selectors.fileInput );
+			await Promise.all( [
+				fileInputLocator.setInputFiles( testFile.fullpath ),
+				context.page.waitForResponse(
+					( response ) => response.url().includes( 'media?' ) && response.ok()
+				),
+			] );
+			const uploadingIndicatorLocator = editorCanvas.locator( selectors.uploadingIndicator ).last();
+			await uploadingIndicatorLocator.waitFor( { state: 'detached' } );
 		}
 	}
 
@@ -57,9 +64,13 @@ export class SlideshowBlockFlow implements BlockFlow {
 	 */
 	async validateAfterPublish( context: PublishedPostContext ): Promise< void > {
 		for ( const imageFileName of this.preparedImageFileNames ) {
-			await context.page.waitForSelector( selectors.publishedImage( imageFileName ), {
-				state: 'attached', // The image not be visible if it's not the current slide.
-			} );
+			const expectedImageLocator = context.page
+				.locator( selectors.publishedImage( imageFileName ) )
+				// To complete the slideshow experience, there can be multiple copies of one image. We just need to know one is there!
+				.first();
+
+			// The image not be visible if it's not the current slide, so we just want 'attached' state.
+			await expectedImageLocator.waitFor( { state: 'attached' } );
 		}
 	}
 }

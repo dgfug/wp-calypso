@@ -1,8 +1,7 @@
 import { TERM_ANNUALLY } from '@automattic/calypso-products';
-import classNames from 'classnames';
-import { useCallback, useEffect, useState } from 'react';
+import clsx from 'clsx';
+import { useEffect, useState, useMemo } from 'react';
 import * as React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import QueryIntroOffers from 'calypso/components/data/query-intro-offers';
 import QueryJetpackSaleCoupon from 'calypso/components/data/query-jetpack-sale-coupon';
 import QueryJetpackUserLicenses from 'calypso/components/data/query-jetpack-user-licenses';
@@ -11,28 +10,27 @@ import QueryProductsList from 'calypso/components/data/query-products-list';
 import QuerySiteProducts from 'calypso/components/data/query-site-products';
 import QuerySitePurchases from 'calypso/components/data/query-site-purchases';
 import QuerySites from 'calypso/components/data/query-sites';
-import LicensingActivationBanner from 'calypso/components/jetpack/licensing-activation-banner';
-import LicensingPromptDialog from 'calypso/components/jetpack/licensing-prompt-dialog';
 import Main from 'calypso/components/main';
 import { MAIN_CONTENT_ID } from 'calypso/jetpack-cloud/sections/pricing/jpcom-masterbar';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
+import { useExperiment } from 'calypso/lib/explat';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
+import CalypsoShoppingCartProvider from 'calypso/my-sites/checkout/calypso-shopping-cart-provider';
 import { EXTERNAL_PRODUCTS_LIST } from 'calypso/my-sites/plans/jetpack-plans/constants';
+import { useDispatch, useSelector } from 'calypso/state';
 import { recordTracksEvent } from 'calypso/state/analytics/actions/record';
 import { showMasterbar } from 'calypso/state/ui/actions';
 import { getSelectedSiteId, getSelectedSiteSlug } from 'calypso/state/ui/selectors';
 import { getPurchaseURLCallback } from './get-purchase-url-callback';
 import getViewTrackerPath from './get-view-tracker-path';
 import { getForCurrentCROIteration, Iterations } from './iterations';
-import ProductGrid from './product-grid';
+import ProductStore from './product-store';
 import type {
 	Duration,
-	ScrollCardIntoViewCallback,
 	SelectorPageProps,
 	SelectorProduct,
 	PurchaseCallback,
 } from 'calypso/my-sites/plans/jetpack-plans/types';
-
 import './style.scss';
 
 const SelectorPage: React.FC< SelectorPageProps > = ( {
@@ -43,19 +41,22 @@ const SelectorPage: React.FC< SelectorPageProps > = ( {
 	nav,
 	header,
 	footer,
+	locale,
 	planRecommendation,
-	highlightedProducts = [],
 	enableUserLicensesDialog = false,
 }: SelectorPageProps ) => {
 	const dispatch = useDispatch();
 
-	const siteId = useSelector( ( state ) => getSelectedSiteId( state ) );
-	const siteSlugState = useSelector( ( state ) => getSelectedSiteSlug( state ) ) || '';
+	const siteId = useSelector( getSelectedSiteId );
+	const siteSlugState = useSelector( getSelectedSiteSlug ) || '';
 	const siteSlug = siteSlugProp || siteSlugState;
 	const [ currentDuration, setDuration ] = useState< Duration >( defaultDuration );
 	const viewTrackerPath = getViewTrackerPath( rootUrl, siteSlugProp );
 	const viewTrackerProps = siteId ? { site: siteSlug } : {};
 	const legacyPlan = planRecommendation ? planRecommendation[ 0 ] : null;
+
+	const [ , experimentAssignment ] = useExperiment( 'calypso_jetpack_upsell_page_2022_06' );
+	const showUpsellPage = experimentAssignment?.variationName === 'treatment';
 
 	useEffect( () => {
 		dispatch(
@@ -80,7 +81,7 @@ const SelectorPage: React.FC< SelectorPageProps > = ( {
 		}
 	}, [ legacyPlan, dispatch, rootUrl, siteSlug, viewTrackerPath ] );
 
-	const { unlinked, purchasetoken, purchaseNonce, site } = urlQueryArgs;
+	const { unlinked, purchasetoken, purchaseNonce, site, currency: currencyCode } = urlQueryArgs;
 	const canDoSiteOnlyCheckout = unlinked && !! site && !! ( purchasetoken || purchaseNonce );
 	useEffect( () => {
 		if ( canDoSiteOnlyCheckout ) {
@@ -98,19 +99,6 @@ const SelectorPage: React.FC< SelectorPageProps > = ( {
 		setDuration( defaultDuration );
 	}, [ defaultDuration ] );
 
-	const scrollCardIntoView: ScrollCardIntoViewCallback = useCallback(
-		( element, productSlug ) => {
-			if ( highlightedProducts.includes( productSlug ) ) {
-				// Timeout to make sure everything has rendered before
-				// before scrolling the element into view.
-				element.scrollIntoView( {
-					behavior: 'smooth',
-				} );
-			}
-		},
-		[ highlightedProducts ]
-	);
-
 	useEffect(
 		() => () => {
 			// Show masterbar back when pricing page unmounts, to prevent it from disappearing
@@ -119,10 +107,13 @@ const SelectorPage: React.FC< SelectorPageProps > = ( {
 				dispatch( showMasterbar() );
 			}
 		},
-		[]
+		[ dispatch ]
 	);
 
-	const createProductURL = getPurchaseURLCallback( siteSlug, urlQueryArgs );
+	const createProductURL = useMemo(
+		() => getPurchaseURLCallback( siteSlug, urlQueryArgs, locale, rootUrl, showUpsellPage ),
+		[ siteSlug, urlQueryArgs, locale, rootUrl, showUpsellPage ]
+	);
 
 	// Sends a user to a page based on whether there are subtypes.
 	const selectProduct: PurchaseCallback = (
@@ -164,20 +155,6 @@ const SelectorPage: React.FC< SelectorPageProps > = ( {
 		dispatch( recordTracksEvent( 'calypso_jetpack_pricing_page_product_click', trackingProps ) );
 	};
 
-	const trackDurationChange = ( selectedDuration: Duration ) => {
-		if ( selectedDuration === currentDuration ) {
-			return;
-		}
-
-		dispatch(
-			recordTracksEvent( 'calypso_plans_duration_change', {
-				site_id: siteId || undefined,
-				duration: selectedDuration,
-			} )
-		);
-		setDuration( selectedDuration );
-	};
-
 	const iterationClassName = getForCurrentCROIteration(
 		( variation: Iterations | null ) => `jetpack-plans__iteration--${ variation ?? 'default' }`
 	);
@@ -188,12 +165,15 @@ const SelectorPage: React.FC< SelectorPageProps > = ( {
 			{ siteId && enableUserLicensesDialog && <QueryJetpackUserLicenses /> }
 			{ siteId && enableUserLicensesDialog && <QueryJetpackUserLicensesCounts /> }
 
-			{ siteId && enableUserLicensesDialog && <LicensingPromptDialog siteId={ siteId } /> }
-
 			{ nav }
 
 			<Main
-				className={ classNames( 'selector__main', iterationClassName, 'fs-unmask' ) }
+				className={ clsx(
+					'selector__main',
+					iterationClassName,
+					'fs-unmask',
+					'jetpack-pricing-page-rework-v1'
+				) }
 				id={ MAIN_CONTENT_ID }
 				wideLayout
 			>
@@ -201,25 +181,23 @@ const SelectorPage: React.FC< SelectorPageProps > = ( {
 					path={ viewTrackerPath }
 					properties={ viewTrackerProps }
 					title="Plans"
-					options={ { useJetpackGoogleAnalytics: ! isJetpackCloud() } }
+					options={ { useJetpackGoogleAnalytics: isJetpackCloud() } }
 				/>
 
-				{ siteId && enableUserLicensesDialog && <LicensingActivationBanner siteId={ siteId } /> }
+				<CalypsoShoppingCartProvider>
+					<ProductStore
+						createCheckoutURL={ createProductURL }
+						duration={ currentDuration }
+						enableUserLicensesDialog={ enableUserLicensesDialog }
+						onClickPurchase={ selectProduct }
+						urlQueryArgs={ urlQueryArgs }
+						header={ header }
+						planRecommendation={ planRecommendation }
+					/>
+				</CalypsoShoppingCartProvider>
 
-				{ header }
-
-				<ProductGrid
-					duration={ currentDuration }
-					urlQueryArgs={ urlQueryArgs }
-					planRecommendation={ planRecommendation }
-					onSelectProduct={ selectProduct }
-					onDurationChange={ trackDurationChange }
-					scrollCardIntoView={ scrollCardIntoView }
-					createButtonURL={ createProductURL }
-				/>
-
-				<QueryProductsList type="jetpack" />
-				<QueryIntroOffers siteId={ siteId ?? 'none' } />
+				<QueryProductsList type="jetpack" currency={ currencyCode ?? undefined } />
+				<QueryIntroOffers siteId={ siteId ?? 'none' } currency={ currencyCode ?? undefined } />
 				{ siteId && <QuerySiteProducts siteId={ siteId } /> }
 				{ siteId && <QuerySitePurchases siteId={ siteId } /> }
 				{ siteId && <QuerySites siteId={ siteId } /> }

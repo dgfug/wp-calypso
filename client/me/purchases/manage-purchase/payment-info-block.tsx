@@ -1,3 +1,4 @@
+import { Icon, warning } from '@wordpress/icons';
 import { useTranslate } from 'i18n-calypso';
 import { useLocalizedMoment } from 'calypso/components/localized-moment';
 import PaymentLogo from 'calypso/components/payment-logo';
@@ -11,8 +12,8 @@ import {
 	paymentLogoType,
 	hasPaymentMethod,
 } from 'calypso/lib/purchases';
+import type { StoredPaymentMethod } from 'calypso/lib/checkout/payment-methods';
 import type { Purchase } from 'calypso/lib/purchases/types';
-import type { StoredCard } from 'calypso/my-sites/checkout/composite-checkout/types/stored-cards';
 import type { ReactNode } from 'react';
 
 export default function PaymentInfoBlock( {
@@ -20,22 +21,31 @@ export default function PaymentInfoBlock( {
 	cards,
 }: {
 	purchase: Purchase;
-	cards: StoredCard[];
-} ): JSX.Element {
+	cards: StoredPaymentMethod[];
+} ) {
 	const translate = useTranslate();
 	const moment = useLocalizedMoment();
 	const isBackupMethodAvailable = cards.some(
-		( card ) =>
-			card.stored_details_id !== purchase.payment.storedDetailsId &&
-			card.meta?.find( ( meta ) => meta.meta_key === 'is_backup' )?.meta_value
+		( card ) => card.stored_details_id !== purchase.payment.storedDetailsId && card.is_backup
 	);
 
 	if ( isIncludedWithPlan( purchase ) ) {
 		return <PaymentInfoBlockWrapper>{ translate( 'Included with plan' ) }</PaymentInfoBlockWrapper>;
 	}
 
+	if ( ! purchase.isAutoRenewEnabled && isPaidWithCredits( purchase ) ) {
+		return <PaymentInfoBlockWrapper>{ translate( 'None' ) }</PaymentInfoBlockWrapper>;
+	}
+
 	if ( hasPaymentMethod( purchase ) && isPaidWithCredits( purchase ) ) {
-		return <PaymentInfoBlockWrapper>{ translate( 'Credits' ) }</PaymentInfoBlockWrapper>;
+		return (
+			<PaymentInfoBlockWrapper>
+				<div className="manage-purchase__no-payment-method">
+					<Icon icon={ warning } />
+					{ translate( 'You don’t have a payment method to renew this subscription' ) }
+				</div>
+			</PaymentInfoBlockWrapper>
+		);
 	}
 
 	if (
@@ -96,6 +106,31 @@ export default function PaymentInfoBlock( {
 		return <PaymentInfoBlockWrapper>{ translate( 'In-App Purchase' ) }</PaymentInfoBlockWrapper>;
 	}
 
+	if ( purchase.isAutoRenewEnabled && ! hasPaymentMethod( purchase ) ) {
+		return (
+			<PaymentInfoBlockWrapper>
+				<div className="manage-purchase__no-payment-method">
+					<Icon icon={ warning } />
+					{ translate( 'You don’t have a payment method to renew this subscription' ) }
+				</div>
+			</PaymentInfoBlockWrapper>
+		);
+	}
+
+	if (
+		! isRechargeable( purchase ) &&
+		hasPaymentMethod( purchase ) &&
+		purchase.isAutoRenewEnabled
+	) {
+		return (
+			<PaymentInfoBlockWrapper>
+				<div className="manage-purchase__no-payment-method">
+					<Icon icon={ warning } />
+					{ translate( 'You don’t have a payment method to renew this subscription' ) }
+				</div>
+			</PaymentInfoBlockWrapper>
+		);
+	}
 	return <PaymentInfoBlockWrapper>{ translate( 'None' ) }</PaymentInfoBlockWrapper>;
 }
 

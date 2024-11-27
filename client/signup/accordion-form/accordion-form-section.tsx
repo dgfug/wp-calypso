@@ -9,7 +9,10 @@ interface AccordionFormSectionProps< T > extends AccordionSectionProps< T > {
 	showSubmit: boolean;
 	onOpen: () => void;
 	onNext: () => void;
+	onSave: () => void;
 	blockNavigation?: boolean;
+	isSaving: boolean;
+	hasUnsavedChanges: boolean;
 }
 
 interface SectionHeaderProps {
@@ -22,6 +25,9 @@ interface SectionHeaderProps {
 const Section = styled.div`
 	border-bottom: 1px solid var( --studio-gray-5 );
 	padding: 0 20px;
+	@media ( min-width: 1280px ) {
+		width: 775px;
+	}
 `;
 
 const SectionHeader = styled.div< SectionHeaderProps >`
@@ -41,8 +47,9 @@ const SectionContent = styled.div`
 	display: flex;
 	flex-direction: column;
 	padding: 0 0 36px 0;
-	@media ( min-width: 600px ) {
+	@media ( min-width: 1280px ) {
 		padding-right: 96px;
+		min-width: 675px;
 	}
 `;
 
@@ -84,10 +91,11 @@ const SummaryLabel = styled( RequiredLabel )`
 	text-align: right;
 `;
 
-const NextButton = styled( Button )`
+const ActionButton = styled( Button )`
 	box-shadow: 0px 1px 2px rgba( 0, 0, 0, 0.05 );
 	border-radius: 5px;
-	padding: 10px 64px;
+	padding: 10px 0;
+	width: 177px;
 	.gridicon {
 		margin-left: 10px;
 	}
@@ -115,14 +123,20 @@ export default function AccordionFormSection< T >( props: AccordionFormSectionPr
 				<SectionContent>
 					{ props.component ? props.component : props.children }
 					<ButtonsContainer>
-						<NextButton
+						<ActionButton
+							onClick={ props.onSave }
+							disabled={ props.blockNavigation || props.isSaving || ! props.hasUnsavedChanges }
+						>
+							{ props.isSaving ? translate( 'Saving' ) : translate( 'Save Changes' ) }
+						</ActionButton>
+						<ActionButton
 							primary={ props.showSubmit }
 							onClick={ props.onNext }
-							disabled={ props.blockNavigation }
+							disabled={ props.blockNavigation || props.isSaving }
 						>
 							{ props.showSubmit ? translate( 'Submit' ) : translate( 'Next' ) }
 							{ ! props.showSubmit && <Gridicon icon={ isRTL ? 'arrow-left' : 'arrow-right' } /> }
-						</NextButton>
+						</ActionButton>
 						{ props.showSkip && ! props.showSubmit && (
 							<SkipLink
 								disabled={ props.blockNavigation }

@@ -1,4 +1,4 @@
-import classnames from 'classnames';
+import clsx from 'clsx';
 import closest from 'component-closest';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
@@ -13,11 +13,7 @@ import ReaderVisitLink from 'calypso/blocks/reader-visit-link';
 import AutoDirection from 'calypso/components/auto-direction';
 import QueryReaderPost from 'calypso/components/data/query-reader-post';
 import TimeSince from 'calypso/components/time-since';
-import {
-	canBeMarkedAsSeen,
-	getDefaultSeenValue,
-	isEligibleForUnseen,
-} from 'calypso/reader/get-helpers';
+import { isEligibleForUnseen } from 'calypso/reader/get-helpers';
 import { isAuthorNameBlocked } from 'calypso/reader/lib/author-name-blocklist';
 import { recordPermalinkClick } from 'calypso/reader/stats';
 
@@ -25,7 +21,7 @@ class ReaderCombinedCardPost extends Component {
 	static propTypes = {
 		currentRoute: PropTypes.string,
 		isWPForTeamsItem: PropTypes.bool,
-		teams: PropTypes.array,
+		hasOrganization: PropTypes.bool,
 		post: PropTypes.object,
 		streamUrl: PropTypes.string,
 		onClick: PropTypes.func,
@@ -33,7 +29,7 @@ class ReaderCombinedCardPost extends Component {
 	};
 
 	static defaultProps = {
-		teams: [],
+		hasOrganization: false,
 		showFeaturedAsset: true,
 	};
 
@@ -80,10 +76,9 @@ class ReaderCombinedCardPost extends Component {
 			currentRoute,
 			post,
 			streamUrl,
-			isDiscover,
 			isSelected,
 			postKey,
-			teams,
+			hasOrganization,
 			isWPForTeamsItem,
 		} = this.props;
 		const isLoading = ! post || post._state === 'pending' || post._state === 'minimal';
@@ -122,11 +117,11 @@ class ReaderCombinedCardPost extends Component {
 			recordPermalinkClick( 'timestamp_combined_card', post );
 		};
 
-		let isSeen = getDefaultSeenValue( currentRoute );
-		if ( canBeMarkedAsSeen( { post, currentRoute } ) ) {
-			isSeen = isEligibleForUnseen( { teams, isWPForTeamsItem } ) && post.is_seen;
+		let isSeen = false;
+		if ( isEligibleForUnseen( { isWPForTeamsItem, currentRoute, hasOrganization } ) ) {
+			isSeen = post?.is_seen;
 		}
-		const classes = classnames( {
+		const classes = clsx( {
 			'reader-combined-card__post': true,
 			'is-selected': isSelected,
 			'is-seen': isSeen,
@@ -147,7 +142,7 @@ class ReaderCombinedCardPost extends Component {
 							</a>
 						</h1>
 					</AutoDirection>
-					<ReaderExcerpt post={ post } isDiscover={ isDiscover } />
+					<ReaderExcerpt post={ post } />
 					<div className="reader-combined-card__post-author-and-time ignore-click">
 						<ReaderVisitLink href={ post.URL } iconSize={ 14 }>
 							{ this.props.translate( 'Visit' ) }

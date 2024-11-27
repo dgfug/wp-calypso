@@ -1,25 +1,26 @@
-@import '@automattic/onboarding/styles/mixins';
-@import 'jetpack-connect/colors.scss';
+@import "@automattic/onboarding/styles/mixins";
+@import "jetpack-connect/colors";
 
 .is-group-woocommerce-installation.is-section-woocommerce-installation .layout__content {
 	padding-bottom: 0; //removes whitespace in the end
 }
 
 body.is-section-woocommerce-installation.theme-default.color-scheme {
-	--color-surface-backdrop: var( --studio-white );
+	--color-surface-backdrop: var(--studio-white);
 }
 
 .woocommerce {
 	.main {
-		padding-top: 72px;
-
-		@include breakpoint-deprecated( '>660px' ) {
-			padding-top: 35px;
-		}
-
-		@media ( max-width: 660px ) {
+		@media (max-width: 660px) {
 			padding-left: 15px;
 			padding-right: 15px;
+		}
+	}
+
+	.navigation-header {
+		@media (max-width: $break-small) {
+			padding-bottom: 16px;
+			margin-bottom: 0;
 		}
 	}
 
@@ -28,7 +29,7 @@ body.is-section-woocommerce-installation.theme-default.color-scheme {
 
 		margin-top: 1em;
 		text-align: center;
-		color: var( --color-text-subtle );
+		color: var(--color-text-subtle);
 
 		span,
 		a {
@@ -40,11 +41,9 @@ body.is-section-woocommerce-installation.theme-default.color-scheme {
 			display: inline-block;
 			fill: currentColor;
 			vertical-align: inherit;
-			margin-top: -2px;
-			margin-left: 4px;
 		}
 
-		@include breakpoint-deprecated( '<660px' ) {
+		@include breakpoint-deprecated( "<660px" ) {
 			margin-bottom: 24px;
 		}
 	}
@@ -56,7 +55,7 @@ body.is-section-woocommerce-installation.theme-default.color-scheme {
 
 		.empty-content__title {
 			@include onboarding-heading-text;
-			color: var( --studio-gray-90 );
+			color: var(--studio-gray-90);
 			padding: 1em 0 0.5em;
 		}
 
@@ -64,11 +63,15 @@ body.is-section-woocommerce-installation.theme-default.color-scheme {
 			@include onboarding-large-text;
 			margin-bottom: 1.5em;
 		}
+
+		.empty-content__action {
+			margin: 0 0 10px 10px;
+		}
 	}
 
 	.landing-page__features-section {
 		@include woocommerce-colors();
-		background-color: var( --color-woocommerce-onboarding-background );
+		background-color: var(--color-woocommerce-onboarding-background);
 		margin-top: 100px;
 		padding-top: 60px;
 		padding-bottom: 40px;
@@ -88,13 +91,13 @@ body.is-section-woocommerce-installation.theme-default.color-scheme {
 
 				.promo-card {
 					box-shadow: none;
-					background-color: var( --color-woocommerce-onboarding-background );
+					background-color: var(--color-woocommerce-onboarding-background);
 					padding-left: 0;
 					padding-right: 0;
 					width: 90%;
 
-					@media ( min-width: $break-wide ) {
-						width: calc( 30% );
+					@media (min-width: $break-wide) {
+						width: calc(30%);
 						padding-left: 0;
 						padding-right: 10px;
 					}
@@ -114,7 +117,7 @@ body.is-section-woocommerce-installation.theme-default.color-scheme {
 						font-size: $font-body-small;
 
 						p {
-							padding-left: calc( 24px + 0.5rem ); // grid icon + space
+							padding-left: calc(24px + 0.5rem); // grid icon + space
 						}
 					}
 				}
@@ -123,8 +126,8 @@ body.is-section-woocommerce-installation.theme-default.color-scheme {
 
 		// Extend grey background outside the bottom stripe
 		&::before {
-			content: '';
-			background-color: var( --color-woocommerce-onboarding-background );
+			content: "";
+			background-color: var(--color-woocommerce-onboarding-background);
 			position: absolute;
 			height: 100%;
 			width: 200vw;

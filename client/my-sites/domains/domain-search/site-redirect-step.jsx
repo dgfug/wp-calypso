@@ -1,8 +1,8 @@
+import page from '@automattic/calypso-router';
 import { Button } from '@automattic/components';
 import { withShoppingCart } from '@automattic/shopping-cart';
 import { localize } from 'i18n-calypso';
 import { get } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -122,10 +122,14 @@ class SiteRedirectStep extends Component {
 		} );
 	};
 
-	addSiteRedirectToCart = ( domain ) => {
-		this.props.shoppingCartManager.addProductsToCart( [ siteRedirect( { domain } ) ] ).then( () => {
-			this.isMounted && page( '/checkout/' + this.props.selectedSite.slug );
-		} );
+	addSiteRedirectToCart = async ( domain ) => {
+		try {
+			await this.props.shoppingCartManager.addProductsToCart( [ siteRedirect( { domain } ) ] );
+		} catch {
+			// Nothing needs to be done here. CartMessages will display the error to the user.
+			return;
+		}
+		this.isMounted && page( '/checkout/' + this.props.selectedSite.slug );
 	};
 
 	getValidationErrorMessage = ( domain, error ) => {

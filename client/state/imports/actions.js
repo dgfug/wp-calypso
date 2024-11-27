@@ -5,11 +5,13 @@ import {
 	IMPORTS_IMPORT_CANCEL,
 	IMPORTS_IMPORT_LOCK,
 	IMPORTS_IMPORT_RECEIVE,
+	IMPORTS_IMPORT_RECEIVED_RESET,
 	IMPORTS_IMPORT_RESET,
 	IMPORTS_IMPORT_START,
 	IMPORTS_IMPORT_UNLOCK,
 	IMPORTS_START_IMPORTING,
 	IMPORTS_UPLOAD_FAILED,
+	IMPORTS_PRE_UPLOAD_FAILED,
 	IMPORTS_UPLOAD_COMPLETED,
 	IMPORTS_UPLOAD_SET_PROGRESS,
 	IMPORTS_UPLOAD_START,
@@ -91,6 +93,8 @@ export const unlockImport = ( importerId ) => ( {
 	type: IMPORTS_IMPORT_UNLOCK,
 	importerId,
 } );
+
+export const resetImportReceived = () => ( { type: IMPORTS_IMPORT_RECEIVED_RESET } );
 
 export const receiveImporterStatus = ( importerStatus ) => ( dispatch, getState ) => {
 	const isLocked = isImporterLocked( getState(), importerStatus.importId );
@@ -213,40 +217,50 @@ export const setUploadStartState = ( importerId, filenameOrUrl ) => ( {
 	importerId,
 } );
 
-export const startUpload = ( importerStatus, file, url = undefined ) => ( dispatch ) => {
-	const {
-		importerId,
-		site: { ID: siteId },
-	} = importerStatus;
+export const startUpload =
+	( importerStatus, file, url = undefined ) =>
+	( dispatch ) => {
+		const {
+			importerId,
+			site: { ID: siteId },
+		} = importerStatus;
 
-	dispatch( setUploadStartState( importerId, file.name ) );
+		dispatch( setUploadStartState( importerId, file.name ) );
 
-	return uploadExportFile( siteId, {
-		importStatus: toApi( importerStatus ),
-		file,
-		url,
-		onprogress: ( event ) => {
-			dispatch(
-				setUploadProgress( importerId, {
-					uploadLoaded: event.loaded,
-					uploadTotal: event.total,
-				} )
-			);
-		},
-		onabort: () => {
-			dispatch( cancelImport( siteId, importerId ) );
-		},
-	} )
-		.then( ( data ) => {
-			dispatch( finishUpload( importerId, fromApi( data ) ) );
+		return uploadExportFile( siteId, {
+			importStatus: toApi( importerStatus ),
+			file,
+			url,
+			onprogress: ( event ) => {
+				dispatch(
+					setUploadProgress( importerId, {
+						uploadLoaded: event.loaded,
+						uploadTotal: event.total,
+					} )
+				);
+			},
+			onabort: () => {
+				dispatch( cancelImport( siteId, importerId ) );
+			},
 		} )
-		.catch( ( error ) => {
-			const failUploadAction = {
-				type: IMPORTS_UPLOAD_FAILED,
-				importerId,
-				error: error.message,
-			};
+			.then( ( data ) => {
+				dispatch( finishUpload( importerId, fromApi( data ) ) );
+			} )
+			.catch( ( error ) => {
+				const failUploadAction = {
+					type: IMPORTS_UPLOAD_FAILED,
+					importerId,
+					error: error.message,
+				};
 
-			dispatch( failUploadAction );
-		} );
-};
+				dispatch( failUploadAction );
+			} );
+	};
+
+export const failPreUpload = ( importerId, message, code, file ) => ( {
+	type: IMPORTS_PRE_UPLOAD_FAILED,
+	importerId,
+	error: message,
+	errorCode: code,
+	file,
+} );

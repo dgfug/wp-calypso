@@ -383,7 +383,7 @@ describe( 'utils', () => {
 					normalizers.statsFollowers( {
 						page: 1,
 						pages: 1,
-						total: 1,
+						total: 125,
 						total_email: 5,
 						total_wpcom: 120,
 						subscribers: [
@@ -400,6 +400,7 @@ describe( 'utils', () => {
 				).toEqual( {
 					total_email: 5,
 					total_wpcom: 120,
+					total: 125,
 					subscribers: [
 						{
 							label: 'wapuu@wordpress.org',
@@ -572,6 +573,7 @@ describe( 'utils', () => {
 					)
 				).toEqual( [
 					{
+						id: 0,
 						label: 'Home Page / Archives',
 						value: 3939,
 						page: '/stats/post/0/en.blog.wordpress.com',
@@ -620,6 +622,7 @@ describe( 'utils', () => {
 					)
 				).toEqual( [
 					{
+						id: 777,
 						label: 'New WordPress.com for Lightroom Makes Publishing Your Photos Easy',
 						value: 774,
 						page: '/stats/post/777/en.blog.wordpress.com',
@@ -667,6 +670,7 @@ describe( 'utils', () => {
 					)
 				).toEqual( [
 					{
+						id: 0,
 						label: 'Home Page / Archives',
 						value: 3939,
 						page: '/stats/post/0/en.blog.wordpress.com',
@@ -997,7 +1001,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsPublicize( { bad: [] } ) ).toEqual( [] );
 			} );
 
-			test( 'should return an a properly parsed services array', () => {
+			test( 'should return a properly parsed services array', () => {
 				expect(
 					normalizers.statsPublicize( {
 						services: [
@@ -1051,8 +1055,7 @@ describe( 'utils', () => {
 											plays: 32,
 											post_id: 111111111,
 											title: 'Press This!',
-											url:
-												'http://en.blog.wordpress.com/wp-admin/media.php?action=edit&attachment_id=111111111',
+											url: 'http://en.blog.wordpress.com/wp-admin/media.php?action=edit&attachment_id=111111111',
 										},
 									],
 								},
@@ -1071,8 +1074,7 @@ describe( 'utils', () => {
 					{
 						actions: [
 							{
-								data:
-									'http://en.blog.wordpress.com/wp-admin/media.php?action=edit&attachment_id=111111111',
+								data: 'http://en.blog.wordpress.com/wp-admin/media.php?action=edit&attachment_id=111111111',
 								type: 'link',
 							},
 						],
@@ -1089,7 +1091,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsVideo() ).toBeNull();
 			} );
 
-			test( 'should return an a properly parsed data array', () => {
+			test( 'should return a properly parsed data array', () => {
 				expect(
 					normalizers.statsVideo( {
 						data: [
@@ -1104,6 +1106,10 @@ describe( 'utils', () => {
 					} )
 				).toEqual( {
 					data: [
+						{
+							period: '2016-11-12',
+							value: 1,
+						},
 						{
 							period: '2016-11-13',
 							value: 0,
@@ -1121,8 +1127,7 @@ describe( 'utils', () => {
 						{
 							label:
 								'http://www.themepremium.com/blog-with-the-speed-of-your-thought-with-the-p2-theme/',
-							link:
-								'http://www.themepremium.com/blog-with-the-speed-of-your-thought-with-the-p2-theme/',
+							link: 'http://www.themepremium.com/blog-with-the-speed-of-your-thought-with-the-p2-theme/',
 						},
 					],
 				} );
@@ -1142,7 +1147,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsTopAuthors( {}, { period: 'day' } ) ).toEqual( [] );
 			} );
 
-			test( 'should return an a properly parsed data array', () => {
+			test( 'should return a properly parsed data array', () => {
 				expect(
 					normalizers.statsTopAuthors(
 						{
@@ -1230,7 +1235,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsTags( { bad: [] } ) ).toEqual( [] );
 			} );
 
-			test( 'should return an a properly parsed data array', () => {
+			test( 'should return a properly parsed data array', () => {
 				expect(
 					normalizers.statsTags( {
 						date: '2014-10-01',
@@ -1324,7 +1329,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsClicks( {}, { period: 'day' } ) ).toEqual( [] );
 			} );
 
-			test( 'should return an a properly parsed data array', () => {
+			test( 'should return a properly parsed data array', () => {
 				expect(
 					normalizers.statsClicks(
 						{
@@ -1333,8 +1338,7 @@ describe( 'utils', () => {
 								'2017-01-12': {
 									clicks: [
 										{
-											icon:
-												'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
+											icon: 'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
 											name: 'wordpress.com/support',
 											url: null,
 											views: 45,
@@ -1344,12 +1348,16 @@ describe( 'utils', () => {
 													url: 'https://wordpress.com/support/',
 													views: 5,
 												},
+												{
+													name: 'wordpress.com/support/hello',
+													url: 'https://wordpress.com/support/hello',
+													views: 5,
+												},
 											],
 										},
 										{
 											children: null,
-											icon:
-												'https://secure.gravatar.com/blavatar/3dbcb399a9112e3bb46f706b01c80062?s=48',
+											icon: 'https://secure.gravatar.com/blavatar/3dbcb399a9112e3bb46f706b01c80062?s=48',
 											name: 'en.forums.wordpress.com',
 											url: 'https://en.forums.wordpress.com/',
 											views: 6,
@@ -1368,9 +1376,16 @@ describe( 'utils', () => {
 						children: [
 							{
 								children: null,
-								label: 'wordpress.com/support',
+								label: '/',
 								labelIcon: 'external',
 								link: 'https://wordpress.com/support/',
+								value: 5,
+							},
+							{
+								children: null,
+								label: '/hello',
+								labelIcon: 'external',
+								link: 'https://wordpress.com/support/hello',
 								value: 5,
 							},
 						],
@@ -1391,7 +1406,7 @@ describe( 'utils', () => {
 				] );
 			} );
 
-			test( 'should return an a properly parsed summary data array', () => {
+			test( 'should return a properly parsed summary data array', () => {
 				expect(
 					normalizers.statsClicks(
 						{
@@ -1399,8 +1414,7 @@ describe( 'utils', () => {
 							summary: {
 								clicks: [
 									{
-										icon:
-											'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
+										icon: 'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
 										name: 'wordpress.com/support',
 										url: null,
 										views: 50,
@@ -1414,8 +1428,7 @@ describe( 'utils', () => {
 									},
 									{
 										children: null,
-										icon:
-											'https://secure.gravatar.com/blavatar/3dbcb399a9112e3bb46f706b01c80062?s=48',
+										icon: 'https://secure.gravatar.com/blavatar/3dbcb399a9112e3bb46f706b01c80062?s=48',
 										name: 'en.forums.wordpress.com',
 										url: 'https://en.forums.wordpress.com/',
 										views: 10,
@@ -1434,7 +1447,7 @@ describe( 'utils', () => {
 						children: [
 							{
 								children: null,
-								label: 'wordpress.com/support',
+								label: '/',
 								labelIcon: 'external',
 								link: 'https://wordpress.com/support/',
 								value: 50,
@@ -1471,7 +1484,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsReferrers( {}, { period: 'day' } ) ).toEqual( [] );
 			} );
 
-			test( 'should return an a properly parsed summary data array', () => {
+			test( 'should return a properly parsed summary data array', () => {
 				expect(
 					normalizers.statsReferrers(
 						{
@@ -1482,8 +1495,7 @@ describe( 'utils', () => {
 										group: 'WordPress.com Reader',
 										name: 'WordPress.com Reader',
 										url: 'https://wordpress.com',
-										icon:
-											'https://secure.gravatar.com/blavatar/236c008da9dc0edb4b3464ecebb3fc1d?s=48',
+										icon: 'https://secure.gravatar.com/blavatar/236c008da9dc0edb4b3464ecebb3fc1d?s=48',
 										results: {
 											views: 500,
 										},
@@ -1491,12 +1503,16 @@ describe( 'utils', () => {
 									},
 									{
 										group: 'wordpress.com/support',
-										icon:
-											'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
+										icon: 'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
 										name: 'wordpress.com/support',
 										results: [
 											{ name: 'homepage', url: 'https://wordpress.com/support/', views: 200 },
 											{ name: 'start', url: 'https://wordpress.com/support/start/', views: 100 },
+											{
+												name: 'wordpress.com/support/hello',
+												url: 'https://wordpress.com/support/hello/',
+												views: 100,
+											},
 										],
 										total: 300,
 									},
@@ -1548,6 +1564,13 @@ describe( 'utils', () => {
 								link: 'https://wordpress.com/support/start/',
 								value: 100,
 							},
+							{
+								children: undefined,
+								label: '/hello',
+								labelIcon: 'external',
+								link: 'https://wordpress.com/support/hello/',
+								value: 100,
+							},
 						],
 						icon: 'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
 						label: 'wordpress.com/support',
@@ -1558,7 +1581,7 @@ describe( 'utils', () => {
 				] );
 			} );
 
-			test( 'should return an a properly parsed data array', () => {
+			test( 'should return a properly parsed data array', () => {
 				expect(
 					normalizers.statsReferrers(
 						{
@@ -1570,8 +1593,7 @@ describe( 'utils', () => {
 											group: 'WordPress.com Reader',
 											name: 'WordPress.com Reader',
 											url: 'https://wordpress.com',
-											icon:
-												'https://secure.gravatar.com/blavatar/236c008da9dc0edb4b3464ecebb3fc1d?s=48',
+											icon: 'https://secure.gravatar.com/blavatar/236c008da9dc0edb4b3464ecebb3fc1d?s=48',
 											results: {
 												views: 407,
 											},
@@ -1579,8 +1601,7 @@ describe( 'utils', () => {
 										},
 										{
 											group: 'wordpress.com/support',
-											icon:
-												'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
+											icon: 'https://secure.gravatar.com/blavatar/94ea57385f5018d2b84169cab22d3b33?s=48',
 											name: 'wordpress.com/support',
 											results: [
 												{ name: 'homepage', url: 'https://wordpress.com/support/', views: 42 },
@@ -1652,7 +1673,7 @@ describe( 'utils', () => {
 		} );
 
 		describe( 'statsSearchTerms()', () => {
-			test( 'should return an empty array if not data is passed', () => {
+			test( 'should return an empty array if no data is passed', () => {
 				expect( normalizers.statsSearchTerms() ).toEqual( [] );
 			} );
 
@@ -1664,7 +1685,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsSearchTerms( {}, { period: 'day' } ) ).toEqual( [] );
 			} );
 
-			test( 'should return an a properly parsed data array', () => {
+			test( 'should return a properly parsed data array', () => {
 				expect(
 					normalizers.statsSearchTerms(
 						{
@@ -1701,22 +1722,15 @@ describe( 'utils', () => {
 						label: 'ribs',
 						value: 10,
 					},
-					{
-						label: 'Unknown Search Terms',
-						labelIcon: 'external',
-						link: 'http://wordpress.com/support/stats/#search-engine-terms',
-						value: 221,
-					},
 				] );
 			} );
 
-			test( 'should return an a properly parsed summarized data array', () => {
+			test( 'should return a properly parsed summarized data array', () => {
 				expect(
 					normalizers.statsSearchTerms(
 						{
 							date: '2017-01-12',
 							summary: {
-								encrypted_search_terms: 400,
 								search_terms: [
 									{
 										term: 'chicken',
@@ -1747,12 +1761,6 @@ describe( 'utils', () => {
 						label: 'ribs',
 						value: 100,
 					},
-					{
-						label: 'Unknown Search Terms',
-						labelIcon: 'external',
-						link: 'http://wordpress.com/support/stats/#search-engine-terms',
-						value: 400,
-					},
 				] );
 			} );
 		} );
@@ -1766,7 +1774,7 @@ describe( 'utils', () => {
 				expect( normalizers.statsVisits( { bad: [] } ) ).toEqual( [] );
 			} );
 
-			test( 'should return an a properly parsed data array', () => {
+			test( 'should return a properly parsed data array', () => {
 				expect(
 					normalizers.statsVisits( {
 						fields: [ 'period', 'views', 'visitors' ],

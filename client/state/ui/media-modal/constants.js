@@ -1,9 +1,7 @@
 /**
  * Media modal views
- *
- *
  * @enum {string}
- * @type {object}
+ * @type {Object}
  */
 
 export const ModalViews = {

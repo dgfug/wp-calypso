@@ -24,6 +24,7 @@ describe( 'streams', () => {
 			meta: QUERY_META,
 			number: INITIAL_FETCH,
 			content_width: 675,
+			lang: 'en',
 		};
 
 		it( 'should return an http request', () => {
@@ -71,6 +72,37 @@ describe( 'streams', () => {
 					},
 				},
 				{
+					stream: 'discover:recommended',
+					expected: {
+						method: 'GET',
+						path: '/read/streams/discover',
+						apiNamespace: 'wpcom/v2',
+						query: {
+							...query,
+							tag_recs_per_card: 5,
+							site_recs_per_card: 5,
+							tags: [],
+							age_based_decay: 0.5,
+							orderBy: 'popular',
+						},
+					},
+				},
+				{
+					stream: 'discover:dailyprompt',
+					expected: {
+						method: 'GET',
+						path: `/read/streams/discover?tags=dailyprompt`,
+						apiNamespace: 'wpcom/v2',
+						query: {
+							...query,
+							tag_recs_per_card: 5,
+							site_recs_per_card: 5,
+							tags: [],
+							age_based_decay: 0.5,
+						},
+					},
+				},
+				{
 					stream: 'a8c',
 					expected: {
 						method: 'GET',
@@ -94,7 +126,7 @@ describe( 'streams', () => {
 						method: 'GET',
 						path: '/read/conversations',
 						apiVersion: '1.2',
-						query,
+						query: { ...query, comments_per_post: 20 },
 					},
 				},
 				{
@@ -103,7 +135,7 @@ describe( 'streams', () => {
 						method: 'GET',
 						path: '/read/conversations',
 						apiVersion: '1.2',
-						query: { ...query, index: 'a8c' },
+						query: { ...query, comments_per_post: 20, index: 'a8c' },
 					},
 				},
 				{
@@ -115,6 +147,7 @@ describe( 'streams', () => {
 						query: {
 							sort: 'date',
 							q: 'foo',
+							lang: 'en',
 							number: INITIAL_FETCH,
 							content_width: 675,
 						},
@@ -129,6 +162,7 @@ describe( 'streams', () => {
 						query: {
 							sort: 'relevance',
 							q: 'foo:bar',
+							lang: 'en',
 							number: INITIAL_FETCH,
 							content_width: 675,
 						},
@@ -210,11 +244,30 @@ describe( 'streams', () => {
 	} );
 
 	describe( 'handlePage', () => {
-		const data = deepfreeze( { posts: [], date_range: { after: '2018' } } );
+		const data = deepfreeze( {
+			posts: [
+				{
+					blogId: undefined,
+					date: undefined,
+					feed_ID: undefined,
+					feed_URL: undefined,
+					postId: undefined,
+					site_description: undefined,
+					site_icon: undefined,
+					site_name: undefined,
+					url: undefined,
+					xPostMetadata: null,
+				},
+			],
+			date_range: {
+				after: '2018',
+			},
+		} );
 
 		it( 'should return a receivePage action', () => {
 			const { streamKey, query } = action.payload;
-			expect( handlePage( action, data ) ).toEqual( [
+			const result = handlePage( action, data );
+			expect( result ).toEqual( [
 				expect.any( Function ), // receivePosts thunk
 				receivePage( {
 					streamKey,
@@ -222,6 +275,8 @@ describe( 'streams', () => {
 					streamItems: data.posts,
 					gap: null,
 					pageHandle: { before: '2018' },
+					totalItems: 1,
+					totalPages: 1,
 				} ),
 			] );
 		} );

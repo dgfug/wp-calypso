@@ -1,19 +1,19 @@
-import { CompactCard as Card } from '@automattic/components';
-import classNames from 'classnames';
+import page from '@automattic/calypso-router';
+import { CompactCard as Card, FormLabel } from '@automattic/components';
+import { SITE_REDIRECT } from '@automattic/urls';
+import { createHigherOrderComponent } from '@wordpress/compose';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
-import { connect } from 'react-redux';
+import { connect, useSelector } from 'react-redux';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormTextInputWithAffixes from 'calypso/components/forms/form-text-input-with-affixes';
 import Main from 'calypso/components/main';
 import Notice from 'calypso/components/notice';
 import SectionHeader from 'calypso/components/section-header';
 import { withoutHttp } from 'calypso/lib/url';
-import { SITE_REDIRECT } from 'calypso/lib/url/support';
 import Header from 'calypso/my-sites/domains/domain-management/components/header';
 import {
 	domainManagementSiteRedirect,
@@ -48,15 +48,6 @@ class SiteRedirect extends Component {
 
 	componentDidMount() {
 		this.props.fetchSiteRedirect( this.props.selectedSite.domain );
-	}
-
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( nextProps ) {
-		if ( this.props.location.value !== nextProps.location.value ) {
-			this.setState( {
-				redirectUrl: nextProps.location.value,
-			} );
-		}
 	}
 
 	componentWillUnmount() {
@@ -114,7 +105,7 @@ class SiteRedirect extends Component {
 		const { isUpdating, notice } = location;
 		const isFetching = location.isFetching;
 
-		const classes = classNames( 'site-redirect-card', { fetching: isFetching } );
+		const classes = clsx( 'site-redirect-card', { fetching: isFetching } );
 
 		return (
 			<div>
@@ -234,6 +225,15 @@ const recordUpdateSiteRedirectClick = ( domainName, location, success ) =>
 		} )
 	);
 
+const withLocationAsKey = createHigherOrderComponent( ( Wrapped ) => ( props ) => {
+	const selectedSite = useSelector( getSelectedSite );
+	const location = useSelector( ( state ) =>
+		getSiteRedirectLocation( state, selectedSite?.domain )
+	);
+
+	return <Wrapped { ...props } key={ `redirect-${ location.value }` } />;
+} );
+
 export default connect(
 	( state ) => {
 		const selectedSite = getSelectedSite( state );
@@ -249,4 +249,4 @@ export default connect(
 		recordLocationFocus,
 		recordUpdateSiteRedirectClick,
 	}
-)( localize( SiteRedirect ) );
+)( localize( withLocationAsKey( SiteRedirect ) ) );

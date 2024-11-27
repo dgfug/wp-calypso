@@ -1,15 +1,14 @@
 import { translate, getLocaleSlug } from 'i18n-calypso';
-import { sortBy, camelCase, mapKeys, get, filter, map, concat, flatten } from 'lodash';
+import { sortBy, camelCase, get, filter, map, flatten } from 'lodash';
 import moment from 'moment';
 import { PUBLICIZE_SERVICES_LABEL_ICON } from './constants';
 
 /**
  * Returns a string of the moment format for the period. Supports store stats
  * isoWeek and shortened formats.
- *
  * @param   {string} period Stats query
  * @param   {string} date   Stats date
- * @returns {object}        Period range
+ * @returns {Object}        Period range
  */
 export function getPeriodFormat( period, date ) {
 	const strDate = date.toString();
@@ -29,10 +28,9 @@ export function getPeriodFormat( period, date ) {
 /**
  * Returns an object with the startOf and endOf dates
  * for the given stats period and date
- *
  * @param   {string} period Stats query
  * @param   {string} date   Stats date
- * @returns {object}        Period range
+ * @returns {Object}        Period range
  */
 export function rangeOfPeriod( period, date ) {
 	const format = getPeriodFormat( period, date );
@@ -59,7 +57,6 @@ export function rangeOfPeriod( period, date ) {
  * Returns true if is auto refreshing astats is allowed
  * for the give stats query
  * It's allowed for queries without dates and for periods including today
- *
  * @param   {string} query  Stats query
  * @returns {boolean}       AutoRefresh allowed or not
  */
@@ -74,7 +71,6 @@ export function isAutoRefreshAllowedForQuery( query ) {
 
 /**
  * Parse the avatar URL
- *
  * @param   {string} avatarUrl Raw avatar URL
  * @returns {string}           Parsed URL
  */
@@ -88,8 +84,7 @@ function parseAvatar( avatarUrl ) {
 
 /**
  * Builds data into escaped array for CSV export
- *
- * @param   {object} data   Normalized stats data object
+ * @param   {Object} data   Normalized stats data object
  * @param   {string} parent Label of parent
  * @returns {Array}         CSV Row
  */
@@ -97,8 +92,9 @@ export function buildExportArray( data, parent = null ) {
 	if ( ! data || ! data.label || ! data.value ) {
 		return [];
 	}
-	const label = parent ? parent + ' > ' + data.label : data.label;
-	const escapedLabel = label.replace( /\"/, '""' ); // eslint-disable-line no-useless-escape
+	const label = parent ? parent + ' > ' + String( data.label ) : String( data.label );
+	// eslint-disable-next-line
+	const escapedLabel = label.replace( /\"/, '""' );
 	let exportData = [ [ '"' + escapedLabel + '"', data.value ] ];
 
 	// Includes the URL for content data, but not for "Countries" data where it doesn't exist.
@@ -111,7 +107,7 @@ export function buildExportArray( data, parent = null ) {
 			return buildExportArray( child, label );
 		} );
 
-		exportData = concat( exportData, flatten( childData ) );
+		exportData = exportData.concat( flatten( childData ) );
 	}
 
 	return exportData;
@@ -120,8 +116,7 @@ export function buildExportArray( data, parent = null ) {
 /**
  * Returns a serialized stats query, used as the key in the
  * `state.stats.lists.items` and `state.stats.lists.requesting` state objects.
- *
- * @param   {object} query    Stats query
+ * @param   {Object} query    Stats query
  * @returns {string}          Serialized stats query
  */
 export function getSerializedStatsQuery( query = {} ) {
@@ -131,8 +126,7 @@ export function getSerializedStatsQuery( query = {} ) {
 /**
  * Return delta data in a format used by 'extensions/woocommerce/app/store-stats`. The fields array is matched to
  * the data in a single object.
- *
- * @param   {object} payload - response
+ * @param   {Object} payload - response
  * @returns {Array} - Array of data objects
  */
 export function parseOrderDeltas( payload ) {
@@ -160,11 +154,10 @@ export function parseOrderDeltas( payload ) {
 
 /**
  * Create the correct property and value for a label to be used in a chart
- *
  * @param {string} unit - day, week, month, year
- * @param {object} date - moment object
- * @param {object} localizedDate - moment object
- * @returns {object} chart labels
+ * @param {Object} date - moment object
+ * @param {Object} localizedDate - moment object
+ * @returns {Object} chart labels
  */
 export function getChartLabels( unit, date, localizedDate ) {
 	const validDate = moment.isMoment( date ) && date.isValid();
@@ -175,6 +168,10 @@ export function getChartLabels( unit, date, localizedDate ) {
 		const isWeekend = 'day' === unit && ( 6 === dayOfWeek || 0 === dayOfWeek );
 		const labelName = `label${ unit.charAt( 0 ).toUpperCase() + unit.slice( 1 ) }`;
 		const formats = {
+			hour: translate( 'MMM D HH:mm', {
+				context: 'momentjs format string (hour)',
+				comment: 'This specifies an hour for the stats x-axis label.',
+			} ),
 			day: translate( 'MMM D', {
 				context: 'momentjs format string (day)',
 				comment: 'This specifies a day for the stats x-axis label.',
@@ -197,8 +194,7 @@ export function getChartLabels( unit, date, localizedDate ) {
 /**
  * Return data in a format used by 'components/chart`. The fields array is matched to
  * the data in a single object.
- *
- * @param {object} payload - response
+ * @param {Object} payload - response
  * @returns {Array} - Array of data objects
  */
 export function parseOrdersChartData( payload ) {
@@ -229,8 +225,7 @@ export function parseOrdersChartData( payload ) {
 /**
  * Return data in a format used by 'components/chart`. The fields array is matched to
  * the data in a single object.
- *
- * @param {object} payload - response
+ * @param {Object} payload - response
  * @param {Array} nullAttributes - properties on data objects to be initialized with
  * a null value
  * @returns {Array} - Array of data objects
@@ -259,7 +254,8 @@ export function parseChartData( payload, nullAttributes = [] ) {
 		if ( dataRecord.period ) {
 			const date = moment( dataRecord.period, 'YYYY-MM-DD' ).locale( 'en' );
 			const localeSlug = getLocaleSlug();
-			const localizedDate = moment( dataRecord.period, 'YYYY-MM-DD' ).locale( localeSlug );
+			// The period could be a full time format.
+			const localizedDate = moment( dataRecord.period, 'YYYY-MM-DD HH:mm:ss' ).locale( localeSlug );
 			Object.assign( dataRecord, getChartLabels( payload.unit, date, localizedDate ) );
 		}
 		return dataRecord;
@@ -268,10 +264,9 @@ export function parseChartData( payload, nullAttributes = [] ) {
 
 /**
  * Return moment date object for the day or last day of the period.
- *
  * @param {string} unit - day, week, month or year
  * @param {string} period - period in shortened store sting format, eg '2017-W26'
- * @returns {object} - moment date object
+ * @returns {Object} - moment date object
  */
 export function parseUnitPeriods( unit, period ) {
 	let splitYearWeek;
@@ -298,23 +293,23 @@ export function parseUnitPeriods( unit, period ) {
 export const normalizers = {
 	/**
 	 * Returns a normalized payload from `/sites/{ site }/stats`
-	 *
-	 * @param   {object} data    Stats data
-	 * @returns {object?}        Normalized stats data
+	 * @param   {Object} data    Stats data
+	 * @returns {Object | null}        Normalized stats data
 	 */
 	stats( data ) {
 		if ( ! data || ! data.stats ) {
 			return null;
 		}
 
-		return mapKeys( data.stats, ( value, key ) => camelCase( key ) );
+		return Object.fromEntries(
+			Object.entries( data.stats ).map( ( [ key, value ] ) => [ camelCase( key ), value ] )
+		);
 	},
 
 	/**
 	 * Returns a normalized payload from `/sites/{ site }/stats/insights`
-	 *
-	 * @param   {object} data    Stats query
-	 * @returns {object?}        Normalized stats data
+	 * @param   {Object} data    Stats query
+	 * @returns {Object | null}        Normalized stats data
 	 */
 	statsInsights: ( data ) => {
 		if ( ! data || typeof data.highest_day_of_week !== 'number' ) {
@@ -350,12 +345,11 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized payload from `/sites/{ site }/stats/top-posts`
-	 *
-	 * @param   {object} data    Stats data
-	 * @param   {object} query   Stats query
+	 * @param   {Object} data    Stats data
+	 * @param   {Object} query   Stats query
 	 * @param   {number} siteId  Site ID
-	 * @param   {object} site    Site object
-	 * @returns {object?}        Normalized stats data
+	 * @param   {Object} site    Site object
+	 * @returns {Object | null}        Normalized stats data
 	 */
 	statsTopPosts: ( data, query, siteId, site ) => {
 		if ( ! data || ! query.period || ! query.date ) {
@@ -385,9 +379,11 @@ export const normalizers = {
 			}
 
 			return {
+				id: item.id,
 				label: item.title,
 				value: item.views,
 				page: detailPage,
+				public: item.public,
 				actions: [
 					{
 						type: 'link',
@@ -403,10 +399,9 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized payload from `/sites/{ site }/stats/country-views`
-	 *
-	 * @param   {object} data    Stats data
-	 * @param   {object} query   Stats query
-	 * @returns {object?}        Normalized stats data
+	 * @param   {Object} data    Stats data
+	 * @param   {Object} query   Stats query
+	 * @returns {Object | null}        Normalized stats data
 	 */
 	statsCountryViews: ( data, query = {} ) => {
 		// parsing a country-views response requires a period and date
@@ -421,6 +416,19 @@ export const normalizers = {
 
 		// filter out country views that have no legitimate country data associated with them
 		const countryData = filter( get( data, dataPath, [] ), ( viewData ) => {
+			// Ignore the unknown location of sources from the legacy stats geoviews table.
+			if ( [ 'A1', 'A2', 'ZZ' ].includes( viewData.country_code ) ) {
+				return false;
+			}
+
+			// TODO: Investigate ignored countries that have `false` as the country_full data.
+			if (
+				countryInfo[ viewData.country_code ] &&
+				! countryInfo[ viewData.country_code ].country_full
+			) {
+				return false;
+			}
+
 			return countryInfo[ viewData.country_code ];
 		} );
 
@@ -439,8 +447,7 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized statsPublicize array, ready for use in stats-module
-	 *
-	 * @param   {object} data Stats data
+	 * @param   {Object} data Stats data
 	 * @returns {Array}       Parsed publicize data array
 	 */
 	statsPublicize( data = {} ) {
@@ -456,11 +463,10 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized statsVideoPlays array, ready for use in stats-module
-	 *
-	 * @param   {object} data    Stats data
-	 * @param   {object} query   Stats query
+	 * @param   {Object} data    Stats data
+	 * @param   {Object} query   Stats query
 	 * @param   {number} siteId  Site ID
-	 * @param   {object} site    Site object
+	 * @param   {Object} site    Site object
 	 * @returns {Array}          Normalized stats data
 	 */
 	statsVideoPlays( data, query = {}, siteId, site ) {
@@ -468,7 +474,11 @@ export const normalizers = {
 			return [];
 		}
 		const { startOf } = rangeOfPeriod( query.period, query.date );
-		const videoPlaysData = get( data, [ 'days', startOf, 'plays' ], [] );
+		const videoPlaysData = get(
+			data,
+			query.summarize ? [ 'days', 'summary', 'plays' ] : [ 'days', startOf, 'plays' ],
+			[]
+		);
 
 		return videoPlaysData.map( ( item ) => {
 			const detailPage = site
@@ -490,15 +500,14 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized statsFollowers object
-	 *
-	 * @param   {object} data    Stats data
-	 * @returns {?object}         Normalized stats data
+	 * @param   {Object} data    Stats data
+	 * @returns {?Object}         Normalized stats data
 	 */
 	statsFollowers( data ) {
 		if ( ! data ) {
 			return null;
 		}
-		const { total_wpcom, total_email } = data;
+		const { total_wpcom, total_email, total } = data;
 		const subscriberData = get( data, [ 'subscribers' ], [] );
 
 		const subscribers = subscriberData.map( ( item ) => {
@@ -520,7 +529,7 @@ export const normalizers = {
 			};
 		} );
 
-		return { total_wpcom, total_email, subscribers };
+		return { total_wpcom, total_email, total, subscribers };
 	},
 
 	statsCommentFollowers( data ) {
@@ -556,7 +565,7 @@ export const normalizers = {
 		if ( ! data ) {
 			return null;
 		}
-		const adminUrl = site ? site.options.admin_url : null;
+		const adminUrl = site?.options?.admin_url ?? null;
 
 		let authors = [];
 		if ( data.authors ) {
@@ -600,8 +609,7 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized statsVideo array, ready for use in stats-module
-	 *
-	 * @param   {object} payload Stats response payload
+	 * @param   {Object} payload Stats response payload
 	 * @returns {Array}          Parsed data array
 	 */
 	statsVideo( payload ) {
@@ -611,11 +619,9 @@ export const normalizers = {
 
 		let data = [];
 		if ( payload.data ) {
-			data = payload.data
-				.map( ( item ) => {
-					return { period: item[ 0 ], value: item[ 1 ] };
-				} )
-				.slice( Math.max( payload.data.length - 10, 1 ) );
+			data = payload.data.map( ( item ) => {
+				return { period: item[ 0 ], value: item[ 1 ] };
+			} );
 		}
 
 		let pages = [];
@@ -633,11 +639,10 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized statsTopAuthors array, ready for use in stats-module
-	 *
-	 * @param   {object} data   Stats data
-	 * @param   {object} query  Stats query
+	 * @param   {Object} data   Stats data
+	 * @param   {Object} query  Stats query
 	 * @param   {number} siteId Site ID
-	 * @param   {object} site   Site Object
+	 * @param   {Object} site   Site Object
 	 * @returns {Array}       Normalized stats data
 	 */
 	statsTopAuthors( data, query = {}, siteId, site ) {
@@ -645,11 +650,12 @@ export const normalizers = {
 			return [];
 		}
 		const { startOf } = rangeOfPeriod( query.period, query.date );
-		const authorsData = get( data, [ 'days', startOf, 'authors' ], [] );
+		const dataPath = query.summarize ? [ 'summary', 'authors' ] : [ 'days', startOf, 'authors' ];
+		const authorsData = get( data, dataPath, [] );
 
 		return authorsData.map( ( item ) => {
 			const record = {
-				label: item.name,
+				label: item.name || translate( 'Untracked Authors' ),
 				iconClassName: 'avatar-user',
 				icon: parseAvatar( item.avatar ),
 				children: null,
@@ -680,8 +686,7 @@ export const normalizers = {
 
 	/**
 	 * Returns a normalized statsTags array, ready for use in stats-module
-	 *
-	 * @param   {object} data Stats data
+	 * @param   {Object} data Stats data
 	 * @returns {Array}       Parsed data array
 	 */
 	statsTags( data ) {
@@ -741,7 +746,7 @@ export const normalizers = {
 		const dataPath = query.summarize ? [ 'summary', 'clicks' ] : [ 'days', startOf, 'clicks' ];
 		const statsData = get( data, dataPath, [] );
 
-		return statsData.map( ( item ) => {
+		const output = statsData.map( ( item ) => {
 			const hasChildren = item.children && item.children.length > 0;
 			const newRecord = {
 				label: item.name,
@@ -755,7 +760,9 @@ export const normalizers = {
 			if ( item.children ) {
 				newRecord.children = item.children.map( ( child ) => {
 					return {
-						label: child.name,
+						// Remove the parent name from the child name.
+						// If the child name is the same as the parent name, use a slash instead.
+						label: child.name?.replace( item.name, '' ) || '/',
 						value: child.views,
 						children: null,
 						link: child.url,
@@ -766,6 +773,7 @@ export const normalizers = {
 
 			return newRecord;
 		} );
+		return output;
 	},
 
 	/*
@@ -783,12 +791,18 @@ export const normalizers = {
 
 		const { startOf } = rangeOfPeriod( query.period, query.date );
 		const dataPath = query.summarize ? [ 'summary', 'groups' ] : [ 'days', startOf, 'groups' ];
-		const statsData = get( data, dataPath, [] );
+		let statsData = get( data, dataPath, [] );
 
 		const parseItem = ( item ) => {
 			let children;
 			if ( item.children && item.children.length > 0 ) {
-				children = item.children.map( parseItem );
+				children = item.children.map( ( child ) => {
+					const parsed = parseItem( child );
+					// Remove the parent name from the child name.
+					// If the child name is the same as the parent name, use a slash instead.
+					parsed.label = child.name?.replace( item.name, '' ) || '/';
+					return parsed;
+				} );
 			}
 
 			const record = {
@@ -805,6 +819,18 @@ export const normalizers = {
 
 			return record;
 		};
+
+		// If there's only one item in a group, then we expand the children to the parent level.
+		statsData = statsData.map( ( item ) => {
+			if ( item.results?.length === 1 ) {
+				return {
+					...item.results[ 0 ],
+					group: item.results[ 0 ].name,
+					total: item.results[ 0 ].views,
+				};
+			}
+			return item;
+		} );
 
 		return statsData.map( ( item ) => {
 			let actions = [];
@@ -893,30 +919,14 @@ export const normalizers = {
 		const { startOf } = rangeOfPeriod( query.period, query.date );
 		const dataPath = query.summarize ? [ 'summary' ] : [ 'days', startOf ];
 		const searchTerms = get( data, dataPath.concat( [ 'search_terms' ] ), [] );
-		const encryptedSearchTerms = get(
-			data,
-			dataPath.concat( [ 'encrypted_search_terms' ] ),
-			false
-		);
 
-		const result = searchTerms.map( ( day ) => {
+		return searchTerms.map( ( day ) => {
 			return {
 				label: day.term,
 				className: 'user-selectable',
 				value: day.views,
 			};
 		} );
-
-		if ( encryptedSearchTerms ) {
-			result.push( {
-				label: translate( 'Unknown Search Terms' ),
-				value: encryptedSearchTerms,
-				link: 'http://wordpress.com/support/stats/#search-engine-terms',
-				labelIcon: 'external',
-			} );
-		}
-
-		return result;
 	},
 
 	/*
@@ -932,7 +942,8 @@ export const normalizers = {
 		}
 
 		const { startOf } = rangeOfPeriod( query.period, query.date );
-		const statsData = get( data, [ 'days', startOf, 'files' ], [] );
+		const dataPath = query.summarize ? [ 'summary', 'files' ] : [ 'days', startOf, 'files' ];
+		const statsData = get( data, dataPath, [] );
 
 		return statsData.map( ( item ) => {
 			return {
@@ -943,6 +954,43 @@ export const normalizers = {
 				link: item.download_url,
 				linkTitle: item.relative_url,
 				labelIcon: 'external',
+			};
+		} );
+	},
+
+	/**
+	 * Returns a normalized statsEmailsSummary array, ready for use in stats-module
+	 * @param   {Object} data   Stats data
+	 * @param   {Object} query  Stats query
+	 * @param   {number} siteId  Site ID
+	 * @param   {Object} site    Site object
+	 * @returns {Array}       Normalized stats data
+	 */
+	statsEmailsSummary( data, query, siteId, site ) {
+		if ( ! data ) {
+			return [];
+		}
+
+		const emailsData = get( data, [ 'posts' ], [] );
+
+		return emailsData.map( ( { id, href, date, title, type, opens, clicks } ) => {
+			const detailPage = site ? `/stats/email/opens/day/${ id }/${ site.slug }` : null;
+			return {
+				id,
+				href,
+				date,
+				label: title,
+				type,
+				value: clicks || '0',
+				opens: opens || '0',
+				clicks: clicks || '0',
+				page: detailPage,
+				actions: [
+					{
+						type: 'link',
+						data: href,
+					},
+				],
 			};
 		} );
 	},

@@ -1,9 +1,11 @@
+import { isGoogleWorkspace } from '@automattic/calypso-products';
 import { translate as originalTranslate, useTranslate } from 'i18n-calypso';
 import { useLocalizedMoment } from 'calypso/components/localized-moment';
 import Notice from 'calypso/components/notice';
+import { hasIntroductoryOffer } from 'calypso/lib/emails';
+import { isUserOnTitanFreeTrial } from 'calypso/lib/titan';
 import type { EmailCost, ResponseDomain } from 'calypso/lib/domains/types';
 import type { ProductListItem } from 'calypso/state/products-list/selectors/get-products-list';
-import type { SiteDomain } from 'calypso/state/sites/domains/types';
 import type { TranslateResult } from 'i18n-calypso';
 
 const doesAdditionalPriceMatchStandardPrice = (
@@ -22,7 +24,7 @@ function getNoticeMessage(
 ): TranslateResult {
 	const translateArgs = {
 		args: {
-			price: mailboxPurchaseCost?.text,
+			price: mailboxPurchaseCost?.text as string,
 		},
 		components: {
 			strong: <strong />,
@@ -52,7 +54,7 @@ function getPriceMessage( {
 	if ( mailboxPurchaseCost === null ) {
 		return '';
 	}
-	return mailboxPurchaseCost.amount === 0
+	return isUserOnTitanFreeTrial( mailboxPurchaseCost )
 		? translate( 'You can add new mailboxes for free until the end of your trial period.' )
 		: translate(
 				'You can purchase new mailboxes at the prorated price of {{strong}}%(proratedPrice)s{{/strong}} per mailbox.',
@@ -70,11 +72,13 @@ function getPriceMessage( {
 }
 
 function getPriceMessageExplanation( {
+	hasGoogleWorkspaceOffer,
 	isMonthlyBilling,
 	mailboxPurchaseCost,
 	mailboxRenewalCost,
 	translate,
 }: {
+	hasGoogleWorkspaceOffer: boolean;
 	isMonthlyBilling: boolean;
 	mailboxPurchaseCost: EmailCost | null;
 	mailboxRenewalCost: EmailCost | null;
@@ -85,11 +89,21 @@ function getPriceMessageExplanation( {
 	}
 
 	// We don't need any explanation of the price at this point, because we have already handled it previously.
-	if ( mailboxPurchaseCost.amount === 0 ) {
+	if ( isUserOnTitanFreeTrial( mailboxPurchaseCost ) ) {
 		return '';
 	}
 
 	if ( mailboxPurchaseCost.amount < mailboxRenewalCost.amount ) {
+		if ( hasGoogleWorkspaceOffer ) {
+			return isMonthlyBilling
+				? translate(
+						'This is less than the first year discounted price because you are only charged for the remainder of the current month.'
+				  )
+				: translate(
+						'This is less than the first year discounted price because you are only charged for the remainder of the current year.'
+				  );
+		}
+
 		return isMonthlyBilling
 			? translate(
 					'This is less than the regular price because you are only charged for the remainder of the current month.'
@@ -139,7 +153,7 @@ function getPriceMessageRenewal( {
 }
 
 interface MailboxPricingNoticeProps {
-	domain: ResponseDomain | SiteDomain | null;
+	domain: ResponseDomain | null;
 	expiryDate: string | null;
 	isMonthlyBilling?: boolean;
 	mailboxPurchaseCost: EmailCost | null;
@@ -154,7 +168,7 @@ const EmailPricingNotice = ( {
 	mailboxPurchaseCost,
 	mailboxRenewalCost,
 	product,
-}: MailboxPricingNoticeProps ): JSX.Element | null => {
+}: MailboxPricingNoticeProps ) => {
 	const moment = useLocalizedMoment();
 	const translate = useTranslate();
 
@@ -170,15 +184,29 @@ const EmailPricingNotice = ( {
 		);
 	}
 
-	const priceMessage = getPriceMessage( { mailboxPurchaseCost, translate } );
+	const hasGoogleWorkspaceOffer = isGoogleWorkspace( product ) && hasIntroductoryOffer( product );
+
+	const priceMessage = getPriceMessage( {
+		mailboxPurchaseCost,
+		translate,
+	} );
 	const priceMessageExplanation = getPriceMessageExplanation( {
+		hasGoogleWorkspaceOffer,
 		isMonthlyBilling,
 		mailboxPurchaseCost,
 		mailboxRenewalCost,
 		translate,
 	} );
+
+	const nextExpiryDate =
+		hasGoogleWorkspaceOffer && isMonthlyBilling
+			? moment( expiryDate )
+					.add( product?.introductory_offer?.transition_after_renewal_count, 'M' )
+					.format( 'LL' )
+			: moment( expiryDate ).format( 'LL' );
+
 	const priceMessageRenewal = getPriceMessageRenewal( {
-		expiryDate: moment( expiryDate ).format( 'LL' ),
+		expiryDate: nextExpiryDate,
 		mailboxRenewalCost,
 		translate,
 	} );

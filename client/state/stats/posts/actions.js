@@ -11,11 +11,10 @@ import 'calypso/state/stats/init';
 /**
  * Returns an action object to be used in signalling that post stat for a site,
  * post and stat have been received.
- *
  * @param  {number} siteId Site ID
  * @param  {number} postId Post Id
  * @param  {Array}  stats  The received stats
- * @returns {object}        Action object
+ * @returns {Object}        Action object
  */
 export function receivePostStats( siteId, postId, stats ) {
 	return {
@@ -29,7 +28,6 @@ export function receivePostStats( siteId, postId, stats ) {
 /**
  * Returns an action thunk which, when invoked, triggers a network request to
  * retrieve post stat for a site and a post.
- *
  * @param  {number} siteId Site ID
  * @param  {number} postId Post Id
  * @param  {string} fields Stat Fields to fetch

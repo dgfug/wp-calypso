@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { includes, isEqual, some } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
@@ -6,11 +6,11 @@ import { connect } from 'react-redux';
 import QueryPreferences from 'calypso/components/data/query-preferences';
 import { filterItemsByMimePrefix } from 'calypso/lib/media/utils';
 import searchUrl from 'calypso/lib/search-url';
-import { selectMediaItems } from 'calypso/state/media/actions';
+import { selectMediaItems, requestPhotosPickerFeatureStatus } from 'calypso/state/media/actions';
+import getGooglePhotosPickerFeatureStatus from 'calypso/state/selectors/get-google-photos-picker-feature-status';
 import getMediaErrors from 'calypso/state/selectors/get-media-errors';
 import getMediaLibrarySelectedItems from 'calypso/state/selectors/get-media-library-selected-items';
-import hasActiveSiteFeature from 'calypso/state/selectors/has-active-site-feature';
-import hasAvailableSiteFeature from 'calypso/state/selectors/has-available-site-feature';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
 import { requestKeyringConnections } from 'calypso/state/sharing/keyring/actions';
 import {
 	isKeyringConnectionsFetching,
@@ -25,7 +25,7 @@ import filterToMimePrefix from './filter-to-mime-prefix';
 import './style.scss';
 
 // External media sources that do not need a user to connect them should be listed here.
-const noConnectionNeeded = [ 'pexels' ];
+const noConnectionNeeded = [ 'openverse', 'pexels' ];
 
 const sourceNeedsKeyring = ( source ) => source !== '' && ! includes( noConnectionNeeded, source );
 
@@ -75,6 +75,10 @@ class MediaLibrary extends Component {
 			// Are we connected to anything yet?
 			this.props.requestKeyringConnections();
 		}
+
+		if ( this.props.photosPickerApiEnabled === null ) {
+			this.props.requestPhotosPickerFeatureStatus();
+		}
 	}
 
 	componentDidUpdate( prevProps ) {
@@ -119,24 +123,17 @@ class MediaLibrary extends Component {
 	};
 
 	filterRequiresUpgrade() {
-		const {
-			filter,
-			site,
-			source,
-			isJetpack,
-			hasVideoUploadFeature,
-			hasVideoUploadAvailableFeature,
-		} = this.props;
+		const { filter, site, source, isJetpack, hasVideoUploadFeature } = this.props;
 		if ( source ) {
 			return false;
 		}
 
 		switch ( filter ) {
 			case 'audio':
-				return ! ( ( site && site.options.upgraded_filetypes_enabled ) || isJetpack );
+				return ! ( site?.options?.upgraded_filetypes_enabled || isJetpack );
 
 			case 'videos':
-				return ! hasVideoUploadFeature && !! hasVideoUploadAvailableFeature;
+				return ! hasVideoUploadFeature;
 		}
 
 		return false;
@@ -158,7 +155,7 @@ class MediaLibrary extends Component {
 	}
 
 	render() {
-		const classes = classNames(
+		const classes = clsx(
 			'media-library',
 			{ 'is-single': this.props.single },
 			this.props.className
@@ -182,6 +179,7 @@ class MediaLibrary extends Component {
 					post={ !! this.props.postId }
 					disableLargeImageSources={ this.props.disableLargeImageSources }
 					disabledDataSources={ this.props.disabledDataSources }
+					photosPickerApiEnabled={ this.props.photosPickerApiEnabled }
 				/>
 				<Content
 					site={ this.props.site }
@@ -214,15 +212,12 @@ export default connect(
 		needsKeyring: needsKeyring( state, source ),
 		selectedItems: getMediaLibrarySelectedItems( state, site?.ID ),
 		isJetpack: isJetpackSite( state, site?.ID ),
-		hasVideoUploadFeature: hasActiveSiteFeature( state, site?.ID, 'upload-video-files' ),
-		hasVideoUploadAvailableFeature: hasAvailableSiteFeature(
-			state,
-			site?.ID,
-			'upload-video-files'
-		),
+		hasVideoUploadFeature: siteHasFeature( state, site?.ID, 'upload-video-files' ),
+		photosPickerApiEnabled: getGooglePhotosPickerFeatureStatus( state ),
 	} ),
 	{
 		requestKeyringConnections,
+		requestPhotosPickerFeatureStatus,
 		selectMediaItems,
 	}
 )( MediaLibrary );

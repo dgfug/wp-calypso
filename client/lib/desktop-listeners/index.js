@@ -1,8 +1,7 @@
+import * as oAuthToken from '@automattic/oauth-token';
 import debugFactory from 'debug';
 import { navigate } from 'calypso/lib/navigate';
-import * as oAuthToken from 'calypso/lib/oauth-token';
 import { newPost } from 'calypso/lib/paths';
-import { getStatsPathForTab } from 'calypso/lib/route';
 import { recordTracksEvent as recordTracksEventAction } from 'calypso/state/analytics/actions';
 import { redirectToLogout } from 'calypso/state/current-user/actions';
 import { getCurrentUserId, isUserLoggedIn } from 'calypso/state/current-user/selectors';
@@ -19,8 +18,7 @@ const debug = debugFactory( 'calypso:desktop' );
 const DesktopListeners = {
 	/**
 	 * Bootstraps network connection status change handler.
-	 *
-	 * @param {object} reduxStore The redux store.
+	 * @param {Object} reduxStore The redux store.
 	 */
 	init: function ( reduxStore ) {
 		debug( 'Registering IPC listeners' );
@@ -136,10 +134,8 @@ const DesktopListeners = {
 
 	onShowMySites: function () {
 		debug( 'Showing my sites' );
-		const site = this.selectedSite;
-		const siteSlug = site ? site.slug : null;
 
-		this.navigate( getStatsPathForTab( 'day', siteSlug ) );
+		this.navigate( '/sites' );
 	},
 
 	onShowReader: function () {

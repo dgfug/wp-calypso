@@ -1,5 +1,5 @@
-import { BlockFlow, EditorContext, PublishedPostContext } from '..';
 import { createTestFile } from '../../../media-helper';
+import { BlockFlow, EditorContext, PublishedPostContext } from '.';
 
 interface ConfigurationData {
 	imagePaths: string[];
@@ -10,7 +10,7 @@ const selectors = {
 	fileInput: `${ blockParentSelector } input[type=file]`,
 	uploadingIndicator: `${ blockParentSelector } .components-spinner`,
 	publishedImage: ( fileName: string ) =>
-		`.wp-block-jetpack-tiled-gallery img[src*="${ fileName }"]`,
+		`main .wp-block-jetpack-tiled-gallery img[src*="${ fileName }"]`, // 'main' needs to be specified due to the debug elements
 };
 
 /**
@@ -44,10 +44,14 @@ export class TiledGalleryBlockFlow implements BlockFlow {
 			const testFile = await createTestFile( imagePath );
 			// We keep track of the names for later validation in the published post.
 			this.preparedImageFileNames.push( testFile.basename );
-			await context.editorIframe.setInputFiles( selectors.fileInput, testFile.fullpath );
-			await context.editorIframe.waitForSelector( selectors.uploadingIndicator, {
-				state: 'detached',
-			} );
+
+			const editorCanvas = await context.editorPage.getEditorCanvas();
+
+			const fileInputLocator = editorCanvas.locator( selectors.fileInput );
+			await fileInputLocator.setInputFiles( testFile.fullpath );
+
+			const uploadingIndicatorLocator = editorCanvas.locator( selectors.uploadingIndicator );
+			await uploadingIndicatorLocator.waitFor( { state: 'detached' } );
 		}
 	}
 
@@ -58,7 +62,10 @@ export class TiledGalleryBlockFlow implements BlockFlow {
 	 */
 	async validateAfterPublish( context: PublishedPostContext ): Promise< void > {
 		for ( const imageFileName of this.preparedImageFileNames ) {
-			await context.page.waitForSelector( selectors.publishedImage( imageFileName ) );
+			const expectedImageLocator = context.page.locator(
+				selectors.publishedImage( imageFileName )
+			);
+			await expectedImageLocator.waitFor();
 		}
 	}
 }

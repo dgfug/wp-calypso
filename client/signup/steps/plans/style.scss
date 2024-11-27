@@ -1,3 +1,5 @@
+@import "@automattic/plans-grid-next/src/media-queries";
+
 .plans-step {
 	margin: 0 auto;
 	max-width: 700px;
@@ -9,6 +11,11 @@
 	&.is-wide-layout {
 		margin: auto;
 		max-width: 1200px;
+	}
+
+	// 2023 has extra wide layout
+	&.is-extra-wide-layout {
+		max-width: 1480px;
 	}
 
 	.formatted-header.is-without-subhead {
@@ -39,14 +46,17 @@
 	margin-top: 25px;
 }
 
-.signup__step.is-plans .formatted-header__subtitle .button.is-borderless,
-.signup__step.is-plans-launch .formatted-header__subtitle .button.is-borderless {
+.plans.plans-step .formatted-header__subtitle .button.is-borderless {
 	padding: 0;
 	color: inherit;
 	font-size: inherit;
 	font-weight: inherit;
 	line-height: inherit;
 	text-decoration: underline;
+
+	&:hover {
+		color: inherit;
+	}
 }
 
 .plans__loading {

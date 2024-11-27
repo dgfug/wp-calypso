@@ -1,5 +1,6 @@
 import config from '@automattic/calypso-config';
-import { Card, Button } from '@automattic/components';
+import { Button, Card, Dialog, FormInputValidation, FormLabel } from '@automattic/components';
+import { canBeTranslated, getLanguage, isLocaleVariant } from '@automattic/i18n-utils';
 import languages from '@automattic/languages';
 import debugFactory from 'debug';
 import { localize } from 'i18n-calypso';
@@ -8,48 +9,38 @@ import { Component } from 'react';
 import { connect } from 'react-redux';
 import CSSTransition from 'react-transition-group/CSSTransition';
 import TransitionGroup from 'react-transition-group/TransitionGroup';
-import ColorSchemePicker from 'calypso/blocks/color-scheme-picker';
 import QueryUserSettings from 'calypso/components/data/query-user-settings';
-import FormattedHeader from 'calypso/components/formatted-header';
 import FormButton from 'calypso/components/forms/form-button';
 import FormButtonsBar from 'calypso/components/forms/form-buttons-bar';
-import FormCheckbox from 'calypso/components/forms/form-checkbox';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
-import FormLegend from 'calypso/components/forms/form-legend';
 import FormRadio from 'calypso/components/forms/form-radio';
-import FormSectionHeading from 'calypso/components/forms/form-section-heading';
 import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import InlineSupportLink from 'calypso/components/inline-support-link';
 import LanguagePicker from 'calypso/components/language-picker';
 import { withLocalizedMoment } from 'calypso/components/localized-moment';
 import Main from 'calypso/components/main';
-import Notice from 'calypso/components/notice';
+import NavigationHeader from 'calypso/components/navigation-header';
 import SectionHeader from 'calypso/components/section-header';
 import SitesDropdown from 'calypso/components/sites-dropdown';
 import { withGeoLocation } from 'calypso/data/geo/with-geolocation';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
-import { supportsCssCustomProperties } from 'calypso/lib/feature-detection';
-import { getLanguage, isLocaleVariant, canBeTranslated } from 'calypso/lib/i18n-utils';
-import { ENABLE_TRANSLATOR_KEY } from 'calypso/lib/i18n-utils/constants';
+import { onboardingUrl } from 'calypso/lib/paths';
 import { protectForm } from 'calypso/lib/protect-form';
 import twoStepAuthorization from 'calypso/lib/two-step-authorization';
 import { clearStore } from 'calypso/lib/user/store';
 import wpcom from 'calypso/lib/wp';
 import AccountEmailField from 'calypso/me/account/account-email-field';
 import ReauthRequired from 'calypso/me/reauth-required';
-import { recordGoogleEvent, recordTracksEvent, bumpStat } from 'calypso/state/analytics/actions';
+import { bumpStat, recordGoogleEvent, recordTracksEvent } from 'calypso/state/analytics/actions';
 import {
 	getCurrentUserDate,
 	getCurrentUserDisplayName,
 	getCurrentUserName,
 	getCurrentUserVisibleSiteCount,
 } from 'calypso/state/current-user/selectors';
-import { successNotice, errorNotice, removeNotice } from 'calypso/state/notices/actions';
-import { savePreference } from 'calypso/state/preferences/actions';
+import { errorNotice, removeNotice, successNotice } from 'calypso/state/notices/actions';
 import canDisplayCommunityTranslator from 'calypso/state/selectors/can-display-community-translator';
-import getOnboardingUrl from 'calypso/state/selectors/get-onboarding-url';
 import getUnsavedUserSettings from 'calypso/state/selectors/get-unsaved-user-settings';
 import getUserSettings from 'calypso/state/selectors/get-user-settings';
 import isRequestingMissingSites from 'calypso/state/selectors/is-requesting-missing-sites';
@@ -58,17 +49,18 @@ import {
 	removeUnsavedUserSetting,
 	setUserSetting,
 } from 'calypso/state/user-settings/actions';
+import { isFetchingUserSettings } from 'calypso/state/user-settings/selectors';
 import { saveUnsavedUserSettings } from 'calypso/state/user-settings/thunks';
 import AccountSettingsCloseLink from './close-link';
+import ToggleSitesAsLandingPage from './toggle-sites-as-landing-page';
+import ToggleUseCommunityTranslator from './toggle-use-community-translator';
+
+import './style.scss';
 
 export const noticeId = 'me-settings-notice';
 const noticeOptions = {
 	id: noticeId,
 };
-
-import './style.scss';
-
-const colorSchemeKey = 'colorScheme';
 
 /**
  * Debug instance
@@ -98,6 +90,7 @@ class Account extends Component {
 
 	state = {
 		redirect: false,
+		showConfirmUsernameForm: false,
 		submittingForm: false,
 		formsSubmitting: {},
 		usernameAction: 'new',
@@ -107,6 +100,19 @@ class Account extends Component {
 	componentDidUpdate() {
 		if ( ! this.hasUnsavedUserSettings( ACCOUNT_FIELDS.concat( INTERFACE_FIELDS ) ) ) {
 			this.props.markSaved();
+		}
+	}
+
+	componentDidMount() {
+		const params = new URLSearchParams( window.location.search );
+		if ( params.get( 'usernameChangeSuccess' ) === 'true' ) {
+			this.props.successNotice( this.props.translate( 'Username changed successfully!' ), {
+				duration: 5000,
+			} );
+
+			const currentUrl = new URL( window.location.href );
+			currentUrl.searchParams.delete( 'usernameChangeSuccess' );
+			window.history.replaceState( {}, '', currentUrl.toString() );
 		}
 	}
 
@@ -208,7 +214,6 @@ class Account extends Component {
 	updateColorScheme = ( colorScheme ) => {
 		this.props.recordTracksEvent( 'calypso_color_schemes_select', { color_scheme: colorScheme } );
 		this.props.recordGoogleEvent( 'Me', 'Selected Color Scheme', 'scheme', colorScheme );
-		this.props.saveColorSchemePreference( colorScheme );
 		this.props.recordTracksEvent( 'calypso_color_schemes_save', {
 			color_scheme: colorScheme,
 		} );
@@ -295,42 +300,6 @@ class Account extends Component {
 		return true;
 	}
 
-	communityTranslator() {
-		if ( ! this.shouldDisplayCommunityTranslator() ) {
-			return;
-		}
-		const { translate } = this.props;
-		return (
-			<FormFieldset>
-				<FormLegend>{ translate( 'Community Translator' ) }</FormLegend>
-				<FormLabel htmlFor={ ENABLE_TRANSLATOR_KEY }>
-					<FormCheckbox
-						checked={ this.getUserSetting( ENABLE_TRANSLATOR_KEY ) }
-						onChange={ this.updateCommunityTranslatorSetting }
-						disabled={ this.getDisabledState( INTERFACE_FORM_NAME ) }
-						id={ ENABLE_TRANSLATOR_KEY }
-						name={ ENABLE_TRANSLATOR_KEY }
-						onClick={ this.getCheckboxHandler( 'Community Translator' ) }
-					/>
-					<span>
-						{ translate( 'Enable the in-page translator where available. {{a}}Learn more{{/a}}', {
-							components: {
-								a: (
-									<a
-										target="_blank"
-										rel="noopener noreferrer"
-										href="https://translate.wordpress.com/community-translator/"
-										onClick={ this.getClickHandler( 'Community Translator Learn More Link' ) }
-									/>
-								),
-							},
-						} ) }
-					</span>
-				</FormLabel>
-			</FormFieldset>
-		);
-	}
-
 	thankTranslationContributors() {
 		if ( ! this.shouldDisplayCommunityTranslator() ) {
 			return;
@@ -368,12 +337,18 @@ class Account extends Component {
 	/**
 	 * We handle the username (user_login) change manually through an onChange handler
 	 * so that we can also run a debounced validation on the username.
-	 *
-	 * @param {object} event Event from onChange of user_login input
+	 * @param {Object} event Event from onChange of user_login input
 	 */
 	handleUsernameChange = ( event ) => {
+		const value = event.currentTarget.value;
+
+		if ( value === this.getUserOriginalSetting( 'user_login' ) ) {
+			this.cancelUsernameChange();
+			return;
+		}
+
 		this.validateUsername();
-		this.updateUserSetting( 'user_login', event.currentTarget.value );
+		this.updateUserSetting( 'user_login', value );
 		this.setState( { usernameAction: null } );
 	};
 
@@ -393,15 +368,6 @@ class Account extends Component {
 
 	getFocusHandler( action ) {
 		return () => this.props.recordGoogleEvent( 'Me', 'Focused on ' + action );
-	}
-
-	getCheckboxHandler( checkboxName ) {
-		return ( event ) => {
-			const action = 'Clicked ' + checkboxName + ' checkbox';
-			const value = event.target.checked ? 1 : 0;
-
-			this.props.recordGoogleEvent( 'Me', action, 'checked', value );
-		};
 	}
 
 	handleUsernameChangeBlogRadio = ( event ) => {
@@ -429,11 +395,15 @@ class Account extends Component {
 		}
 	};
 
+	toggleConfirmUsernameForm = () => {
+		this.setState( { showConfirmUsernameForm: ! this.state.showConfirmUsernameForm } );
+	};
+
 	submitUsernameForm = async () => {
 		const username = this.getUserSetting( 'user_login' );
 		const action = this.state.usernameAction ? this.state.usernameAction : 'none';
 
-		this.setState( { submittingForm: true } );
+		this.setState( { submittingForm: true, showConfirmUsernameForm: false } );
 
 		try {
 			await wpcom.req.post( '/me/username', { username, action } );
@@ -443,7 +413,9 @@ class Account extends Component {
 
 			// We reload here to refresh cookies, user object, and user settings.
 			// @TODO: Do not require reload here.
-			window.location.reload();
+			const currentUrl = new URL( window.location.href );
+			currentUrl.searchParams.set( 'usernameChangeSuccess', 'true' );
+			window.location.href = currentUrl.toString();
 		} catch ( error ) {
 			this.setState( { submittingForm: false, validationResult: error } );
 			this.props.errorNotice( error.message );
@@ -494,56 +466,31 @@ class Account extends Component {
 
 	renderUsernameValidation() {
 		const { translate } = this.props;
+		const isUsernameValid = this.isUsernameValid();
+		const usernameValidationFailureMessage = this.getUsernameValidationFailureMessage();
 
 		if ( ! this.hasUnsavedUserSetting( 'user_login' ) ) {
 			return null;
 		}
 
-		if ( this.isUsernameValid() ) {
-			return (
-				<Notice
-					showDismiss={ false }
-					status="is-success"
-					text={ translate( '%(username)s is a valid username.', {
-						args: {
-							username: this.getValidatedUsername(),
-						},
-					} ) }
-				/>
-			);
-		} else if ( null !== this.getUsernameValidationFailureMessage() ) {
-			return (
-				<Notice
-					showDismiss={ false }
-					status="is-error"
-					text={ this.getUsernameValidationFailureMessage() }
-				/>
-			);
-		}
-	}
-
-	renderUsernameConfirmNotice() {
-		const { translate } = this.props;
-		const usernameMatch = this.getUserSetting( 'user_login' ) === this.state.userLoginConfirm;
-		const status = usernameMatch ? 'is-success' : 'is-error';
-		const text = usernameMatch
-			? translate( 'Thanks for confirming your new username!' )
-			: translate( 'Please re-enter your new username to confirm it.' );
-
-		if ( ! this.isUsernameValid() ) {
+		if ( ! isUsernameValid && null === usernameValidationFailureMessage ) {
 			return null;
 		}
 
-		return <Notice showDismiss={ false } status={ status } text={ text } />;
+		return (
+			<FormInputValidation isError={ ! isUsernameValid }>
+				{ isUsernameValid ? translate( 'Nice username!' ) : usernameValidationFailureMessage }
+			</FormInputValidation>
+		);
 	}
 
 	renderPrimarySite() {
-		const { onboardingUrl, requestingMissingSites, translate, visibleSiteCount } = this.props;
+		const { requestingMissingSites, translate, visibleSiteCount } = this.props;
 
 		if ( ! visibleSiteCount ) {
 			return (
 				<Button
-					href={ onboardingUrl + '?ref=me-account-settings' }
+					href={ onboardingUrl() + '?ref=me-account-settings' }
 					onClick={ this.getClickHandler( 'Primary Site Add New WordPress Button' ) }
 				>
 					{ translate( 'Add New Site' ) }
@@ -618,6 +565,39 @@ class Account extends Component {
 			return;
 		}
 
+		// Determine success message based on what has been updated.
+		const newEmail = response.new_user_email;
+		const moreThanEmailChanged = Object.keys( response )?.find(
+			( item ) => ! [ 'new_user_email', 'user_email', 'user_email_change_pending' ].includes( item )
+		);
+
+		// Default case.
+		let successMessage = this.props.translate( 'Settings saved successfully!' );
+		if ( newEmail && moreThanEmailChanged ) {
+			// Email and other settings changed.
+			successMessage = this.props.translate(
+				'Settings saved successfully!{{br/}}We sent an email to %(email)s. Please check your inbox to verify your email.',
+				{
+					args: {
+						email: newEmail || '',
+					},
+					components: {
+						br: <br />,
+					},
+				}
+			);
+		} else if ( newEmail ) {
+			// Only email changed.
+			successMessage = this.props.translate(
+				'We sent an email to %(email)s. Please check your inbox to verify your email.',
+				{
+					args: {
+						email: newEmail || '',
+					},
+				}
+			);
+		}
+
 		this.setState(
 			{
 				submittingForm: false,
@@ -627,10 +607,7 @@ class Account extends Component {
 				},
 			},
 			() => {
-				this.props.successNotice(
-					this.props.translate( 'Settings saved successfully!' ),
-					noticeOptions
-				);
+				this.props.successNotice( successMessage, noticeOptions );
 			}
 		);
 		debug( 'Settings saved successfully ' + JSON.stringify( response ) );
@@ -681,22 +658,6 @@ class Account extends Component {
 					{ this.renderPrimarySite() }
 				</FormFieldset>
 
-				<FormFieldset>
-					<FormLabel htmlFor="user_URL">{ translate( 'Web address' ) }</FormLabel>
-					<FormTextInput
-						disabled={ this.getDisabledState( ACCOUNT_FORM_NAME ) }
-						id="user_URL"
-						name="user_URL"
-						type="url"
-						onFocus={ this.getFocusHandler( 'Web Address Field' ) }
-						value={ this.getUserSetting( 'user_URL' ) || '' }
-						onChange={ this.updateUserSettingInput }
-					/>
-					<FormSettingExplanation>
-						{ translate( 'Shown publicly when you comment on blogs.' ) }
-					</FormSettingExplanation>
-				</FormFieldset>
-
 				<FormButton
 					isSubmitting={ this.isSubmittingForm( ACCOUNT_FORM_NAME ) }
 					disabled={ this.shouldDisableAccountSubmitButton() }
@@ -724,7 +685,7 @@ class Account extends Component {
 
 		return (
 			<FormFieldset>
-				<FormLegend>{ translate( 'Would you like a matching blog address too?' ) }</FormLegend>
+				<FormLabel>{ translate( 'Would you like a matching blog address too?' ) }</FormLabel>
 				{
 					// message is translated in the API
 					map( actions, ( message, key ) => (
@@ -744,47 +705,33 @@ class Account extends Component {
 		);
 	}
 
-	/*
-	 * These form fields are displayed when a username change is in progress.
-	 */
-	renderUsernameFields() {
+	renderConfirmUsernameDialog() {
 		const { currentUserDisplayName, currentUserName, translate } = this.props;
 
-		const isSaveButtonDisabled =
-			this.getUserSetting( 'user_login' ) !== this.state.userLoginConfirm ||
-			! this.isUsernameValid() ||
-			this.state.submittingForm;
+		const buttons = [
+			{ action: 'cancel', label: translate( 'Cancel' ), onClick: this.toggleConfirmUsernameForm },
+			{
+				action: 'confirm',
+				label: translate( 'Change username' ),
+				isPrimary: true,
+				additionalClassNames: 'is-scary',
+				onClick: this.submitUsernameForm,
+			},
+		];
 
 		return (
-			<div className="account__username-form" key="usernameForm">
-				<FormFieldset>
-					<FormLabel htmlFor="username_confirm">
-						{ translate( 'Confirm Username', {
-							context: 'User is being prompted to re-enter a string for verification.',
-						} ) }
-					</FormLabel>
-					<FormTextInput
-						autoCapitalize="off"
-						autoComplete="off"
-						autoCorrect="off"
-						id="username_confirm"
-						name="username_confirm"
-						onFocus={ this.getFocusHandler( 'Username Confirm Field' ) }
-						value={ this.state.userLoginConfirm ?? '' }
-						onChange={ this.updateUserLoginConfirm }
-					/>
-					{ this.renderUsernameConfirmNotice() }
-					<FormSettingExplanation>{ translate( 'Confirm new username' ) }</FormSettingExplanation>
-				</FormFieldset>
-
-				{ this.renderBlogActionFields() }
-
-				<FormSectionHeading>{ translate( 'Please Read Carefully' ) }</FormSectionHeading>
-
+			<Dialog
+				isVisible={ this.state.showConfirmUsernameForm }
+				additionalClassNames="account__confirm-username-dialog"
+				buttons={ buttons }
+				showCloseIcon
+				onClose={ this.toggleConfirmUsernameForm }
+			>
+				<FormLabel>{ translate( 'Confirm username change' ) }</FormLabel>
 				<p>
 					{ translate(
-						'You are about to change your username, which is currently {{strong}}%(username)s{{/strong}}. ' +
-							'You will not be able to change your username back.',
+						'You are about to change your username, {{strong}}%(username)s{{/strong}}. ' +
+							'Once changed, you will not be able to revert it.',
 						{
 							args: {
 								username: currentUserName,
@@ -793,12 +740,15 @@ class Account extends Component {
 								strong: <strong />,
 							},
 						}
+					) }{ ' ' }
+					{ translate(
+						'Changing your username will also affect your Gravatar profile and IntenseDebate profile addresses.'
 					) }
 				</p>
 
 				<p>
 					{ translate(
-						'If you just want to change your display name, which is currently {{strong}}%(displayName)s{{/strong}}, ' +
+						'If you just want to change your display name, {{strong}}%(displayName)s{{/strong}}, ' +
 							'you can do so under {{myProfileLink}}My Profile{{/myProfileLink}}.',
 						{
 							args: {
@@ -819,26 +769,60 @@ class Account extends Component {
 						}
 					) }
 				</p>
+			</Dialog>
+		);
+	}
 
-				<p>
-					{ translate(
-						'Changing your username will also affect your Gravatar profile and IntenseDebate profile addresses.'
-					) }
-				</p>
+	/*
+	 * These form fields are displayed when a username change is in progress.
+	 */
+	renderUsernameFields() {
+		const { translate } = this.props;
 
-				<p>
-					{ translate(
-						'If you would still like to change your username, please save your changes. Otherwise, hit the cancel button below.'
-					) }
-				</p>
+		const isSaveButtonDisabled =
+			this.getUserSetting( 'user_login' ) !== this.state.userLoginConfirm ||
+			! this.isUsernameValid() ||
+			this.state.submittingForm;
+		const usernameMatch =
+			this.getUserSetting( 'user_login' ) === this.state.userLoginConfirm &&
+			this.state.userLoginConfirm.length > 0;
+
+		return (
+			<div className="account__username-form" key="usernameForm">
+				<FormFieldset>
+					<FormLabel htmlFor="username_confirm">{ translate( 'Confirm new username' ) }</FormLabel>
+					<FormTextInput
+						autoCapitalize="off"
+						autoComplete="off"
+						autoCorrect="off"
+						id="username_confirm"
+						name="username_confirm"
+						onFocus={ this.getFocusHandler( 'Username Confirm Field' ) }
+						value={ this.state.userLoginConfirm ?? '' }
+						onChange={ this.updateUserLoginConfirm }
+						isValid={ usernameMatch }
+						isError={ ! usernameMatch }
+					/>
+					<FormInputValidation isError={ ! usernameMatch }>
+						{ usernameMatch
+							? translate( 'Thanks for confirming your new username!' )
+							: translate( 'Please re-enter your new username to confirm it.' ) }
+					</FormInputValidation>
+				</FormFieldset>
+
+				{ this.renderBlogActionFields() }
+				{ this.renderConfirmUsernameDialog() }
 
 				<FormButtonsBar>
 					<FormButton
 						disabled={ isSaveButtonDisabled }
 						type="button"
-						onClick={ this.getClickHandler( 'Change Username Button', this.submitUsernameForm ) }
+						onClick={ this.getClickHandler(
+							'Change Username Button',
+							this.toggleConfirmUsernameForm
+						) }
 					>
-						{ translate( 'Save username' ) }
+						{ translate( 'Change username' ) }
 					</FormButton>
 
 					<FormButton
@@ -865,20 +849,18 @@ class Account extends Component {
 	};
 
 	render() {
-		const { markChanged, translate } = this.props;
+		const { isFetching, markChanged, translate } = this.props;
 		// Is a username change in progress?
 		const renderUsernameForm = this.hasUnsavedUserSetting( 'user_login' );
-
 		return (
 			<Main wideLayout className="account">
 				<QueryUserSettings />
 				<PageViewTracker path="/me/account" title="Me > Account Settings" />
 				<ReauthRequired twoStepAuthorization={ twoStepAuthorization } />
-				<FormattedHeader
-					brandFont
-					headerText={ translate( 'Account settings' ) }
-					align="left"
-					subHeaderText={ translate(
+				<NavigationHeader
+					navigationItems={ [] }
+					title={ translate( 'Account settings' ) }
+					subtitle={ translate(
 						'Adjust your account information and interface settings. {{learnMoreLink}}Learn more{{/learnMoreLink}}.',
 						{
 							components: {
@@ -909,9 +891,16 @@ class Account extends Component {
 								onFocus={ this.getFocusHandler( 'Username Field' ) }
 								onChange={ this.handleUsernameChange }
 								value={ this.getUserSetting( 'user_login' ) || '' }
+								isValid={ renderUsernameForm && this.isUsernameValid() }
+								isError={
+									renderUsernameForm && null !== this.getUsernameValidationFailureMessage()
+								}
 							/>
-							{ this.renderUsernameValidation() }
-							<FormSettingExplanation>{ this.renderJoinDate() }</FormSettingExplanation>
+							{ renderUsernameForm ? (
+								this.renderUsernameValidation()
+							) : (
+								<FormSettingExplanation>{ this.renderJoinDate() }</FormSettingExplanation>
+							) }
 						</FormFieldset>
 
 						{ /* This is how we animate showing/hiding the form field sections */ }
@@ -936,6 +925,7 @@ class Account extends Component {
 							</FormLabel>
 							<LanguagePicker
 								disabled={ this.getDisabledState( INTERFACE_FORM_NAME ) }
+								isLoading={ isFetching }
 								languages={ languages }
 								onClick={ this.getClickHandler( 'Interface Language Field' ) }
 								valueKey="langSlug"
@@ -956,22 +946,32 @@ class Account extends Component {
 							{ this.thankTranslationContributors() }
 						</FormFieldset>
 
-						{ this.props.canDisplayCommunityTranslator && this.communityTranslator() }
+						{ this.props.canDisplayCommunityTranslator && (
+							<FormFieldset className="account__settings-admin-home">
+								<FormLabel id="account__default_landing_page">
+									{ translate( 'Community Translator' ) }
+								</FormLabel>
+								<ToggleUseCommunityTranslator />
+							</FormFieldset>
+						) }
 
-						{ config.isEnabled( 'me/account/color-scheme-picker' ) &&
-							supportsCssCustomProperties() && (
-								<FormFieldset>
-									<FormLabel id="account__color_scheme" htmlFor="color_scheme">
-										{ translate( 'Dashboard color scheme' ) }
-									</FormLabel>
-									<ColorSchemePicker
-										temporarySelection
-										disabled={ this.getDisabledState( INTERFACE_FORM_NAME ) }
-										defaultSelection="classic-dark"
-										onSelection={ this.updateColorScheme }
-									/>
-								</FormFieldset>
-							) }
+						<FormFieldset className="account__settings-admin-home">
+							<FormLabel id="account__default_landing_page">
+								{ translate( 'Admin home' ) }
+							</FormLabel>
+							<ToggleSitesAsLandingPage />
+						</FormFieldset>
+
+						<FormFieldset>
+							<FormLabel id="account__color_scheme" htmlFor="color_scheme">
+								{ translate( 'Dashboard color scheme' ) }
+							</FormLabel>
+							<FormSettingExplanation>
+								{ translate(
+									'You can now set the color scheme on your individual site by visiting Users → Profile from your site dashboard.'
+								) }
+							</FormSettingExplanation>
+						</FormFieldset>
 					</form>
 				</Card>
 
@@ -992,11 +992,11 @@ export default compose(
 			currentUserDate: getCurrentUserDate( state ),
 			currentUserDisplayName: getCurrentUserDisplayName( state ),
 			currentUserName: getCurrentUserName( state ),
+			isFetching: isFetchingUserSettings( state ),
 			requestingMissingSites: isRequestingMissingSites( state ),
 			userSettings: getUserSettings( state ),
 			unsavedUserSettings: getUnsavedUserSettings( state ),
 			visibleSiteCount: getCurrentUserVisibleSiteCount( state ),
-			onboardingUrl: getOnboardingUrl( state ),
 		} ),
 		{
 			bumpStat,
@@ -1009,8 +1009,6 @@ export default compose(
 			saveUnsavedUserSettings,
 			setUserSetting,
 			successNotice,
-			saveColorSchemePreference: ( newColorScheme ) =>
-				savePreference( colorSchemeKey, newColorScheme ),
 		}
 	)
 )( Account );

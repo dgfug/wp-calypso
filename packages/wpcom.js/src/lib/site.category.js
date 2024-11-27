@@ -1,10 +1,9 @@
 /**
  * Category methods
- *
  * @param {string} [slug] - category slug
  * @param {string} sid - site id
  * @param {WPCOM} wpcom - wpcom instance
- * @returns {null} null
+ * @returns {Category|undefined}
  */
 export default function Category( slug, sid, wpcom ) {
 	if ( ! sid ) {
@@ -22,7 +21,6 @@ export default function Category( slug, sid, wpcom ) {
 
 /**
  * Set category `slug`
- *
  * @param {string} slug - category slug
  */
 Category.prototype.slug = function ( slug ) {
@@ -31,8 +29,7 @@ Category.prototype.slug = function ( slug ) {
 
 /**
  * Get category
- *
- * @param {object} [query] - query object parameter - query object parameter
+ * @param {Object} [query] - query object parameter - query object parameter
  * @param {Function} fn - callback function - callback
  * @returns {Function} request handler
  */
@@ -43,9 +40,8 @@ Category.prototype.get = function ( query, fn ) {
 
 /**
  * Add category
- *
- * @param {object} [query] - query object parameter
- * @param {object} body - body object parameter
+ * @param {Object} [query] - query object parameter
+ * @param {Object} body - body object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -56,9 +52,8 @@ Category.prototype.add = function ( query, body, fn ) {
 
 /**
  * Edit category
- *
- * @param {object} [query] - query object parameter
- * @param {object} body - body object parameter
+ * @param {Object} [query] - query object parameter
+ * @param {Object} body - body object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -69,8 +64,7 @@ Category.prototype.update = function ( query, body, fn ) {
 
 /**
  * Delete category
- *
- * @param {object} [query] - query object parameter
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */

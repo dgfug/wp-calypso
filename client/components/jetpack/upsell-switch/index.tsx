@@ -1,12 +1,20 @@
 import { getPlan } from '@automattic/calypso-products';
-import classNames from 'classnames';
-import { ReactElement, useState, ReactNode, useEffect, ComponentType, useMemo } from 'react';
+import clsx from 'clsx';
+import {
+	ReactElement,
+	useState,
+	PropsWithChildren,
+	useEffect,
+	ComponentType,
+	useMemo,
+} from 'react';
 import * as React from 'react';
-import { connect, DefaultRootState } from 'react-redux';
+import { connect } from 'react-redux';
 import Main from 'calypso/components/main';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 import isAtomicSite from 'calypso/state/selectors/is-site-wpcom-atomic';
 import { getSiteProducts, getSitePlan } from 'calypso/state/sites/selectors';
+import { IAppState } from 'calypso/state/types';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import type { SitePlan } from 'calypso/state/sites/selectors/get-site-plan';
 import type { SiteProduct } from 'calypso/state/sites/selectors/get-site-products';
@@ -15,8 +23,8 @@ type QueryComponentProps = {
 	siteId: number | null;
 };
 
-type QueryFunction = ( arg0: DefaultRootState, arg1: number | null ) => SiteState;
-type RequestFunction = ( arg0: DefaultRootState, arg1: number | null ) => boolean;
+type QueryFunction = ( arg0: IAppState, arg1: number | null ) => SiteState;
+type RequestFunction = ( arg0: IAppState, arg1: number | null ) => boolean;
 
 export type UpsellComponentProps = {
 	reason?: string;
@@ -27,8 +35,7 @@ type SiteState = {
 	reason?: string;
 };
 
-type Props = {
-	children: ReactNode;
+type Props = PropsWithChildren< {
 	UpsellComponent: ComponentType< UpsellComponentProps >;
 	display: ReactElement;
 	QueryComponent: ComponentType< QueryComponentProps >;
@@ -41,14 +48,14 @@ type Props = {
 	atomicSite: boolean;
 	siteProducts: SiteProduct[] | null;
 	sitePlan: SitePlan | null | undefined;
-};
+} >;
 
 const UI_STATE_LOADING = Symbol();
 const UI_STATE_LOADED = Symbol();
 
 type UiState = typeof UI_STATE_LOADED | typeof UI_STATE_LOADING | null;
 
-function UpsellSwitch( props: Props ): React.ReactElement {
+function UpsellSwitch( props: Props ) {
 	const {
 		UpsellComponent,
 		QueryComponent,
@@ -123,22 +130,15 @@ function UpsellSwitch( props: Props ): React.ReactElement {
 			return;
 		}
 
-		// Don't show an upsell if this is an Atomic site
-		if ( atomicSite ) {
-			setUpsell( false );
-			return;
-		}
-
 		// Only show an upsell if the state is 'unavailable'
 		setUpsell( state === 'unavailable' );
 	}, [ uiState, atomicSite, hasProduct, state ] );
 
 	if ( UI_STATE_LOADED !== uiState ) {
 		return (
-			<Main
-				className={ classNames( 'upsell-switch__loading', { is_jetpackcom: isJetpackCloud() } ) }
-			>
+			<Main className={ clsx( 'upsell-switch__loading', { is_jetpackcom: isJetpackCloud() } ) }>
 				<QueryComponent siteId={ siteId } />
+				{ /* render placeholder */ }
 				{ children }
 			</Main>
 		);
@@ -149,7 +149,7 @@ function UpsellSwitch( props: Props ): React.ReactElement {
 	return display;
 }
 
-export default connect( ( state, { getStateForSite, isRequestingForSite }: Props ) => {
+export default connect( ( state: IAppState, { getStateForSite, isRequestingForSite }: Props ) => {
 	const siteId = getSelectedSiteId( state );
 	const siteState = getStateForSite( state, siteId );
 	const atomicSite = ( siteId && isAtomicSite( state, siteId ) ) as boolean;

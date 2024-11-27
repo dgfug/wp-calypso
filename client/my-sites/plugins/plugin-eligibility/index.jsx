@@ -1,5 +1,5 @@
+import page from '@automattic/calypso-router';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -30,7 +30,13 @@ class PluginEligibility extends Component {
 
 	pluginTransferInitiate = () => {
 		// Use theme transfer action until we introduce generic ones that will handle both plugins and themes
-		this.props.initiateTransfer( this.props.siteId, null, this.props.pluginSlug );
+		this.props.initiateTransfer(
+			this.props.siteId,
+			null,
+			this.props.pluginSlug,
+			'',
+			'plugin_install'
+		);
 		this.goBack();
 	};
 
@@ -40,7 +46,7 @@ class PluginEligibility extends Component {
 		return (
 			<MainComponent>
 				<PageViewTracker path="/plugins/:plugin/eligibility/:site" title="Plugins > Eligibility" />
-				<HeaderCake isCompact={ true } onClick={ this.goBack }>
+				<HeaderCake isCompact onClick={ this.goBack }>
 					{ translate( 'Install plugin' ) }
 				</HeaderCake>
 				<EligibilityWarnings

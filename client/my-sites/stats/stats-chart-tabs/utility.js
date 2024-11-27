@@ -1,4 +1,13 @@
-import classNames from 'classnames';
+import { eye } from '@automattic/components/src/icons';
+import {
+	Icon,
+	people,
+	starEmpty,
+	commentContent,
+	chevronRight,
+	postContent,
+} from '@wordpress/icons';
+import clsx from 'clsx';
 import { numberFormat, translate } from 'i18n-calypso';
 import { capitalize } from 'lodash';
 import moment from 'moment';
@@ -9,10 +18,13 @@ export function formatDate( date, period ) {
 	// NOTE: Consider localizing the dates, especially for the 'week' case.
 	const momentizedDate = moment( date );
 	switch ( period ) {
+		case 'hour':
+			// TODO: align the time format with email stats.
+			return momentizedDate.format( 'MMM D HH:00' );
 		case 'day':
 			return momentizedDate.format( 'LL' );
 		case 'week':
-			return momentizedDate.format( 'L' ) + ' - ' + momentizedDate.add( 6, 'days' ).format( 'L' );
+			return momentizedDate.format( 'LL' ) + ' - ' + momentizedDate.add( 6, 'days' ).format( 'LL' );
 		case 'month':
 			return momentizedDate.format( 'MMMM YYYY' );
 		case 'year':
@@ -44,7 +56,7 @@ export const buildChartData = memoizeLast( ( activeLegend, chartTab, data, perio
 
 		const recordClassName =
 			record.classNames && record.classNames.length ? record.classNames.join( ' ' ) : null;
-		const className = classNames( recordClassName, {
+		const className = clsx( recordClassName, {
 			'is-selected': record.period === queryDate,
 		} );
 
@@ -78,7 +90,7 @@ function addTooltipData( chartTab, item, period ) {
 				label: translate( 'Comments' ),
 				value: numberFormat( item.value ),
 				className: 'is-comments',
-				icon: 'comment',
+				icon: <Icon className="gridicon" icon={ commentContent } />,
 			} );
 			break;
 
@@ -87,7 +99,7 @@ function addTooltipData( chartTab, item, period ) {
 				label: translate( 'Likes' ),
 				value: numberFormat( item.value ),
 				className: 'is-likes',
-				icon: 'star',
+				icon: <Icon className="gridicon" icon={ starEmpty } />,
 			} );
 			break;
 
@@ -96,19 +108,19 @@ function addTooltipData( chartTab, item, period ) {
 				label: translate( 'Views' ),
 				value: numberFormat( item.data.views ),
 				className: 'is-views',
-				icon: 'visible',
+				icon: <Icon className="gridicon" icon={ eye } />,
 			} );
 			tooltipData.push( {
 				label: translate( 'Visitors' ),
 				value: numberFormat( item.data.visitors ),
 				className: 'is-visitors',
-				icon: 'user',
+				icon: <Icon className="gridicon" icon={ people } />,
 			} );
 			tooltipData.push( {
 				label: translate( 'Views Per Visitor' ),
 				value: numberFormat( item.data.views / item.data.visitors, { decimals: 2 } ),
 				className: 'is-views-per-visitor',
-				icon: 'chevron-right',
+				icon: <Icon className="gridicon" icon={ chevronRight } />,
 			} );
 
 			if ( item.data.post_titles && item.data.post_titles.length ) {
@@ -118,7 +130,7 @@ function addTooltipData( chartTab, item, period ) {
 						label: translate( 'Posts Published' ),
 						value: numberFormat( item.data.post_titles.length ),
 						className: 'is-published-nolist',
-						icon: 'posts',
+						icon: <Icon className="gridicon" icon={ postContent } />,
 					} );
 				} else {
 					tooltipData.push( {
@@ -128,7 +140,7 @@ function addTooltipData( chartTab, item, period ) {
 								count: item.data.post_titles.length,
 							} ) + ':',
 						className: 'is-published',
-						icon: 'posts',
+						icon: <Icon className="gridicon" icon={ postContent } />,
 						value: '',
 					} );
 					item.data.post_titles.forEach( ( post_title ) => {

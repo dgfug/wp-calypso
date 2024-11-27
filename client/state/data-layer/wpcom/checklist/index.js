@@ -12,6 +12,7 @@ export const CHECKLIST_KNOWN_TASKS = {
 	BLOGNAME_SET: 'blogname_set',
 	MOBILE_APP_INSTALLED: 'mobile_app_installed',
 	WOOCOMMERCE_SETUP: 'woocommerce_setup',
+	SENSEI_SETUP: 'sensei_setup',
 	SITE_LAUNCHED: 'site_launched',
 	FRONT_PAGE_UPDATED: 'front_page_updated',
 	SITE_MENU_UPDATED: 'site_menu_updated',
@@ -29,6 +30,9 @@ export const CHECKLIST_KNOWN_TASKS = {
 	THEMES_BROWSED: 'themes_browsed',
 	FIRST_POST_PUBLISHED: 'first_post_published',
 	POST_SHARING_ENABLED: 'post_sharing_enabled',
+	INSTALL_CUSTOM_PLUGIN: 'install_custom_plugin',
+	SETUP_SSH: 'setup_ssh',
+	CART_ITEMS_ABANDONED: 'cart_items_abandoned',
 };
 
 // Transform the response to a data / schema calypso understands, eg filter out unknown tasks
@@ -57,7 +61,6 @@ const fromApi = ( payload ) => {
 		designType: data.designType,
 		phase2: data.phase2,
 		segment: data.segment,
-		verticals: data.verticals,
 		tasks: data.tasks.filter( ( task ) =>
 			Object.values( CHECKLIST_KNOWN_TASKS ).includes( task.id )
 		),

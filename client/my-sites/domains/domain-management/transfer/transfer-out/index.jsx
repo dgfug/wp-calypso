@@ -1,7 +1,7 @@
+import page from '@automattic/calypso-router';
 import { localize } from 'i18n-calypso';
 import { omit } from 'lodash';
 import moment from 'moment';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { createElement, Component, Fragment } from 'react';
 import { connect } from 'react-redux';
@@ -34,11 +34,8 @@ class Transfer extends Component {
 	renderSection() {
 		const topLevelOfTld = getTopLevelOfTld( this.props.selectedDomainName );
 		const { locked, transferProhibited } = this.props.wapiDomainInfo.data;
-		const {
-			currentUserCanManage,
-			isPendingIcannVerification,
-			transferAwayEligibleAt,
-		} = getSelectedDomain( this.props );
+		const { currentUserCanManage, isPendingIcannVerification, transferAwayEligibleAt } =
+			getSelectedDomain( this.props ) ?? {};
 		let section = null;
 
 		if ( ! currentUserCanManage ) {

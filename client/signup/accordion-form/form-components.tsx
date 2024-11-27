@@ -1,22 +1,35 @@
+import { FormInputValidation } from '@automattic/components';
 import styled from '@emotion/styled';
+import { Icon } from '@wordpress/icons';
 import { TranslateResult, useTranslate } from 'i18n-calypso';
-import { ChangeEvent } from 'react';
+import { ChangeEvent, ChangeEventHandler, ReactNode } from 'react';
+import FormCheckbox from 'calypso/components/forms/form-checkbox';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
+import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import FormTextArea from 'calypso/components/forms/form-textarea';
+import InfoPopover from 'calypso/components/info-popover';
 import SocialLogo from 'calypso/components/social-logo';
+import { tip } from 'calypso/signup/icons';
 
 // TODO: This probably should be moved out to a more suitable folder name like difm-components
-export const Label = styled( FormLabel )`
+export const Label = styled.label`
 	color: var( --studio-gray-50 );
-	font-weight: 500;
+	font-weight: 400;
+	font-size: 0.875rem;
 	cursor: inherit;
-	margin-bottom: 24px;
 `;
 
-export const SubLabel = styled( Label )`
+export const LabelLink = styled( Label )`
+	text-decoration: underline;
+	font-weight: bold;
+`;
+
+export const LabelContainer = styled.div`
+	margin-bottom: 12px;
+`;
+
+export const SubLabel = styled.label`
 	font-weight: 400;
 	text-decoration-line: none;
 	color: ${ ( props ) => ( props.color ? props.color : 'inherited' ) };
@@ -54,13 +67,13 @@ const FlexContainer = styled.div`
 	flex-wrap: wrap;
 	row-gap: 16px;
 	column-gap: 32px;
-
 	.form-fieldset {
 		flex-basis: 100%;
 	}
 	@media ( min-width: 600px ) {
 		.form-fieldset {
-			flex-basis: 40%;
+			// 50% - row gap
+			flex-basis: calc( 50% - 16px );
 		}
 	}
 	.form-label {
@@ -77,12 +90,51 @@ const SocialMediaLabel = styled.span`
 
 const AddressField = styled.div`
 	flex-basis: 100%;
-	@media ( min-width: 600px ) {
-		flex-basis: 85%;
+`;
+
+const FormSettingExplanationContainer = styled.div`
+	.form-setting-explanation {
+		display: flex;
+		align-items: center;
+		margin: 16px 0;
+		font-style: normal;
+		color: var( --studio-gray-40 );
+
+		.site-options__form-icon {
+			margin-right: 8px;
+		}
 	}
 `;
 
-interface TextInputFieldProps {
+const StyledFormInputValidation = styled( FormInputValidation )< { isWarning?: boolean } >`
+	margin-top: ${ ( props ) => ( props.isWarning ? '24px' : 0 ) };
+`;
+
+const FlexFormFieldset = styled( FormFieldset )`
+	display: flex;
+`;
+
+const StyledFormFieldset = styled( FormFieldset, {
+	shouldForwardProp: ( prop ) => prop !== 'hasFillerContentCheckbox',
+} )( ( props ) => ( {
+	marginBottom: props.hasFillerContentCheckbox ? '12px' : '20px',
+} ) );
+
+const StyledFormCheckbox = styled( FormCheckbox )`
+	&.form-checkbox {
+		margin-right: 6px;
+	}
+`;
+
+const ClickableLabel = styled( Label )`
+	cursor: pointer;
+`;
+
+const CharacterCounter = styled.small`
+	float: right;
+`;
+
+type TextInputFieldProps = {
 	name: string;
 	label?: TranslateResult;
 	placeholder?: TranslateResult;
@@ -90,39 +142,130 @@ interface TextInputFieldProps {
 	error?: TranslateResult | null;
 	sublabel?: TranslateResult;
 	rows?: number;
+	explanation?: TranslateResult;
+	disabled?: boolean;
 	onChange?: ( event: ChangeEvent< HTMLInputElement > ) => void;
+};
+
+export function LabelBlock( { inputName, children }: { inputName?: string; children: ReactNode } ) {
+	return (
+		<LabelContainer>
+			<Label htmlFor={ inputName }>{ children }</Label>
+		</LabelContainer>
+	);
 }
 
 export function TextInputField( props: TextInputFieldProps ) {
 	return (
 		<FormFieldset>
-			<Label htmlFor={ props.name }>{ props.label }</Label>
+			{ props.label && <LabelBlock inputName={ props.name }>{ props.label } </LabelBlock> }
 			{ props.sublabel && <SubLabel htmlFor={ props.name }>{ props.sublabel }</SubLabel> }
 			<TextInput { ...props } isError={ !! props.error } />
-			{ props.error && <FormInputValidation isError text={ props.error } /> }
+			{ props.error && <StyledFormInputValidation isError text={ props.error } /> }
+			{ props.explanation && (
+				<FormSettingExplanationContainer>
+					<FormSettingExplanation>
+						<Icon className="site-options__form-icon" icon={ tip } size={ 20 } />
+						{ props.explanation }
+					</FormSettingExplanation>
+				</FormSettingExplanationContainer>
+			) }
 		</FormFieldset>
 	);
 }
 
-interface TextAreaFieldProps extends TextInputFieldProps {
+type TextAreaFieldProps = TextInputFieldProps & {
 	rows?: number;
-}
+	hasFillerContentCheckbox?: boolean;
+} & (
+		| {
+				characterLimit?: never;
+				characterLimitError?: never;
+				shouldEnforceCharacterLimit?: never;
+		  }
+		| {
+				characterLimitError: TranslateResult;
+				characterLimit: number;
+				shouldEnforceCharacterLimit?: boolean;
+		  }
+	);
 
 export function TextAreaField( props: TextAreaFieldProps ) {
+	const {
+		hasFillerContentCheckbox,
+		value,
+		characterLimit,
+		characterLimitError,
+		shouldEnforceCharacterLimit,
+		onChange: onChangeFromProps,
+		...otherProps
+	} = props;
+
+	const onChange = ( event: ChangeEvent< HTMLInputElement > ) => {
+		if ( shouldEnforceCharacterLimit ) {
+			if ( event.target.value.length <= characterLimit ) {
+				return onChangeFromProps?.( event );
+			}
+			return;
+		}
+		return onChangeFromProps?.( event );
+	};
+
 	return (
-		<FormFieldset>
-			<Label htmlFor={ props.name }>{ props.label }</Label>
+		<StyledFormFieldset hasFillerContentCheckbox={ hasFillerContentCheckbox }>
+			{ props.label && <LabelBlock inputName={ props.name }>{ props.label } </LabelBlock> }
 			{ props.sublabel && <SubLabel htmlFor={ props.name }>{ props.sublabel }</SubLabel> }
 			<TextArea
-				{ ...props }
+				{ ...otherProps }
+				onChange={ onChange }
+				value={ value }
 				rows={ props.rows ? props.rows : 10 }
 				isError={ !! props.error }
 				autoCapitalize="off"
 				autoCorrect="off"
 				spellCheck="false"
 			/>
-			{ props.error && <FormInputValidation isError text={ props.error } /> }
-		</FormFieldset>
+			{ characterLimit && value?.length ? (
+				<CharacterCounter>
+					{ value.length }/{ characterLimit }
+				</CharacterCounter>
+			) : null }
+			{ characterLimit &&
+				( shouldEnforceCharacterLimit
+					? value?.length === characterLimit
+					: value?.length > characterLimit ) && (
+					<StyledFormInputValidation isError={ false } isWarning text={ characterLimitError } />
+				) }
+			{ props.error && <StyledFormInputValidation isError text={ props.error } /> }
+		</StyledFormFieldset>
+	);
+}
+
+export function CheckboxField( props: {
+	checked: boolean;
+	name: string;
+	value: string;
+	onChange: ChangeEventHandler< HTMLInputElement >;
+	label: TranslateResult;
+	helpText: TranslateResult;
+} ) {
+	return (
+		<FlexFormFieldset>
+			<ClickableLabel>
+				<>
+					<StyledFormCheckbox
+						name={ props.name }
+						value={ props.value }
+						checked={ props.checked }
+						onChange={ props.onChange }
+					/>
+					{ props.label }
+				</>
+			</ClickableLabel>
+			<InfoPopover showOnHover position="top">
+				{ props.helpText }
+			</InfoPopover>
+		</FlexFormFieldset>
 	);
 }
 
@@ -248,7 +391,4 @@ export const HorizontalGrid = styled.div`
 	justify-content: space-between;
 	margin-bottom: 20px;
 	flex-wrap: wrap;
-	@media ( min-width: 1100px ) {
-		flex-wrap: nowrap;
-	}
 `;

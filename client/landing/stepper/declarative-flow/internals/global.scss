@@ -1,7 +1,504 @@
 /*
     Global styles for Stepper framework
 */
+@import "@automattic/calypso-color-schemes";
+@import "@automattic/typography/styles/fonts";
+@import "@automattic/onboarding/styles/mixins";
+@import "@automattic/onboarding/styles/variables";
+@import "@automattic/components/src/styles/typography";
+
+/**
+ * Importers styles
+ */
+@import "~calypso/blocks/import/style/base";
+
+/**
+ * General onboarding styling
+ */
 body {
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
-		'Cantarell', 'Helvetica Neue', sans-serif;
+	--color-body-background: #fdfdfd;
+	--wooexpress-purple: #7f54b3;
+	background-color: var(--color-body-background);
+}
+
+body,
+button {
+	font-family: $sans;
+	text-rendering: optimizelegibility;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-font-smoothing: antialiased;
+
+	// Basic stylings
+	margin: 0;
+	line-height: 1.5;
+
+	h1,
+	h2,
+	h3,
+	p {
+		font-family: $sans;
+		font-weight: 400;
+		margin: 0;
+	}
+
+	a,
+	a:visited {
+		text-decoration: none;
+		color: var(--color-link);
+	}
+
+	button {
+		background-color: transparent;
+		border: none;
+	}
+
+	ul {
+		padding: 0;
+	}
+}
+
+.accessible-focus {
+	.site-setup,
+	.import-focused {
+		.button.is-primary:focus {
+			box-shadow: 0 0 0 2px var(--color-primary-light);
+		}
+	}
+}
+
+/**
+ * Site Setup
+ */
+.ai-assembler,
+.new-hosted-site,
+.import-hosted-site,
+.site-setup,
+.site-migration,
+.migration,
+.migration-signup,
+.import-focused,
+.plugin-bundle,
+.newsletter-setup,
+.newsletter-goals,
+.newsletter-post-setup,
+.plans,
+.domains,
+.patterns,
+.link-in-bio-post-setup,
+.anchor-fm,
+.subscribers,
+.ecommerce,
+.wooexpress,
+.copy-site,
+.intro,
+.free-setup,
+.free-post-setup,
+.free,
+.with-theme-assembler,
+.assembler-first,
+.setup-blog,
+.celebration-step,
+.use-my-domain,
+.domain-transfer,
+.update-design,
+.update-options,
+.hundred-year-plan,
+.hundred-year-domain,
+.link-in-bio-tld,
+.entrepreneur,
+.generate-content {
+	box-sizing: border-box;
+
+	&.step-route {
+		padding: 60px 0 0;
+
+		// Launchpad has its own header
+		&.launchpad {
+			margin-top: -60px;
+		}
+
+		@include break-small {
+			&.courses,
+			&.site-picker,
+			&.new-or-existing-site,
+			&.domains {
+				margin-top: -60px;
+			}
+		}
+
+		// Importer flows
+		&.import-focused,
+		&.import-hosted-site,
+		&.site-setup[class*=" import"] {
+			padding: 3.75rem 0;
+		}
+	}
+
+	/**
+ 	 * Signup Header
+ 	 */
+	.signup-header {
+		z-index: 1;
+
+		.wordpress-logo {
+			position: absolute;
+			inset-block-start: 20px;
+			inset-inline-start: 24px;
+			fill: var(--color-text);
+			transform-origin: 0 0;
+		}
+
+		.signup-header__right {
+			inset-block-start: 22px;
+			inset-inline-start: 20px;
+
+			.flow-progress-indicator {
+				font-weight: 500;
+				font-size: 0.875rem;
+				color: var(--studio-gray-30);
+			}
+		}
+
+		@include break-small {
+			.wordpress-logo {
+				inset-inline-start: 24px;
+			}
+
+			.signup-header__right {
+				inset-inline-end: 24px;
+			}
+		}
+	}
+
+	/**
+ 	 * Step Container
+ 	 */
+	.step-container {
+		.form-fieldset {
+			label {
+				text-transform: none;
+			}
+		}
+	}
+
+	// While we don't standardize all Calypso interfaces, we need to override this for onboarding flows #79851
+	.components-button.is-primary {
+		border-radius: 4px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		justify-content: center;
+
+		&[disabled],
+		&:disabled,
+		&.disabled {
+			color: #fff;
+			background-color: var(--studio-wordpress-blue-20);
+			border-color: var(--studio-wordpress-blue-20);
+		}
+	}
+
+	.components-button.is-link {
+		color: var(--color-accent);
+
+		&:hover:not(:disabled):not(.disabled),
+		&:focus:not(:disabled):not(.disabled) {
+			color: var(--color-neutral-70);
+		}
+	}
+
+	// WordPress.org components no longer use blue-50 as the primary color.
+	// This changes the primary color to blue-50 to conform to the WordPress.com colors.
+	--color-accent: var(--studio-wordpress-blue-50);
+	--color-accent-60: var(--studio-wordpress-blue-60);
+	--wp-components-color-accent-darker-10: var(--studio-wordpress-blue-60);
+	--wp-components-color-accent-darker-20: var(--studio-wordpress-blue-70);
+	--wp-components-color-accent: var(--studio-wordpress-blue-50);
+
+}
+
+.import-focused .step-container.site-picker,
+.import-hosted-site .step-container.site-picker {
+	max-width: 1280px;
+	padding: 1.5rem;
+}
+
+.is-section-stepper {
+	.search-filters__popover {
+		--color-accent: #117ac9 !important;
+		--color-accent-60: #0e64a5 !important;
+	}
+}
+
+.intro {
+	&:not(.newsletter).signup-header {
+		z-index: 0 !important; /* set to 0 to prevent it from covering top of intro modal */
+	}
+}
+
+/**
+ * Tailored flow stylings
+ */
+.newsletter:not(.domains),
+.link-in-bio-tld:not(.domains) {
+	&:not(.launchpad):not(.subscribers) {
+		@include onboarding-break-mobile-landscape {
+			padding: 40px 0 0;
+		}
+	}
+
+	.step-container {
+		.step-container__content h1,
+		.step-container__header h1.formatted-header__title {
+			font-size: $font-title-medium;
+			line-height: 1.2em; /* stylelint-disable-line declaration-property-unit-allowed-list */
+
+			@include break-medium {
+				font-size: $font-headline-medium;
+			}
+		}
+	}
+}
+
+/*
+ * Override font sizes for all newsletter onboarding screens
+ */
+.newsletter,
+.newsletter:not(.domains) {
+	.step-container {
+		.step-container__content h1,
+		.step-container__header h1.formatted-header__title {
+			font-size: rem(32px); //typography-exception
+			line-height: rem(40px); //typography-exception
+
+			@include break-medium {
+				font-size: rem(44px); //typography-exception
+				line-height: rem(52px); //typography-exception
+			}
+		}
+		.step-container__header .formatted-header .formatted-header__subtitle {
+			font-size: rem(16px); //typography-exception
+			line-height: rem(24px); //typography-exception
+			font-family: $font-sf-pro-display;
+		}
+	}
+}
+
+.store-profiler__form,
+.newsletter,
+.link-in-bio-tld,
+.setup-form__form {
+	button {
+		&.site-icon-with-picker__upload-button {
+			border-radius: 4px;
+			border: 1px solid rgba($color: #000, $alpha: 0.2);
+
+			&.site-icon-with-picker__upload-button {
+				border-radius: 50%;
+				font-family: "SF Pro Text", $sans;
+				transition: ease 300ms;
+
+				svg {
+					fill: var(--studio-gray-30);
+				}
+
+				span {
+					font-size: $font-body-extra-small;
+				}
+
+				&:hover {
+					box-shadow: none;
+					outline: none;
+
+					svg {
+						fill: var(--studio-wordpress-blue-50);
+					}
+
+					span {
+						font-size: $font-body-extra-small;
+
+						&.add {
+							color: var(--studio-wordpress-blue-50);
+						}
+
+						&.replace {
+							color: var(--studio-wordpress-blue-50);
+						}
+					}
+				}
+				&:focus {
+					background-color: var(--studio-wordpress-blue-50);
+					box-shadow: none;
+					svg {
+						fill: #fff;
+					}
+					span {
+						color: var(--studio-wordpress-blue-50);
+					}
+				}
+			}
+		}
+	}
+
+	fieldset {
+		label {
+			font-size: $font-body;
+			color: var(--studio-gray-60);
+			font-weight: 500;
+		}
+	}
+
+	&.intro {
+		button.intro__button {
+			border-radius: 4px;
+			background-color: var(--studio-gray-100);
+			transition: ease 300ms;
+
+			&:hover,
+			&:focus {
+				background-color: var(--studio-gray-70);
+			}
+
+			&:focus {
+				border: none;
+				outline: solid 2px var(--studio-gray-70);
+				outline-offset: 2px;
+				box-shadow: none;
+			}
+		}
+	}
+}
+
+.free,
+.free-post-setup,
+.update-design {
+	.signup-header h1 {
+		display: none;
+	}
+}
+
+/**
+ * Global notices
+ */
+#notices {
+	top: 0;
+
+	@media (min-width: 661px) {
+		top: 16px;
+	}
+
+	.gridicon {
+		fill: currentColor;
+	}
+}
+
+.wooexpress,
+.copy-site,
+.ecommerce {
+	.step-container.processing-step {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		margin-top: 25vh;
+	}
+}
+
+.assign-trial-plan,
+.processing {
+	&.wooexpress,
+	&.ecommerce {
+		padding: 60px 0;
+		min-height: 100%;
+		min-width: 100%;
+		width: 100%;
+		height: auto;
+		position: fixed;
+		top: 0;
+		left: 0;
+		background-color: #fff;
+		background-image:
+			url(calypso/assets/images/onboarding/ecommerce-intro-1.jpg),
+			url(calypso/assets/images/onboarding/ecommerce-intro-2.jpg);
+		background-position-y: -40px, 110%;
+		/*!rtl:ignore*/
+		background-position-x: 109%, -10%;
+		background-repeat: no-repeat, no-repeat;
+		background-attachment: fixed;
+		background-size: auto 15%, auto 25%;
+		padding-top: 0;
+
+		@include break-huge {
+			background-size: auto 15%, auto 35%, auto 50%;
+			background-position-x: 65%, -100px, 120%;
+			background-position-y: 5%, 85%, 125%;
+			background-image:
+				url(calypso/assets/images/onboarding/ecommerce-intro-1.jpg),
+				url(calypso/assets/images/onboarding/ecommerce-intro-2.jpg),
+				url(calypso/assets/images/onboarding/ecommerce-intro-3.jpg);
+		}
+	}
+}
+
+.wooexpress {
+	.step-container .step-container__content h1 {
+		font-family: proxima-nova, sans-serif;
+		font-weight: 600;
+		font-size: $font-title-large;
+	}
+	.loading-bar {
+		background-color: var(--studio-woocommerce-purple-5);
+		width: 590px;
+		max-width: 100%;
+		margin-left: auto;
+		margin-right: auto;
+
+		@media screen and (max-width: 640px) {
+			width: 100%;
+		}
+	}
+	.processing-step {
+		width: 100%;
+		max-width: 640px;
+		box-sizing: border-box;
+	}
+	p.processing-step__subtitle {
+		font-family: "SF Pro Text", $sans;
+		font-weight: 400;
+		letter-spacing: initial;
+
+		.woo-inline-purple-heart {
+			width: 18px;
+			height: 15px;
+			margin-bottom: -2px; // bring visual center inline with the text
+		}
+
+		strong {
+			font-weight: 500;
+		}
+	}
+	.loading-bar::before {
+		background: var(--wooexpress-purple);
+	}
+	.signup-header .wordpress-logo {
+		display: block;
+		width: 500px;
+	}
+
+}
+
+/*
+ * Site Migration flow adjustments
+ */
+
+.site-migration {
+	.step-container.site-picker {
+		max-width: 1280px;
+	}
+
+	.step-container.site-picker .step-container__content {
+		max-width: 100%;
+
+		svg {
+			fill: none;
+		}
+	}
 }

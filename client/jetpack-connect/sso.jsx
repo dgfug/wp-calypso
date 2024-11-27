@@ -1,5 +1,5 @@
 import config from '@automattic/calypso-config';
-import { Button, Card, CompactCard, Dialog, Gridicon } from '@automattic/components';
+import { Button, Card, Dialog, Gridicon } from '@automattic/components';
 import debugModule from 'debug';
 import { localize } from 'i18n-calypso';
 import { flowRight, get, map } from 'lodash';
@@ -24,7 +24,6 @@ import { addQueryArgs } from 'calypso/lib/route';
 import { getCurrentUser } from 'calypso/state/current-user/selectors';
 import { validateSSONonce, authorizeSSO } from 'calypso/state/jetpack-connect/actions';
 import { getSSO } from 'calypso/state/jetpack-connect/selectors';
-import JetpackConnectHappychatButton from './happychat-button';
 import HelpButton from './help-button';
 import MainWrapper from './main-wrapper';
 import { persistSsoApproved } from './persistence-utils';
@@ -39,23 +38,21 @@ class JetpackSsoForm extends Component {
 		showTermsDialog: false,
 	};
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillMount() {
+	componentDidMount() {
 		this.maybeValidateSSO();
 	}
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( nextProps ) {
-		this.maybeValidateSSO( nextProps );
+	componentDidUpdate( prevProps ) {
+		this.maybeValidateSSO();
 
-		if ( nextProps.ssoUrl && ! this.props.ssoUrl ) {
+		if ( this.props.ssoUrl && ! prevProps.ssoUrl ) {
 			// After receiving the SSO URL, which will log the user in on remote site,
 			// we redirect user to remote site to be logged in.
 			//
 			// Note: We add `calypso_env` so that when we are redirected back to Calypso,
 			// we land in the same development environment.
 			const configEnv = config( 'env_id' ) || process.env.NODE_ENV;
-			const redirect = addQueryArgs( { calypso_env: configEnv }, nextProps.ssoUrl );
+			const redirect = addQueryArgs( { calypso_env: configEnv }, this.props.ssoUrl );
 			debug( 'Redirecting to: ' + redirect );
 			window.location.href = redirect;
 		}
@@ -131,8 +128,8 @@ class JetpackSsoForm extends Component {
 		return login( { redirectTo: window.location.href } );
 	}
 
-	maybeValidateSSO( props = this.props ) {
-		const { ssoNonce, siteId, nonceValid, isAuthorizing, isValidating } = props;
+	maybeValidateSSO() {
+		const { ssoNonce, siteId, nonceValid, isAuthorizing, isValidating } = this.props;
 
 		if (
 			ssoNonce &&
@@ -185,7 +182,7 @@ class JetpackSsoForm extends Component {
 			site = <Site site={ siteObject } />;
 		}
 
-		return <CompactCard className="jetpack-connect__site">{ site }</CompactCard>;
+		return <Card className="jetpack-connect__site">{ site }</Card>;
 	}
 
 	getSharedDetailLabel( key ) {
@@ -453,12 +450,7 @@ class JetpackSsoForm extends Component {
 						>
 							{ this.getReturnToSiteText() }
 						</LoggedOutFormLinkItem>
-						<JetpackConnectHappychatButton
-							eventName="calypso_jpc_sso_chat_initiated"
-							label={ translate( 'Chat with Jetpack support' ) }
-						>
-							<HelpButton />
-						</JetpackConnectHappychatButton>
+						<HelpButton />
 					</LoggedOutFormLinks>
 				</div>
 

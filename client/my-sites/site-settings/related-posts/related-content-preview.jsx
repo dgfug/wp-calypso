@@ -1,7 +1,19 @@
+import { FormLabel } from '@automattic/components';
 import { localize } from 'i18n-calypso';
-import FormLabel from 'calypso/components/forms/form-label';
+import {
+	getLocalizedDate,
+	phpToMomentDatetimeFormat,
+} from 'calypso/my-sites/site-settings/date-time-format/utils';
 
-const RelatedContentPreview = ( { showHeadline, showThumbnails, translate } ) => {
+const RelatedContentPreview = ( {
+	showContext,
+	showDate,
+	showHeadline,
+	showThumbnails,
+	translate,
+	dateFormat,
+	timezoneString,
+} ) => {
 	const posts = [
 		{
 			image: '/calypso/images/related-posts/cat-blog.png',
@@ -34,6 +46,13 @@ const RelatedContentPreview = ( { showHeadline, showThumbnails, translate } ) =>
 			} ),
 		},
 	];
+	let postDate = '';
+	if ( dateFormat && timezoneString ) {
+		const localizedDate = getLocalizedDate( timezoneString );
+		postDate = phpToMomentDatetimeFormat( localizedDate, dateFormat );
+	} else {
+		postDate = `August 8, ${ new Date().getFullYear() - 1 }`;
+	}
 
 	return (
 		<div className="related-posts__preview">
@@ -57,7 +76,10 @@ const RelatedContentPreview = ( { showHeadline, showThumbnails, translate } ) =>
 								<h4 className="related-posts__preview-post-title">
 									<a className="related-posts__preview-post-a">{ post.title }</a>
 								</h4>
-								<p className="related-posts__preview-post-context">{ post.topic }</p>
+								{ showDate && <span>{ postDate }</span> }
+								{ showContext && (
+									<p className="related-posts__preview-post-context">{ post.topic }</p>
+								) }
 							</div>
 						);
 					} ) }

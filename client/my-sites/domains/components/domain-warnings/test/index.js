@@ -2,11 +2,15 @@
  * @jest-environment jsdom
  */
 
+import {
+	MAP_DOMAIN_CHANGE_NAME_SERVERS,
+	MAP_EXISTING_DOMAIN_UPDATE_DNS,
+	MAP_SUBDOMAIN,
+} from '@automattic/urls';
 import moment from 'moment';
 import ReactDom from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
 import { type as domainTypes } from 'calypso/lib/domains/constants';
-import { MAP_EXISTING_DOMAIN_UPDATE_DNS, MAP_SUBDOMAIN } from 'calypso/lib/url/support';
 import { DomainWarnings } from '../';
 
 jest.mock( 'calypso/lib/analytics/tracks', () => ( {} ) );
@@ -45,8 +49,8 @@ describe( 'index', () => {
 
 			const component = TestUtils.renderIntoDocument( <DomainWarnings { ...props } /> );
 
-			expect( ReactDom.findDOMNode( component ).textContent ).toContain(
-				'If you are unable to access your site at {{strong}}%(domainName)s{{/strong}}'
+			expect( ReactDom.findDOMNode( component ) ).toHaveTextContent(
+				/If you are unable to access your site at \{\{strong\}\}%\(domainName\)s\{\{\/strong\}\}/
 			);
 		} );
 	} );
@@ -67,8 +71,8 @@ describe( 'index', () => {
 
 			const component = TestUtils.renderIntoDocument( <DomainWarnings { ...props } /> );
 
-			expect( ReactDom.findDOMNode( component ).textContent ).toContain(
-				'We are setting up {{strong}}%(domainName)s{{/strong}} for you'
+			expect( ReactDom.findDOMNode( component ) ).toHaveTextContent(
+				/We are setting up \{\{strong\}\}%\(domainName\)s\{\{\/strong\}\} for you/
 			);
 		} );
 
@@ -95,8 +99,8 @@ describe( 'index', () => {
 
 			const component = TestUtils.renderIntoDocument( <DomainWarnings { ...props } /> );
 
-			expect( ReactDom.findDOMNode( component ).textContent ).toContain(
-				'We are setting up your new domains for you'
+			expect( ReactDom.findDOMNode( component ) ).toHaveTextContent(
+				/We are setting up your new domains for you/
 			);
 		} );
 	} );
@@ -124,13 +128,7 @@ describe( 'index', () => {
 			const links = [].slice.call( domNode.querySelectorAll( 'a' ) );
 
 			expect( textContent ).toContain( 'contact your domain registrar' );
-			expect(
-				links.some(
-					( link ) =>
-						link.href ===
-						'https://wordpress.com/support/domains/map-existing-domain/#change-your-domains-name-servers'
-				)
-			).toBeTruthy();
+			expect( links.some( ( link ) => link.href === MAP_DOMAIN_CHANGE_NAME_SERVERS ) ).toBeTruthy();
 		} );
 
 		test( 'should render the correct support url for multiple misconfigured mapped domains', () => {

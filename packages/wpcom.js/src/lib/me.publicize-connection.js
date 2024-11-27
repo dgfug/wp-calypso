@@ -3,7 +3,6 @@ const root = '/me/publicize-connections/';
 export default class PublicizeConnection {
 	/**
 	 * `PublicizeConnection` constructor.
-	 *
 	 * @param {string} connectionId - application identifier
 	 * @param {WPCOM} wpcom - wpcom instance
 	 * @returns {null} null
@@ -18,8 +17,7 @@ export default class PublicizeConnection {
 
 	/**
 	 * Get a single publicize connection that the current user has set up.
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -29,9 +27,8 @@ export default class PublicizeConnection {
 
 	/**
 	 * Add a publicize connection belonging to the current user.
-	 *
-	 * @param {object} [query] - query object parameter
-	 * @param {object} body - body object parameter
+	 * @param {Object} [query] - query object parameter
+	 * @param {Object} body - body object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -41,9 +38,8 @@ export default class PublicizeConnection {
 
 	/**
 	 * Update a publicize connection belonging to the current user.
-	 *
-	 * @param {object} [query] - query object parameter
-	 * @param {object} body - body object parameter
+	 * @param {Object} [query] - query object parameter
+	 * @param {Object} body - body object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -54,8 +50,7 @@ export default class PublicizeConnection {
 	/**
 	 * Delete the app of the  current user
 	 * through of the given connectionId
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */

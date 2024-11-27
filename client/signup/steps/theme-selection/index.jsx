@@ -11,7 +11,6 @@ import { getCurrentUser } from 'calypso/state/current-user/selectors';
 import { getSignupDependencyStore } from 'calypso/state/signup/dependency-store/selectors';
 import { submitSignupStep } from 'calypso/state/signup/progress/actions';
 import { getDesignType } from 'calypso/state/signup/steps/design-type/selectors';
-import { getSurveyVertical } from 'calypso/state/signup/steps/survey/selectors';
 import SignupThemesList from './signup-themes-list';
 import './style.scss';
 
@@ -57,7 +56,6 @@ class ThemeSelectionStep extends Component {
 	renderThemesList() {
 		return (
 			<SignupThemesList
-				surveyQuestion={ this.props.chosenSurveyVertical }
 				designType={ this.props.designType || this.props.signupDependencies.designType }
 				handleScreenshotClick={ this.pickTheme }
 				quantity={ this.props.quantity }
@@ -105,13 +103,11 @@ class ThemeSelectionStep extends Component {
 	}
 
 	render() {
-		const { useHeadstart, flowName } = this.props;
-
-		// If a user skips the step in `design-first`, let segment and vertical determine content.
-		const defaultDependencies =
-			'design-first' === flowName
-				? { themeSlugWithRepo: 'pub/maywood', useThemeHeadstart: false }
-				: { themeSlugWithRepo: 'pub/twentysixteen', useThemeHeadstart: useHeadstart };
+		const { useHeadstart } = this.props;
+		const defaultDependencies = {
+			themeSlugWithRepo: 'pub/twentytwentythree',
+			useThemeHeadstart: useHeadstart,
+		};
 
 		const headerText = this.headerText();
 		const subHeaderText = this.subHeaderText();
@@ -132,7 +128,6 @@ class ThemeSelectionStep extends Component {
 
 export default connect(
 	( state, props ) => ( {
-		chosenSurveyVertical: getSurveyVertical( state ),
 		currentUser: getCurrentUser( state ),
 		designType: props.designType || getDesignType( state ),
 		dependencyStore: getSignupDependencyStore( state ),

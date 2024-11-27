@@ -10,11 +10,10 @@ import 'calypso/state/jetpack-product-install/init';
 
 /**
  * Start the Jetpack product install process for that site.
- *
  * @param {number}  siteId        The ID of the site.
  * @param {(string|null)}  akismetKey    Akismet key.
  * @param {(string|null)}  vaultpressKey VaultPress key.
- * @returns {object}               Action object.
+ * @returns {Object}               Action object.
  */
 export const startJetpackProductInstall = ( siteId, akismetKey, vaultpressKey ) => ( {
 	type: JETPACK_PRODUCT_INSTALL_REQUEST,
@@ -25,9 +24,8 @@ export const startJetpackProductInstall = ( siteId, akismetKey, vaultpressKey ) 
 
 /**
  * Retrieve the current status of the Jetpack product install for that site.
- *
  * @param {number} siteId The ID of the site.
- * @returns {object}       Action object.
+ * @returns {Object}       Action object.
  */
 export const requestJetpackProductInstallStatus = ( siteId ) => ( {
 	type: JETPACK_PRODUCT_INSTALL_STATUS_REQUEST,
@@ -36,10 +34,9 @@ export const requestJetpackProductInstallStatus = ( siteId ) => ( {
 
 /**
  * Receive current Jetpack product installation status.
- *
  * @param {number} siteId The ID of the site.
- * @param {object} status Product installation status.
- * @returns {object}       Action object.
+ * @param {Object} status Product installation status.
+ * @returns {Object}       Action object.
  */
 export const receiveJetpackProductInstallStatus = ( siteId, status ) => ( {
 	type: JETPACK_PRODUCT_INSTALL_STATUS_RECEIVE,

@@ -1,4 +1,4 @@
-import { BlockFlow, EditorContext, PublishedPostContext } from '..';
+import { BlockFlow, EditorContext, PublishedPostContext } from '.';
 
 type DaysOfWeek = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
 
@@ -10,7 +10,7 @@ const blockParentSelector = 'div[aria-label="Block: Business Hours"]';
 const selectors = {
 	// Editor
 	dayToggle: ( day: DaysOfWeek ) => `div.${ day } input`,
-	dayBusinessHours: ( day: DaysOfWeek ) => `div.${ day }.business-hours__hours`,
+	dayMarkedAsOpen: ( day: DaysOfWeek ) => `div.${ day } .components-toggle-control :text("Open")`,
 
 	// Published
 	hoursForDay: ( day: DaysOfWeek ) => `div.jetpack-business-hours__item:has(dd.${ day })`,
@@ -40,11 +40,13 @@ export class BusinessHoursFlow implements BlockFlow {
 	 * @param {EditorContext} context The current context for the editor at the point of test execution
 	 */
 	async configure( context: EditorContext ): Promise< void > {
+		const editorCanvas = await context.editorPage.getEditorCanvas();
 		const day = this.configurationData.day;
-		await context.editorIframe.click( selectors.dayToggle( day ) );
-		await context.editorIframe.waitForSelector( selectors.dayBusinessHours( day ), {
-			state: 'visible',
-		} );
+		const dayToggleLocator = editorCanvas.locator( selectors.dayToggle( day ) );
+		await dayToggleLocator.click();
+
+		const dayMarkedAsOpenLocator = editorCanvas.locator( selectors.dayMarkedAsOpen( day ) );
+		await dayMarkedAsOpenLocator.waitFor();
 	}
 
 	/**
@@ -53,9 +55,11 @@ export class BusinessHoursFlow implements BlockFlow {
 	 * @param {PublishedPostContext} context The current context for the published post at the point of test execution
 	 */
 	async validateAfterPublish( context: PublishedPostContext ): Promise< void > {
-		const elementHandle = await context.page.waitForSelector( selectors.hoursForDay( 'Sat' ) );
 		// Note our use of U+2013 for hyphens. If your editor highlights this fact,
 		// add a rule to ignore.
-		await elementHandle.waitForSelector( ':text("9:00 am – 5:00 pm")' );
+		const expectedSaturdayHoursLocator = context.page.locator(
+			`${ selectors.hoursForDay( 'Sat' ) } :text("9:00 am – 5:00 pm")`
+		);
+		await expectedSaturdayHoursLocator.waitFor();
 	}
 }

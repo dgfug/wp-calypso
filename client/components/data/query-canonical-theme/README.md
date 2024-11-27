@@ -15,8 +15,8 @@ import { getCanonicalTheme } from 'calypso/state/themes/selectors';
 function MyTheme( { theme } ) {
 	return (
 		<div>
-			<QueryCanonicalTheme siteId={ 3584907 } themeId={ 'twentysixteen' } />
-			<Theme theme={ theme } />} }
+			<QueryCanonicalTheme siteId={ 3584907 } themeId="twentysixteen" />
+			<Theme theme={ theme } />
 		</div>
 	);
 }

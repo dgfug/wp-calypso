@@ -1,8 +1,10 @@
+import { FormLabel } from '@automattic/components';
+import { CALYPSO_CONTACT } from '@automattic/urls';
 import {
 	tryToGuessPostalCodeFormat,
 	getCountryPostalCodeSupport,
 } from '@automattic/wpcom-checkout';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { get, deburr, kebabCase, pick, includes, isEqual, isEmpty, camelCase } from 'lodash';
 import PropTypes from 'prop-types';
@@ -12,13 +14,11 @@ import QueryDomainCountries from 'calypso/components/data/query-countries/domain
 import FormButton from 'calypso/components/forms/form-button';
 import FormCheckbox from 'calypso/components/forms/form-checkbox';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormPhoneMediaInput from 'calypso/components/forms/form-phone-media-input';
 import { countries } from 'calypso/components/phone-input/data';
 import { toIcannFormat } from 'calypso/components/phone-input/phone-number';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import formState from 'calypso/lib/form-state';
-import { CALYPSO_CONTACT } from 'calypso/lib/url/support';
 import NoticeErrorMessage from 'calypso/my-sites/checkout/checkout/notice-error-message';
 import { CountrySelect, Input, HiddenInput } from 'calypso/my-sites/domains/components/form';
 import { getCountryStates } from 'calypso/state/country-states/selectors';
@@ -69,6 +69,8 @@ export class ContactDetailsFormFields extends Component {
 		shouldForceRenderOnPropChange: PropTypes.bool,
 		updateWpcomEmailCheckboxDisabled: PropTypes.bool,
 		onUpdateWpcomEmailCheckboxChange: PropTypes.func,
+		updateWpcomEmailCheckboxHidden: PropTypes.bool,
+		ignoreCountryOnDisableSubmit: PropTypes.bool,
 	};
 
 	static defaultProps = {
@@ -92,6 +94,8 @@ export class ContactDetailsFormFields extends Component {
 		userCountryCode: 'US',
 		shouldForceRenderOnPropChange: false,
 		updateWpcomEmailCheckboxDisabled: false,
+		updateWpcomEmailCheckboxHidden: false,
+		ignoreCountryOnDisableSubmit: false,
 	};
 
 	constructor( props ) {
@@ -128,8 +132,7 @@ export class ContactDetailsFormFields extends Component {
 		);
 	}
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillMount() {
+	componentDidMount() {
 		this.formStateController = formState.Controller( {
 			debounceWait: 500,
 			fieldNames: CONTACT_DETAILS_FORM_FIELDS,
@@ -190,11 +193,16 @@ export class ContactDetailsFormFields extends Component {
 
 	sanitize = ( fieldValues, onComplete ) => {
 		const sanitizedFieldValues = Object.assign( {}, fieldValues );
+		const fieldsToDeburr = [ 'email', 'phone', 'postalCode', 'countryCode', 'fax' ];
 
 		CONTACT_DETAILS_FORM_FIELDS.forEach( ( fieldName ) => {
 			if ( typeof fieldValues[ fieldName ] === 'string' ) {
 				// TODO: Deep
-				sanitizedFieldValues[ fieldName ] = deburr( fieldValues[ fieldName ].trim() );
+				if ( fieldsToDeburr.includes( fieldName ) ) {
+					sanitizedFieldValues[ fieldName ] = deburr( fieldValues[ fieldName ].trim() );
+				} else {
+					sanitizedFieldValues[ fieldName ] = fieldValues[ fieldName ].trim();
+				}
 				// TODO: Do this on submit. Is it too annoying?
 				if ( fieldName === 'postalCode' ) {
 					sanitizedFieldValues[ fieldName ] = tryToGuessPostalCodeFormat(
@@ -305,10 +313,10 @@ export class ContactDetailsFormFields extends Component {
 		} );
 	};
 
-	handlePhoneChange = ( { value, countryCode } ) => {
+	handlePhoneChange = ( { phoneNumber, countryCode } ) => {
 		this.formStateController.handleFieldChange( {
 			name: 'phone',
-			value,
+			value: phoneNumber,
 		} );
 
 		if ( ! countries[ countryCode ] ) {
@@ -327,6 +335,12 @@ export class ContactDetailsFormFields extends Component {
 		const { eventFormName, getIsFieldDisabled } = this.props;
 		const { form } = this.state;
 
+		const basicValue = formState.getFieldValue( form, name ) || '';
+		let value = basicValue;
+		if ( name === 'phone' ) {
+			value = { phoneNumber: basicValue, countryCode: this.state.phoneCountryCode };
+		}
+
 		return {
 			labelClass: 'contact-details-form-fields__label',
 			additionalClasses: 'contact-details-form-fields__field',
@@ -337,7 +351,7 @@ export class ContactDetailsFormFields extends Component {
 				( formState.getFieldErrorMessages( form, camelCase( name ) ) || [] ).join( '\n' ),
 			onChange: this.handleFieldChange,
 			onBlur: this.handleBlur,
-			value: formState.getFieldValue( form, name ) || '',
+			value,
 			name,
 			eventFormName,
 			...ref,
@@ -356,7 +370,9 @@ export class ContactDetailsFormFields extends Component {
 	}
 
 	getCountryPostalCodeSupport = ( countryCode ) =>
-		getCountryPostalCodeSupport( this.props.countriesList, countryCode );
+		this.props.countriesList?.length && countryCode
+			? getCountryPostalCodeSupport( this.props.countriesList, countryCode )
+			: false;
 
 	renderContactDetailsFields() {
 		const { translate, needsFax, hasCountryStates, labelTexts } = this.props;
@@ -390,7 +406,6 @@ export class ContactDetailsFormFields extends Component {
 							label: translate( 'Phone' ),
 							onChange: this.handlePhoneChange,
 							countriesList: this.props.countriesList,
-							countryCode: this.state.phoneCountryCode,
 							enableStickyCountry: false,
 						},
 						{
@@ -457,25 +472,26 @@ export class ContactDetailsFormFields extends Component {
 
 		return (
 			<div
-				className={ classNames(
-					'contact-details-form-fields__field',
-					'email-text-input-with-checkbox'
-				) }
+				className={ clsx( 'contact-details-form-fields__field', 'email-text-input-with-checkbox' ) }
 			>
 				<Input label={ this.props.translate( 'Email' ) } { ...emailInputFieldProps } />
-				<FormLabel
-					className={ classNames( 'email-text-input-with-checkbox__checkbox-label', {
-						'is-disabled': this.props.updateWpcomEmailCheckboxDisabled,
-					} ) }
-				>
-					<FormCheckbox
-						name="update-wpcom-email"
-						disabled={ this.props.updateWpcomEmailCheckboxDisabled }
-						onChange={ this.handleUpdateWpcomEmailCheckboxChanged }
-						checked={ this.state.updateWpcomEmail && ! this.props.updateWpcomEmailCheckboxDisabled }
-					/>
-					<span>{ this.props.translate( 'Apply contact update to My Account email.' ) }</span>
-				</FormLabel>
+				{ ! this.props.updateWpcomEmailCheckboxHidden && (
+					<FormLabel
+						className={ clsx( 'email-text-input-with-checkbox__checkbox-label', {
+							'is-disabled': this.props.updateWpcomEmailCheckboxDisabled,
+						} ) }
+					>
+						<FormCheckbox
+							name="update-wpcom-email"
+							disabled={ this.props.updateWpcomEmailCheckboxDisabled }
+							onChange={ this.handleUpdateWpcomEmailCheckboxChanged }
+							checked={
+								this.state.updateWpcomEmail && ! this.props.updateWpcomEmailCheckboxDisabled
+							}
+						/>
+						<span>{ this.props.translate( 'Apply contact update to My Account email.' ) }</span>
+					</FormLabel>
+				) }
 			</div>
 		);
 	}
@@ -507,9 +523,9 @@ export class ContactDetailsFormFields extends Component {
 		return (
 			<div className="contact-details-form-fields__row">
 				<Input
-					label={ this.props.translate( 'Alternate Email Address' ) }
-					{ ...this.getFieldProps( 'alternate-email', {
-						customErrorMessage: this.props.contactDetailsErrors?.alternateEmail,
+					label={ this.props.translate( 'Alternate email address' ) }
+					{ ...this.getFieldProps( 'email', {
+						customErrorMessage: this.props.contactDetailsErrors?.email,
 					} ) }
 				/>
 			</div>
@@ -523,7 +539,13 @@ export class ContactDetailsFormFields extends Component {
 			disableSubmitButton,
 			labelTexts,
 			contactDetailsErrors,
+			ignoreCountryOnDisableSubmit,
 		} = this.props;
+
+		if ( ! this.state.form ) {
+			return null;
+		}
+
 		const countryCode = this.getCountryCode();
 
 		const isFooterVisible = !! ( this.props.onSubmit || onCancel );
@@ -568,7 +590,9 @@ export class ContactDetailsFormFields extends Component {
 						{ this.props.onSubmit && (
 							<FormButton
 								className="contact-details-form-fields__submit-button"
-								disabled={ ! countryCode || disableSubmitButton }
+								disabled={
+									( ! ignoreCountryOnDisableSubmit && ! countryCode ) || disableSubmitButton
+								}
 								onClick={ this.handleSubmitButtonClick }
 							>
 								{ labelTexts.submitButton || translate( 'Submit' ) }

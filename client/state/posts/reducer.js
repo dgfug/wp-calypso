@@ -11,7 +11,6 @@ import {
 	merge,
 	findKey,
 	mapValues,
-	mapKeys,
 } from 'lodash';
 import PostQueryManager from 'calypso/lib/query-manager/post';
 import withQueryManager from 'calypso/lib/query-manager/with-query-manager';
@@ -55,10 +54,9 @@ import {
 
 /**
  * Tracks all known post objects, indexed by post global ID.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) => {
 	switch ( action.type ) {
@@ -103,10 +101,9 @@ export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) =
  * Returns the updated site post requests state after an action has been
  * dispatched. The state reflects a mapping of site ID, post ID pairing to a
  * boolean reflecting whether a request for the post is in progress.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export function siteRequests( state = {}, action ) {
 	switch ( action.type ) {
@@ -127,10 +124,9 @@ export function siteRequests( state = {}, action ) {
  * Returns the updated post query requesting state after an action has been
  * dispatched. The state reflects a mapping of serialized query to whether a
  * network request is in-progress for that query.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export function queryRequests( state = {}, action ) {
 	switch ( action.type ) {
@@ -150,10 +146,9 @@ export function queryRequests( state = {}, action ) {
  * Returns the updated post query state after an action has been dispatched.
  * The state reflects a mapping by site ID of serialized query key to an array
  * of post IDs for the query, if a query response was successfully received.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 const queriesReducer = ( state = {}, action ) => {
 	switch ( action.type ) {
@@ -256,10 +251,9 @@ function findItemKey( state, siteId, postId ) {
  * an action has been dispatched.  The state reflects a mapping of serialized
  * query key to an array of post global IDs for the query, if a query response
  * was successfully received.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 const allSitesQueriesReducer = (
 	state = new PostQueryManager( {}, { itemKey: 'global_ID' } ),
@@ -325,10 +319,9 @@ export const allSitesQueries = withSchemaValidation(
  * Returns the updated editor posts state after an action has been dispatched.
  * The state maps site ID, post ID pairing to an object containing revisions
  * for the post.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export function edits( state = {}, action ) {
 	switch ( action.type ) {
@@ -447,12 +440,15 @@ export function edits( state = {}, action ) {
 
 			// if new post (edited with a transient postId of '') has been just saved and assigned
 			// a real numeric ID, rewrite the state key with the new postId.
-			if ( postId === '' && action.savedPost ) {
+			if ( postId === '' && action.savedPost && state[ siteId ] ) {
 				const newPostId = action.savedPost.ID;
 				state = {
 					...state,
-					[ siteId ]: mapKeys( state[ siteId ], ( value, key ) =>
-						key === '' ? newPostId : key
+					[ siteId ]: Object.fromEntries(
+						Object.entries( state[ siteId ] ).map( ( [ key, value ] ) => [
+							key === '' ? newPostId : key,
+							value,
+						] )
 					),
 				};
 			}

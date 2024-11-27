@@ -1,11 +1,10 @@
-import { Dialog } from '@automattic/components';
+import page from '@automattic/calypso-router';
+import { Dialog, Gridicon } from '@automattic/components';
 import { createHigherOrderComponent } from '@wordpress/compose';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component, Fragment } from 'react';
 import { connect, useSelector } from 'react-redux';
-import FormattedHeader from 'calypso/components/formatted-header';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
 import FormSelect from 'calypso/components/forms/form-select';
@@ -13,22 +12,27 @@ import Main from 'calypso/components/main';
 import useUsersQuery from 'calypso/data/users/use-users-query';
 import BodySectionCssClass from 'calypso/layout/body-section-css-class';
 import { getSelectedDomain, isMappedDomain } from 'calypso/lib/domains';
+import { hasGSuiteWithUs } from 'calypso/lib/gsuite';
+import { hasTitanMailWithUs } from 'calypso/lib/titan';
 import wpcom from 'calypso/lib/wp';
-import Breadcrumbs from 'calypso/my-sites/domains/domain-management/components/breadcrumbs';
 import DesignatedAgentNotice from 'calypso/my-sites/domains/domain-management/components/designated-agent-notice';
-import AftermarketAutcionNotice from 'calypso/my-sites/domains/domain-management/components/domain/aftermarket-auction-notice';
+import AftermarketAuctionNotice from 'calypso/my-sites/domains/domain-management/components/domain/aftermarket-auction-notice';
 import DomainMainPlaceholder from 'calypso/my-sites/domains/domain-management/components/domain/main-placeholder';
 import NonOwnerCard from 'calypso/my-sites/domains/domain-management/components/domain/non-owner-card';
+import NonTransferrableDomainNotice from 'calypso/my-sites/domains/domain-management/components/domain/non-transferrable-domain-notice';
+import DomainHeader from 'calypso/my-sites/domains/domain-management/components/domain-header';
 import {
 	domainManagementEdit,
 	domainManagementList,
 	domainManagementTransfer,
+	isUnderDomainManagementAll,
 } from 'calypso/my-sites/domains/paths';
 import { getCurrentUserId } from 'calypso/state/current-user/selectors';
 import { successNotice, errorNotice } from 'calypso/state/notices/actions';
 import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 import { hasLoadedSiteDomains } from 'calypso/state/sites/domains/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
+import TransferUnavailableNotice from '../transfer-unavailable-notice';
 
 import './style.scss';
 
@@ -72,7 +76,7 @@ class TransferDomainToOtherUser extends Component {
 
 	handleTransferCancel = () => {
 		const { selectedSite, selectedDomainName, currentRoute } = this.props;
-		page( domainManagementTransfer( selectedSite.slug, selectedDomainName, currentRoute ) );
+		page( domainManagementTransfer( selectedSite?.slug, selectedDomainName, currentRoute ) );
 	};
 
 	handleConfirmTransferDomain( closeDialog ) {
@@ -91,7 +95,7 @@ class TransferDomainToOtherUser extends Component {
 		this.setState( { disableDialogButtons: true } );
 		wpcom.req
 			.post(
-				`/sites/${ selectedSite.ID }/domains/${ selectedDomainName }/transfer-to-user/${ selectedUserId }`
+				`/sites/${ selectedSite?.ID }/domains/${ selectedDomainName }/transfer-to-user/${ selectedUserId }`
 			)
 			.then(
 				() => {
@@ -100,7 +104,7 @@ class TransferDomainToOtherUser extends Component {
 					closeDialog();
 					page(
 						domainManagementEdit(
-							this.props.selectedSite.slug,
+							this.props.selectedSite?.slug,
 							this.props.selectedDomainName,
 							this.props.currentRoute
 						)
@@ -136,32 +140,38 @@ class TransferDomainToOtherUser extends Component {
 		return first_name && last_name ? `${ first_name } ${ last_name } (${ nice_name })` : nice_name;
 	}
 
-	renderBreadcrumbs() {
+	renderHeader() {
 		const { translate, selectedSite, selectedDomainName, currentRoute } = this.props;
 
 		const items = [
 			{
-				label: translate( 'Domains' ),
-				href: domainManagementList( selectedSite.slug, selectedDomainName ),
+				label: isUnderDomainManagementAll( currentRoute )
+					? translate( 'All Domains' )
+					: translate( 'Domains' ),
+				href: domainManagementList(
+					selectedSite?.slug,
+					selectedDomainName,
+					selectedSite?.options?.is_domain_only
+				),
 			},
 			{
 				label: selectedDomainName,
-				href: domainManagementEdit( selectedSite.slug, selectedDomainName, currentRoute ),
+				href: domainManagementEdit( selectedSite?.slug, selectedDomainName, currentRoute ),
 			},
 			{
 				label: translate( 'Transfer' ),
-				href: domainManagementTransfer( selectedSite.slug, selectedDomainName, currentRoute ),
+				href: domainManagementTransfer( selectedSite?.slug, selectedDomainName, currentRoute ),
 			},
 			{ label: translate( 'Transfer to another user' ) },
 		];
 
 		const mobileItem = {
 			label: translate( 'Back to Transfer' ),
-			href: domainManagementTransfer( selectedSite.slug, selectedDomainName, currentRoute ),
+			href: domainManagementTransfer( selectedSite?.slug, selectedDomainName, currentRoute ),
 			showBackArrow: true,
 		};
 
-		return <Breadcrumbs items={ items } mobileItem={ mobileItem } />;
+		return <DomainHeader items={ items } mobileItem={ mobileItem } />;
 	}
 
 	render() {
@@ -173,18 +183,10 @@ class TransferDomainToOtherUser extends Component {
 				</>
 			);
 		}
-
-		const { translate } = this.props;
-
 		return (
 			<Main wideLayout>
 				<BodySectionCssClass bodyClass={ [ 'transfer-to-other-user' ] } />
-				{ this.renderBreadcrumbs() }
-				<FormattedHeader
-					brandFont
-					headerText={ translate( 'Transfer to another user' ) }
-					align="left"
-				/>
+				{ this.renderHeader() }
 				<div className="transfer-to-other-user__container">
 					<div className="transfer-to-other-user__main">{ this.renderSection() }</div>
 				</div>
@@ -250,22 +252,41 @@ class TransferDomainToOtherUser extends Component {
 			currentUserCanManage,
 			domainRegistrationAgreementUrl,
 			aftermarketAuction,
+			isRedeemable,
 		} = getSelectedDomain( this.props );
-		const { domains, selectedDomainName } = this.props;
+		const { domains, selectedDomainName, translate } = this.props;
+		const selectedDomain = domains.find( ( domain ) => selectedDomainName === domain.name );
 
 		if ( ! currentUserCanManage ) {
 			return <NonOwnerCard domains={ domains } selectedDomainName={ selectedDomainName } />;
 		}
 
 		if ( aftermarketAuction ) {
-			return <AftermarketAutcionNotice domainName={ selectedDomainName } />;
+			return <AftermarketAuctionNotice domainName={ selectedDomainName } />;
 		}
 
-		const { isMapping, translate, users } = this.props;
+		if ( isRedeemable ) {
+			return <NonTransferrableDomainNotice domainName={ selectedDomainName } />;
+		}
+
+		if ( selectedDomain?.pendingRegistration || selectedDomain?.pendingRegistrationAtRegistry ) {
+			return (
+				<TransferUnavailableNotice
+					message={ translate(
+						'We are still setting up your domain. You will not be able to transfer it until the registration setup is done.'
+					) }
+				></TransferUnavailableNotice>
+			);
+		}
+
+		const { isMapping, users } = this.props;
 		const availableUsers = this.filterAvailableUsers( users );
 		const saveButtonLabel = isMapping
 			? translate( 'Transfer domain connection' )
 			: translate( 'Transfer domain' );
+
+		const hasEmailWithUs =
+			hasTitanMailWithUs( selectedDomain ) || hasGSuiteWithUs( selectedDomain );
 
 		return (
 			<>
@@ -295,6 +316,17 @@ class TransferDomainToOtherUser extends Component {
 						) }
 					</FormSelect>
 				</FormFieldset>
+				{ hasEmailWithUs && (
+					<div className="transfer-to-other-user__notice">
+						<Gridicon icon="info-outline" size={ 18 } />
+						<p className="transfer-to-other-user__notice-copy">
+							{ translate(
+								'The email subscription for %(domainName)s will be transferred along with the domain.',
+								{ args: { domainName: selectedDomainName } }
+							) }
+						</p>
+					</div>
+				) }
 				{ ! isMapping && (
 					<DesignatedAgentNotice
 						domainRegistrationAgreementUrl={ domainRegistrationAgreementUrl }
@@ -328,7 +360,7 @@ class TransferDomainToOtherUser extends Component {
 						{ translate(
 							'You can transfer this domain connection to any administrator on this site. If the user you want to ' +
 								'transfer is not currently an administrator, please {{a}}add them to the site first{{/a}}.',
-							{ components: { a: <a href={ `/people/new/${ selectedSite.slug }` } /> } }
+							{ components: { a: <a href={ `/people/new/${ selectedSite?.slug }` } /> } }
 						) }
 					</p>
 				</>
@@ -348,7 +380,7 @@ class TransferDomainToOtherUser extends Component {
 					{ translate(
 						'You can transfer this domain to any administrator on this site. If the user you want to ' +
 							'transfer is not currently an administrator, please {{a}}add them to the site first{{/a}}.',
-						{ components: { a: <a href={ `/people/new/${ selectedSite.slug }` } /> } }
+						{ components: { a: <a href={ `/people/new/${ selectedSite?.slug }` } /> } }
 					) }
 				</p>
 			</>
@@ -385,7 +417,7 @@ export default connect(
 		return {
 			currentUserId: getCurrentUserId( state ),
 			isMapping: Boolean( domain ) && isMappedDomain( domain ),
-			hasSiteDomainsLoaded: hasLoadedSiteDomains( state, ownProps.selectedSite.ID ),
+			hasSiteDomainsLoaded: hasLoadedSiteDomains( state, ownProps.selectedSite?.ID ),
 			currentRoute: getCurrentRoute( state ),
 		};
 	},

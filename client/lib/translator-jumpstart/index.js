@@ -1,11 +1,11 @@
+import { canBeTranslated } from '@automattic/i18n-utils';
 import languages from '@automattic/languages';
+import { loadjQueryDependentScript } from '@automattic/load-script';
 import { isMobile } from '@automattic/viewport';
 import debugModule from 'debug';
 import i18n from 'i18n-calypso';
 import { find } from 'lodash';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
-import { canBeTranslated } from 'calypso/lib/i18n-utils';
-import { loadjQueryDependentScriptDesktopWrapper } from 'calypso/lib/load-jquery-dependent-script-desktop-wrapper';
 
 const debug = debugModule( 'calypso:community-translator' );
 
@@ -244,9 +244,9 @@ const communityTranslatorJumpstart = {
 				return false;
 			}
 			debug( 'loading community translator' );
-			loadjQueryDependentScriptDesktopWrapper( injectUrl, function ( error ) {
-				if ( error ) {
-					debug( 'Script ' + error.src + ' failed to load.' );
+			loadjQueryDependentScript( injectUrl, function ( error ) {
+				if ( error || ! window.communityTranslator ) {
+					debug( 'Script ' + injectUrl + ' failed to load.' );
 					return;
 				}
 
@@ -321,7 +321,7 @@ export function trackTranslatorStatus( isTranslatorEnabled ) {
 
 	if ( changed && _isTranslatorEnabled !== undefined ) {
 		debug( tracksEvent );
-		recordTracksEvent( tracksEvent, { locale: i18n.getLocaleSlug } );
+		recordTracksEvent( tracksEvent, { locale: i18n.getLocaleSlug() } );
 	}
 
 	_isTranslatorEnabled = newSetting;

@@ -1,4 +1,4 @@
-import { Card, Button, Dialog, Gridicon } from '@automattic/components';
+import { Card, Button, Dialog } from '@automattic/components';
 import { localize } from 'i18n-calypso';
 import { map } from 'lodash';
 import PropTypes from 'prop-types';
@@ -6,9 +6,9 @@ import { PureComponent, Fragment } from 'react';
 import { connect } from 'react-redux';
 import QuerySiteInvites from 'calypso/components/data/query-site-invites';
 import EmptyContent from 'calypso/components/empty-content';
-import FormattedHeader from 'calypso/components/formatted-header';
 import InlineSupportLink from 'calypso/components/inline-support-link';
 import Main from 'calypso/components/main';
+import NavigationHeader from 'calypso/components/navigation-header';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import PeopleListItem from 'calypso/my-sites/people/people-list-item';
 import PeopleListSectionHeader from 'calypso/my-sites/people/people-list-section-header';
@@ -22,9 +22,11 @@ import {
 	isDeletingAnyInvite,
 } from 'calypso/state/invites/selectors';
 import { canCurrentUser } from 'calypso/state/selectors/can-current-user';
+import isEligibleForSubscriberImporter from 'calypso/state/selectors/is-eligible-for-subscriber-importer';
 import isPrivateSite from 'calypso/state/selectors/is-private-site';
 import { isJetpackSite } from 'calypso/state/sites/selectors';
 import { getSelectedSite } from 'calypso/state/ui/selectors';
+import InviteButton from '../invite-button';
 import InvitesListEnd from './invites-list-end';
 
 import './style.scss';
@@ -59,7 +61,8 @@ class PeopleInvites extends PureComponent {
 	};
 
 	render() {
-		const { site, canViewPeople, isJetpack, isPrivate, translate } = this.props;
+		const { site, canViewPeople, isJetpack, isPrivate, translate, includeSubscriberImporter } =
+			this.props;
 		const siteId = site && site.ID;
 
 		if ( siteId && ! canViewPeople ) {
@@ -68,7 +71,7 @@ class PeopleInvites extends PureComponent {
 					<PageViewTracker path="/people/invites/:site" title="People > Invites" />
 					<EmptyContent
 						title={ this.props.translate( 'You are not authorized to view this page' ) }
-						illustration={ '/calypso/images/illustrations/illustration-404.svg' }
+						illustration="/calypso/images/illustrations/illustration-404.svg"
 					/>
 				</Main>
 			);
@@ -78,11 +81,10 @@ class PeopleInvites extends PureComponent {
 			<Main className="people-invites">
 				<PageViewTracker path="/people/invites/:site" title="People > Invites" />
 				{ siteId && <QuerySiteInvites siteId={ siteId } /> }
-				<FormattedHeader
-					brandFont
-					className="people-invites__page-heading"
-					headerText={ translate( 'Users' ) }
-					subHeaderText={ translate(
+				<NavigationHeader
+					navigationItems={ [] }
+					title={ translate( 'Users' ) }
+					subtitle={ translate(
 						'View and Manage the invites to your site. {{learnMoreLink}}Learn more{{/learnMoreLink}}.',
 						{
 							components: {
@@ -92,13 +94,13 @@ class PeopleInvites extends PureComponent {
 							},
 						}
 					) }
-					align="left"
 				/>
 				<PeopleSectionNav
 					filter="invites"
 					site={ site }
 					isJetpack={ isJetpack }
 					isPrivate={ isPrivate }
+					includeSubscriberImporter={ includeSubscriberImporter }
 				/>
 				{ this.renderInvitesList() }
 			</Main>
@@ -106,14 +108,8 @@ class PeopleInvites extends PureComponent {
 	}
 
 	renderInvitesList() {
-		const {
-			acceptedInvites,
-			pendingInvites,
-			totalInvitesFound,
-			requesting,
-			site,
-			translate,
-		} = this.props;
+		const { acceptedInvites, pendingInvites, totalInvitesFound, requesting, site, translate } =
+			this.props;
 
 		if ( ! site || ! site.ID ) {
 			return this.renderPlaceholder();
@@ -220,13 +216,14 @@ class PeopleInvites extends PureComponent {
 	}
 
 	renderInviteUsersAction( isPrimary = true ) {
-		const { site, translate } = this.props;
+		const { site, includeSubscriberImporter } = this.props;
 
 		return (
-			<Button primary={ isPrimary } href={ `/people/new/${ site.slug }` }>
-				<Gridicon icon="user-add" />
-				<span>{ translate( 'Invite', { context: 'Verb. Button to invite more users.' } ) }</span>
-			</Button>
+			<InviteButton
+				primary={ isPrimary }
+				siteSlug={ site.slug }
+				includeSubscriberImporter={ includeSubscriberImporter }
+			/>
 		);
 	}
 
@@ -271,6 +268,7 @@ export default connect(
 			totalInvitesFound: getNumberOfInvitesFoundForSite( state, siteId ),
 			deleting: isDeletingAnyInvite( state, siteId ),
 			canViewPeople: canCurrentUser( state, siteId, 'list_users' ),
+			includeSubscriberImporter: isEligibleForSubscriberImporter( state ),
 		};
 	},
 	{ deleteInvites }

@@ -23,9 +23,7 @@ const BASE_URL = `http://${ BASE_HOSTNAME }`;
 
 /**
  * Determine the type of a URL, with regards to its completeness.
- *
  * @param url the URL to analyze
- *
  * @returns the type of the URL
  */
 export function determineUrlType( url: string | URL ): URL_TYPE {

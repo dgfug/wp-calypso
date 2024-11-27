@@ -2,15 +2,15 @@
 
 import { TITAN_MAIL_MONTHLY_SLUG, TITAN_MAIL_YEARLY_SLUG } from '@automattic/calypso-products';
 import { translate } from 'i18n-calypso';
-import { useSelector } from 'react-redux';
 import { isDomainEligibleForTitanFreeTrial } from 'calypso/lib/titan';
 import { IntervalLength } from 'calypso/my-sites/email/email-providers-comparison/interval-length';
+import PriceInformation from 'calypso/my-sites/email/email-providers-comparison/price/price-information';
 import PriceBadge from 'calypso/my-sites/email/email-providers-comparison/price-badge';
 import PriceWithInterval from 'calypso/my-sites/email/email-providers-comparison/price-with-interval';
+import { useSelector } from 'calypso/state';
 import { getCurrentUserCurrencyCode } from 'calypso/state/currency-code/selectors';
 import { getProductBySlug } from 'calypso/state/products-list/selectors';
-import type { SiteDomain } from 'calypso/state/sites/domains/types';
-import type { ReactElement } from 'react';
+import type { ResponseDomain } from 'calypso/lib/domains/types';
 
 import './style.scss';
 
@@ -21,39 +21,55 @@ const getTitanProductSlug = ( intervalLength: IntervalLength ): string => {
 };
 
 type ProfessionalEmailPriceProps = {
-	domain: SiteDomain | undefined;
+	domain?: ResponseDomain;
 	intervalLength: IntervalLength;
+	isDomainInCart: boolean;
 };
 
 const ProfessionalEmailPrice = ( {
 	domain,
 	intervalLength,
-}: ProfessionalEmailPriceProps ): ReactElement => {
+	isDomainInCart,
+}: ProfessionalEmailPriceProps ) => {
 	const currencyCode = useSelector( getCurrentUserCurrencyCode );
 
 	const productSlug = getTitanProductSlug( intervalLength );
 	const product = useSelector( ( state ) => getProductBySlug( state, productSlug ) );
 
-	const isEligibleForFreeTrial = isDomainEligibleForTitanFreeTrial( domain );
+	if ( ! domain && ! isDomainInCart ) {
+		return null;
+	}
+
+	const isEligibleForFreeTrial =
+		isDomainInCart || isDomainEligibleForTitanFreeTrial( { domain, product } );
 
 	const priceWithInterval = (
 		<PriceWithInterval
-			cost={ product?.cost ?? 0 }
 			currencyCode={ currencyCode ?? '' }
-			hasDiscount={ isEligibleForFreeTrial }
 			intervalLength={ intervalLength }
+			isEligibleForIntroductoryOffer={ isEligibleForFreeTrial }
+			product={ product }
 		/>
 	);
 
 	return (
 		<>
 			{ isEligibleForFreeTrial && (
-				<div className="professional-email-price__discount badge badge--info-green">
+				<div className="professional-email-price__trial-badge badge badge--info-green">
 					{ translate( '3 months free' ) }
 				</div>
 			) }
 
-			<PriceBadge priceComponent={ priceWithInterval } />
+			<PriceBadge
+				priceInformation={
+					<PriceInformation
+						domain={ domain }
+						isDomainInCart={ isDomainInCart }
+						product={ product }
+					/>
+				}
+				price={ priceWithInterval }
+			/>
 		</>
 	);
 };

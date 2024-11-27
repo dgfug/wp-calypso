@@ -1,29 +1,34 @@
+import page from '@automattic/calypso-router';
 import { getUrlParts, getUrlFromParts, determineUrlType, format } from '@automattic/calypso-url';
+import { Button } from '@automattic/components';
 import SearchRestyled from '@automattic/search';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import debugFactory from 'debug';
 import { localize } from 'i18n-calypso';
-import { filter, find, flow, get, includes, isEmpty } from 'lodash';
-import page from 'page';
+import { flow } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import ReactDom from 'react-dom';
 import { connect } from 'react-redux';
 import AllSites from 'calypso/blocks/all-sites';
-import Site from 'calypso/blocks/site';
 import SitePlaceholder from 'calypso/blocks/site/placeholder';
 import Search from 'calypso/components/search';
-import searchSites from 'calypso/components/search-sites';
 import scrollIntoViewport from 'calypso/lib/scroll-into-viewport';
+import { addQueryArgs } from 'calypso/lib/url';
+import allSitesMenu from 'calypso/my-sites/sidebar/static-data/all-sites-menu';
+import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import { getCurrentUser } from 'calypso/state/current-user/selectors';
-import { getPreference } from 'calypso/state/preferences/selectors';
 import areAllSitesSingleUser from 'calypso/state/selectors/are-all-sites-single-user';
+import { canAnySiteHavePlugins } from 'calypso/state/selectors/can-any-site-have-plugins';
 import getSites from 'calypso/state/selectors/get-sites';
 import getVisibleSites from 'calypso/state/selectors/get-visible-sites';
 import hasLoadedSites from 'calypso/state/selectors/has-loaded-sites';
+import { withSitesSortingPreference } from 'calypso/state/sites/hooks/with-sites-sorting';
 import { getSite, hasAllSitesList } from 'calypso/state/sites/selectors';
 import { getSelectedSite } from 'calypso/state/ui/selectors';
+import JetpackAgencyAddSite from '../jetpack/add-new-site-button';
 import SiteSelectorAddSite from './add-site';
+import SitesList from './sites-list';
 import { getUserSiteCountForPlatform, getUserVisibleSiteCountForPlatform } from './utils';
 
 import './style.scss';
@@ -32,11 +37,13 @@ const ALL_SITES = 'ALL_SITES';
 const noop = () => {};
 const debug = debugFactory( 'calypso:site-selector' );
 
-class SiteSelector extends Component {
+export class SiteSelector extends Component {
 	static propTypes = {
 		isPlaceholder: PropTypes.bool,
+		isJetpackAgencyDashboard: PropTypes.bool,
 		sites: PropTypes.array,
 		siteBasePath: PropTypes.oneOfType( [ PropTypes.string, PropTypes.bool ] ),
+		wpcomSiteBasePath: PropTypes.oneOfType( [ PropTypes.string, PropTypes.bool ] ),
 		showAddNewSite: PropTypes.bool,
 		showAllSites: PropTypes.bool,
 		indicator: PropTypes.bool,
@@ -48,20 +55,26 @@ class SiteSelector extends Component {
 		groups: PropTypes.bool,
 		onSiteSelect: PropTypes.func,
 		searchPlaceholder: PropTypes.string,
-		showRecentSites: PropTypes.bool,
-		recentSites: PropTypes.array,
 		selectedSite: PropTypes.object,
 		visibleSites: PropTypes.arrayOf( PropTypes.object ),
 		allSitesPath: PropTypes.string,
 		navigateToSite: PropTypes.func.isRequired,
 		isReskinned: PropTypes.bool,
+		showManageSitesButton: PropTypes.bool,
+		showHiddenSites: PropTypes.bool,
+		maxResults: PropTypes.number,
+		hasSiteWithPlugins: PropTypes.bool,
+		showListBottomAdornment: PropTypes.bool,
 	};
 
 	static defaultProps = {
 		sites: {},
+		showManageSitesButton: false,
 		showAddNewSite: false,
 		showAllSites: false,
+		showHiddenSites: false,
 		siteBasePath: false,
+		wpcomSiteBasePath: false,
 		indicator: false,
 		hideSelected: false,
 		selected: null,
@@ -69,21 +82,24 @@ class SiteSelector extends Component {
 		onSiteSelect: noop,
 		groups: false,
 		autoFocus: false,
+		showListBottomAdornment: true,
 	};
 
 	state = {
 		highlightedIndex: -1,
 		showSearch: false,
 		isKeyboardEngaged: false,
+		searchTerm: '',
 	};
 
 	onSearch = ( terms ) => {
-		this.props.searchSites( terms );
+		const trimmedTerm = terms.trim();
 
 		this.setState( {
 			highlightedIndex: terms ? 0 : -1,
-			showSearch: terms ? true : this.state.showSearch,
+			showSearch: trimmedTerm ? true : this.state.showSearch,
 			isKeyboardEngaged: true,
+			searchTerm: trimmedTerm,
 		} );
 	};
 
@@ -190,7 +206,19 @@ class SiteSelector extends Component {
 	};
 
 	onSiteSelect = ( event, siteId ) => {
-		const handledByHost = this.props.onSiteSelect( siteId );
+		if ( siteId !== ALL_SITES ) {
+			const visibleSites = this.visibleSites.filter( ( ID ) => ID !== ALL_SITES );
+			this.props.recordTracksEvent( 'calypso_switch_site_click_item', {
+				position: visibleSites.indexOf( siteId ) + 1,
+				list_item_count: visibleSites.length,
+				is_searching: this.state.searchTerm.length > 0,
+				sort_key: this.props.sitesSorting.sortKey,
+				sort_order: this.props.sitesSorting.sortOrder,
+			} );
+		}
+
+		const selectedSite = this.props.sites.find( ( site ) => site.ID === siteId );
+		const handledByHost = this.props.onSiteSelect( siteId, selectedSite );
 		this.props.onClose( event, siteId );
 
 		if ( ! this.siteSelectorRef ) {
@@ -210,8 +238,13 @@ class SiteSelector extends Component {
 		}
 	};
 
-	onAllSitesSelect = ( event ) => {
+	onAllSitesSelect = ( event, properties ) => {
+		this.props.recordTracksEvent( 'calypso_all_my_sites_click', properties );
 		this.onSiteSelect( event, ALL_SITES );
+	};
+
+	onManageSitesClick = () => {
+		this.props.recordTracksEvent( 'calypso_manage_sites_click' );
 	};
 
 	onSiteHover = ( event, siteId ) => {
@@ -247,22 +280,23 @@ class SiteSelector extends Component {
 		}
 	};
 
-	isSelected( site ) {
+	isSelected = ( site ) => {
 		const selectedSite = this.props.selected || this.props.selectedSite;
 		return (
 			( site === ALL_SITES && selectedSite === null ) ||
 			selectedSite === site.ID ||
 			selectedSite === site.domain ||
-			selectedSite === site.slug
+			selectedSite === site.slug ||
+			selectedSite?.ID === site.ID
 		);
-	}
+	};
 
-	isHighlighted( siteId ) {
+	isHighlighted = ( siteId ) => {
 		return (
 			this.state.isKeyboardEngaged &&
 			this.visibleSites.indexOf( siteId ) === this.state.highlightedIndex
 		);
-	}
+	};
 
 	shouldShowGroups() {
 		return this.props.groups;
@@ -271,13 +305,10 @@ class SiteSelector extends Component {
 	setSiteSelectorRef = ( component ) => ( this.siteSelectorRef = component );
 
 	sitesToBeRendered() {
-		let sites;
-
-		if ( this.props.sitesFound ) {
-			sites = this.props.sitesFound;
-		} else {
-			sites = this.props.visibleSites;
-		}
+		let sites =
+			this.state.searchTerm || this.props.showHiddenSites
+				? this.props.sites
+				: this.props.visibleSites;
 
 		if ( this.props.filter ) {
 			sites = sites.filter( this.props.filter );
@@ -287,15 +318,39 @@ class SiteSelector extends Component {
 			sites = sites.filter( ( site ) => site.slug !== this.props.selected );
 		}
 
+		// Bulk transfers of many domains get attached to a single domain-only site.
+		// Because of this, it doesn't make sense to show domain-only sites in the site selector.
+
+		// Eventually, we'll want to filter out domain-only sites at the API boundary instead.
+		sites = sites.filter( ( site ) => ! site?.options?.is_domain_only );
+
 		return sites;
 	}
 
-	shouldRenderRecentSites() {
-		return this.props.showRecentSites && this.shouldShowGroups() && ! this.props.sitesFound;
-	}
+	mapAllSitesPath = ( path ) => {
+		if ( path.includes( '/posts/my' ) ) {
+			return path.replace( '/posts/my', '/posts' );
+		}
+
+		return path;
+	};
 
 	renderAllSites() {
-		if ( ! this.props.showAllSites || this.props.sitesFound || ! this.props.allSitesPath ) {
+		if ( ! this.props.showAllSites || this.state.searchTerm || ! this.props.allSitesPath ) {
+			return null;
+		}
+
+		const multiSiteContext = allSitesMenu( {
+			showManagePlugins: this.props.hasSiteWithPlugins,
+		} ).find( ( menuItem ) => menuItem.url === this.mapAllSitesPath( this.props.allSitesPath ) );
+
+		// Let's not display the all sites button if there is no multi-site context.
+		if ( this.props.showManageSitesButton && ! multiSiteContext ) {
+			return null;
+		}
+
+		// Let's not display the all sites button if we are already displaying a multi-site context page.
+		if ( this.props.showManageSitesButton && ! this.props.selectedSite ) {
 			return null;
 		}
 
@@ -306,35 +361,29 @@ class SiteSelector extends Component {
 		return (
 			<AllSites
 				key="selector-all-sites"
-				sites={ this.props.sites }
-				onSelect={ this.onAllSitesSelect }
+				onSelect={ ( event ) =>
+					this.onAllSitesSelect(
+						event,
+						multiSiteContext
+							? {
+									multi_site_context_slug: multiSiteContext.slug,
+							  }
+							: undefined
+					)
+				}
 				onMouseEnter={ this.onAllSitesHover }
 				isHighlighted={ isHighlighted }
 				isSelected={ this.isSelected( ALL_SITES ) }
+				title={ multiSiteContext && multiSiteContext.navigationLabel }
+				showCount={ ! multiSiteContext?.icon }
+				showIcon={ !! multiSiteContext?.icon }
+				icon={
+					multiSiteContext?.icon && (
+						<span className={ 'dashicons-before ' + multiSiteContext.icon } aria-hidden />
+					)
+				}
 			/>
 		);
-	}
-
-	renderRecentSites( sites ) {
-		if ( ! this.shouldRenderRecentSites() ) {
-			return null;
-		}
-
-		const recentSites = [];
-		for ( const siteId of this.props.recentSites ) {
-			const site = find( sites, { ID: siteId } );
-			if ( site ) {
-				recentSites.push( site );
-			}
-		}
-
-		if ( isEmpty( recentSites ) ) {
-			return null;
-		}
-
-		const renderedRecentSites = recentSites.map( this.renderSite, this );
-
-		return <div className="site-selector__recent">{ renderedRecentSites }</div>;
 	}
 
 	renderSites( sites ) {
@@ -342,44 +391,17 @@ class SiteSelector extends Component {
 			return <SitePlaceholder key="site-placeholder" />;
 		}
 
-		// Filter recentSites
-		if ( this.shouldRenderRecentSites() ) {
-			const recentSites = this.props.recentSites;
-			sites = filter( sites, ( { ID: siteId } ) => ! includes( recentSites, siteId ) );
-		}
-
-		// Render sites
-		const siteElements = sites.map( this.renderSite, this );
-
-		if ( ! siteElements.length ) {
-			return (
-				<div className="site-selector__no-results">
-					{ this.props.translate( 'No sites found' ) }
-				</div>
-			);
-		}
-
-		return siteElements;
-	}
-
-	renderSite( site ) {
-		if ( ! site ) {
-			return null;
-		}
-
-		this.visibleSites.push( site.ID );
-
-		const isHighlighted = this.isHighlighted( site.ID );
-
 		return (
-			<Site
-				site={ site }
-				key={ 'site-' + site.ID }
+			<SitesList
+				maxResults={ this.props.maxResults }
+				addToVisibleSites={ ( siteId ) => this.visibleSites.push( siteId ) }
+				searchTerm={ this.state.searchTerm }
+				sites={ sites }
 				indicator={ this.props.indicator }
 				onSelect={ this.onSiteSelect }
 				onMouseEnter={ this.onSiteHover }
-				isHighlighted={ isHighlighted }
-				isSelected={ this.isSelected( site ) }
+				isHighlighted={ this.isHighlighted }
+				isSelected={ this.isSelected }
 				isReskinned={ this.props.isReskinned }
 			/>
 		);
@@ -394,7 +416,7 @@ class SiteSelector extends Component {
 
 		const hiddenSitesCount = this.props.siteCount - this.props.visibleSiteCount;
 
-		const selectorClass = classNames( 'site-selector', 'sites-list', this.props.className, {
+		const selectorClass = clsx( 'site-selector', 'sites-list', this.props.className, {
 			'is-large': this.props.siteCount > 6 || hiddenSitesCount > 0 || this.state.showSearch,
 			'is-single': this.props.visibleSiteCount === 1,
 			'is-hover-enabled': ! this.state.isKeyboardEngaged,
@@ -408,13 +430,13 @@ class SiteSelector extends Component {
 
 		return (
 			<div
+				ref={ this.props.forwardRef }
 				className={ selectorClass }
 				onMouseMove={ this.onMouseMove }
 				onMouseLeave={ this.onMouseLeave }
 			>
 				<SearchComponent
 					onSearch={ this.onSearch }
-					delaySearch={ true }
 					placeholder={ this.props.searchPlaceholder }
 					// eslint-disable-next-line jsx-a11y/no-autofocus
 					autoFocus={ this.props.autoFocus }
@@ -425,64 +447,164 @@ class SiteSelector extends Component {
 				/>
 				<div className="site-selector__sites" ref={ this.setSiteSelectorRef }>
 					{ this.renderAllSites() }
-					{ this.renderRecentSites( sites ) }
 					{ this.renderSites( sites ) }
-					{ hiddenSitesCount > 0 && ! this.props.sitesFound && (
-						<span className="site-selector__hidden-sites-message">
-							{ this.props.translate(
-								'%(hiddenSitesCount)d more hidden site. {{a}}Change{{/a}}.{{br/}}Use search to access it.',
-								'%(hiddenSitesCount)d more hidden sites. {{a}}Change{{/a}}.{{br/}}Use search to access them.',
-								{
-									count: hiddenSitesCount,
-									args: {
-										hiddenSitesCount: hiddenSitesCount,
-									},
-									components: {
-										br: <br />,
-										a: (
-											<a
-												href="https://dashboard.wordpress.com/wp-admin/index.php?page=my-blogs&show=hidden"
-												className="site-selector__manage-hidden-sites"
-												target="_blank"
-												rel="noopener noreferrer"
-											/>
-										),
-									},
-								}
-							) }
-						</span>
-					) }
+					{ this.props.showListBottomAdornment &&
+						! this.props.showHiddenSites &&
+						hiddenSitesCount > 0 &&
+						! this.state.searchTerm && (
+							<span className="site-selector__list-bottom-adornment">
+								{ this.props.translate(
+									'%(hiddenSitesCount)d more hidden site. {{a}}Change{{/a}}.{{br/}}Use search to access it.',
+									'%(hiddenSitesCount)d more hidden sites. {{a}}Change{{/a}}.{{br/}}Use search to access them.',
+									{
+										count: hiddenSitesCount,
+										args: {
+											hiddenSitesCount: hiddenSitesCount,
+										},
+										components: {
+											br: <br />,
+											a: (
+												<a
+													href="https://dashboard.wordpress.com/wp-admin/index.php?page=my-blogs&show=hidden"
+													target="_blank"
+													rel="noopener noreferrer"
+												/>
+											),
+										},
+									}
+								) }
+							</span>
+						) }
 				</div>
-				{ this.props.showAddNewSite && <SiteSelectorAddSite /> }
+				{ ( this.props.showManageSitesButton || this.props.showAddNewSite ) && (
+					<div className="site-selector__actions">
+						{ this.props.showManageSitesButton && (
+							<Button
+								transparent
+								onClick={ this.onManageSitesClick }
+								href={ addQueryArgs(
+									{ search: this.state.searchTerm.length > 0 ? this.state.searchTerm : null },
+									'/sites'
+								) }
+							>
+								{ this.props.translate( 'Manage sites' ) }
+							</Button>
+						) }
+						{ this.props.showAddNewSite &&
+							( this.props.isJetpackAgencyDashboard ? (
+								<JetpackAgencyAddSite
+									onClickAddNewSite={ () =>
+										this.props.recordTracksEvent(
+											'calypso_jetpack_agency_dashboard_sidebar_add_new_site_click'
+										)
+									}
+									onClickWpcomMenuItem={ () =>
+										this.props.recordTracksEvent(
+											'calypso_jetpack_agency_dashboard_sidebar_create_wpcom_site_click'
+										)
+									}
+									onClickJetpackMenuItem={ () =>
+										this.props.recordTracksEvent(
+											'calypso_jetpack_agency_dashboard_sidebar_connect_jetpack_site_click'
+										)
+									}
+									onClickBluehostMenuItem={ () =>
+										this.props.recordTracksEvent(
+											'calypso_jetpack_agency_dashboard_sidebar_create_bluehost_site_click'
+										)
+									}
+								/>
+							) : (
+								<SiteSelectorAddSite />
+							) ) }
+					</div>
+				) }
 			</div>
 		);
 	}
 }
 
-const navigateToSite = ( siteId, { allSitesPath, allSitesSingleUser, siteBasePath } ) => (
-	dispatch,
-	getState
-) => {
-	const state = getState();
-	const pathname = getPathnameForSite();
-	if ( pathname ) {
-		page( pathname );
-	}
-
-	function getPathnameForSite() {
+const navigateToSite =
+	( siteId, { allSitesPath, allSitesSingleUser, siteBasePath, wpcomSiteBasePath } ) =>
+	( dispatch, getState ) => {
+		const state = getState();
 		const site = getSite( state, siteId );
-		debug( 'getPathnameForSite', siteId, site );
 
-		if ( siteId === ALL_SITES ) {
-			// default posts links to /posts/my when possible and /posts when not
-			const postsBase = allSitesSingleUser ? '/posts' : '/posts/my';
-			const path = allSitesPath.replace( /^\/posts\b(\/my)?/, postsBase );
+		// We will need to open a new tab if we have wpcomSiteBasePath prop and current site is an Atomic site.
+		if ( site?.is_wpcom_atomic && wpcomSiteBasePath ) {
+			window.open( getCompleteSiteURL( wpcomSiteBasePath ) );
+		} else {
+			const pathname = getPathnameForSite();
+			if ( pathname ) {
+				page( pathname );
+			}
+		}
 
-			// There is currently no "all sites" version of the insights page
-			return path.replace( /^\/stats\/insights\/?$/, '/stats/day' );
-		} else if ( siteBasePath ) {
-			const base = getSiteBasePath( site );
+		function getPathnameForSite() {
+			debug( 'getPathnameForSite', siteId, site );
 
+			if ( siteId === ALL_SITES ) {
+				// default posts links to /posts/my when possible and /posts when not
+				const postsBase = allSitesSingleUser ? '/posts' : '/posts/my';
+				const path = allSitesPath.replace( /^\/posts\b(\/my)?/, postsBase );
+
+				// There is currently no "all sites" version of the insights page
+				if ( path.match( /^\/stats\/insights\/?/ ) ) {
+					return '/stats/day';
+				}
+
+				// Jetpack Cloud: default to /backups/ when in the details of a particular backup
+				if ( path.match( /^\/backup\/.*\/(download|restore|contents|granular-restore)/ ) ) {
+					return '/backup';
+				}
+
+				return path;
+			} else if ( siteBasePath ) {
+				return getCompleteSiteURL( getSiteBasePath() );
+			}
+		}
+
+		function getSiteBasePath() {
+			let path = siteBasePath;
+			const postsBase = site.jetpack || site.single_user_site ? '/posts' : '/posts/my';
+
+			// Default posts to /posts/my when possible and /posts when not
+			path = path.replace( /^\/posts\b(\/my)?/, postsBase );
+
+			// Default stats to /stats/slug when on a 3rd level post/page summary
+			if ( path.match( /^\/stats\/(post|page)\// ) ) {
+				path = '/stats';
+			}
+
+			if ( path.match( /^\/domains\/manage\// ) ) {
+				path = '/domains/manage';
+			}
+
+			if ( path.match( /^\/email\// ) ) {
+				path = '/email';
+			}
+
+			if ( path.match( /^\/store\/stats\// ) ) {
+				const isStore = site.jetpack && site.options && site.options.woocommerce_is_active;
+				if ( ! isStore ) {
+					path = '/stats/day';
+				}
+			}
+
+			// Defaults to /advertising/campaigns when switching sites in the 3rd level
+			if ( path.match( /^\/advertising\/campaigns\/\d+/ ) ) {
+				path = '/advertising/campaigns';
+			}
+
+			// Jetpack Cloud: default to /backups/ when in the details of a particular backup
+			if ( path.match( /^\/backup\/.*\/(download|restore|contents|granular-restore)/ ) ) {
+				path = '/backup';
+			}
+
+			return path;
+		}
+
+		function getCompleteSiteURL( base ) {
 			// Record original URL type. The original URL should be a path-absolute URL, e.g. `/posts`.
 			const urlType = determineUrlType( base );
 
@@ -505,63 +627,26 @@ const navigateToSite = ( siteId, { allSitesPath, allSitesSingleUser, siteBasePat
 				return null;
 			}
 		}
-	}
-
-	function getSiteBasePath( site ) {
-		let path = siteBasePath;
-		const postsBase = site.jetpack || site.single_user_site ? '/posts' : '/posts/my';
-
-		// Default posts to /posts/my when possible and /posts when not
-		path = path.replace( /^\/posts\b(\/my)?/, postsBase );
-
-		// Default stats to /stats/slug when on a 3rd level post/page summary
-		if ( path.match( /^\/stats\/(post|page)\// ) ) {
-			path = '/stats';
-		}
-
-		if ( path.match( /^\/domains\/manage\// ) ) {
-			path = '/domains/manage';
-		}
-
-		if ( path.match( /^\/email\// ) ) {
-			path = '/email';
-		}
-
-		if ( path.match( /^\/store\/stats\// ) ) {
-			const isStore = site.jetpack && site.options && site.options.woocommerce_is_active;
-			if ( ! isStore ) {
-				path = '/stats/day';
-			}
-		}
-
-		// Jetpack Cloud: default to /backups/ when in the details of a particular backup
-		if ( path.match( /^\/backup\/.*\/(download|restore|detail)/ ) ) {
-			path = '/backup';
-		}
-
-		return path;
-	}
-};
+	};
 
 const mapState = ( state ) => {
 	const user = getCurrentUser( state );
 
 	return {
 		hasLoadedSites: hasLoadedSites( state ),
-		sites: getSites( state ),
-		showRecentSites: get( user, 'visible_site_count', 0 ) > 11,
-		recentSites: getPreference( state, 'recentSites' ),
+		sites: getSites( state, false ),
 		siteCount: getUserSiteCountForPlatform( user ),
 		visibleSiteCount: getUserVisibleSiteCountForPlatform( user ),
 		selectedSite: getSelectedSite( state ),
 		visibleSites: getVisibleSites( state ),
 		allSitesSingleUser: areAllSitesSingleUser( state ),
 		hasAllSitesList: hasAllSitesList( state ),
+		hasSiteWithPlugins: canAnySiteHavePlugins( state ),
 	};
 };
 
 export default flow(
 	localize,
-	searchSites,
-	connect( mapState, { navigateToSite } )
+	withSitesSortingPreference,
+	connect( mapState, { navigateToSite, recordTracksEvent } )
 )( SiteSelector );

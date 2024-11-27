@@ -1,12 +1,12 @@
 import {
 	FEATURE_VIDEO_UPLOADS_JETPACK_PRO,
 	JETPACK_BACKUP_PRODUCTS,
-	isJetpackAntiSpam,
 	isJetpackBackupSlug,
-	isBusinessPlan,
-	isPremiumPlan,
-	isJetpackOfferResetPlan,
 	planHasFeature,
+	WPCOM_FEATURES_ANTISPAM,
+	WPCOM_FEATURES_BACKUPS,
+	WPCOM_FEATURES_SCAN,
+	WPCOM_FEATURES_VAULTPRESS_BACKUPS,
 } from '@automattic/calypso-products';
 import { Button, Card } from '@automattic/components';
 import { isDesktop } from '@automattic/viewport';
@@ -31,12 +31,10 @@ import getJetpackProductInstallStatus from 'calypso/state/selectors/get-jetpack-
 import getJetpackWpAdminUrl from 'calypso/state/selectors/get-jetpack-wp-admin-url';
 import getRewindState from 'calypso/state/selectors/get-rewind-state';
 import getSiteChecklist from 'calypso/state/selectors/get-site-checklist';
-import isSiteOnPaidPlan from 'calypso/state/selectors/is-site-on-paid-plan';
-import { hasFeature, getSitePlanSlug } from 'calypso/state/sites/plans/selectors';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
 import {
 	getSiteSlug,
 	getCustomizerUrl,
-	getSiteProducts,
 	isJetpackMinimumVersion,
 } from 'calypso/state/sites/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
@@ -55,7 +53,9 @@ declare global {
 
 interface Props {
 	hasVideoHosting: boolean;
-	isPaidPlan: boolean;
+	hasBackups: boolean;
+	hasScan: boolean;
+	hasVaultPress: boolean;
 	taskStatuses:
 		| {
 				id: string;
@@ -67,10 +67,10 @@ interface Props {
 	wpAdminUrl: undefined | string;
 	akismetFinished: boolean;
 	hasAntiSpam: boolean;
-	productInstallStatus: JetpackProductInstallStatus;
+	productInstallStatus: JetpackProductInstallStatus | null;
 	rewindState: string;
-	siteId: undefined | number;
-	siteSlug: undefined | string;
+	siteId: number | null;
+	siteSlug: string | null;
 	vaultpressFinished: boolean;
 	recordTracksEvent: typeof recordTracksEvent;
 	requestGuidedTour: typeof requestGuidedTour;
@@ -116,7 +116,6 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 
 	/**
 	 * Returns the localized duration of a task in given minutes.
-	 *
 	 * @param  minutes Number of minutes.
 	 * @returns Localized duration.
 	 */
@@ -124,19 +123,21 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 		return this.props.translate( '%d minute', '%d minutes', { count: minutes, args: [ minutes ] } );
 	}
 
-	handleTaskStart = ( { taskId, tourId }: { taskId: string; tourId?: string } ) => () => {
-		if ( taskId ) {
-			this.props.recordTracksEvent( 'calypso_checklist_task_start', {
-				checklist_name: 'jetpack',
-				location: 'JetpackChecklist',
-				step_name: taskId,
-			} );
-		}
+	handleTaskStart =
+		( { taskId, tourId }: { taskId: string; tourId?: string } ) =>
+		() => {
+			if ( taskId ) {
+				this.props.recordTracksEvent( 'calypso_checklist_task_start', {
+					checklist_name: 'jetpack',
+					location: 'JetpackChecklist',
+					step_name: taskId,
+				} );
+			}
 
-		if ( tourId && ! this.isComplete( taskId ) && isDesktop() ) {
-			this.props.requestGuidedTour( tourId );
-		}
-	};
+			if ( tourId && ! this.isComplete( taskId ) && isDesktop() ) {
+				this.props.requestGuidedTour( tourId );
+			}
+		};
 
 	handleWpAdminLink = () => {
 		this.props.recordTracksEvent( 'calypso_checklist_wpadmin_click', {
@@ -172,8 +173,10 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 	render() {
 		const {
 			akismetFinished,
-			isPaidPlan,
 			hasAntiSpam,
+			hasBackups,
+			hasScan,
+			hasVaultPress,
 			productInstallStatus,
 			rewindState,
 			siteId,
@@ -188,19 +191,18 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 		const isRewindAvailable = rewindState !== 'uninitialized' && rewindState !== 'unavailable';
 		const isRewindUnavailable = rewindState === 'unavailable';
 
-		const hasJetpackProductInstallation = isPaidPlan || hasAntiSpam;
 		const forceShowJetpackBackupTask = isRewindUnavailable && this.hasRecentJetpackBackupPurchase();
 
 		return (
 			<Fragment>
 				{ siteId && <QuerySiteChecklist siteId={ siteId } /> }
-				{ hasJetpackProductInstallation && siteId && (
+				{ ( hasAntiSpam || hasVaultPress ) && siteId && (
 					<QueryJetpackProductInstallStatus siteId={ siteId } />
 				) }
-				{ isPaidPlan && <QueryRewindState siteId={ siteId } /> }
+				{ ( hasBackups || hasVaultPress ) && <QueryRewindState siteId={ siteId } /> }
 				<JetpackProductInstall />
 
-				<JetpackChecklistHeader isPaidPlan={ isPaidPlan } />
+				<JetpackChecklistHeader />
 
 				<Checklist
 					className="jetpack-checklist"
@@ -222,15 +224,15 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 						onClick={ this.handleTaskStart( { taskId: 'jetpack_protect' } ) }
 					/>
 
-					{ ( ( isPaidPlan && isRewindAvailable ) || forceShowJetpackBackupTask ) && (
+					{ ( ( hasBackups && hasScan && isRewindAvailable ) || forceShowJetpackBackupTask ) && (
 						<Task
 							id="jetpack_rewind"
-							title={ translate( 'Backup and Scan' ) }
+							title={ translate( 'VaultPress Backup and Scan' ) }
 							description={ translate(
 								"Connect your site's server to Jetpack to perform backups, restores, and security scans."
 							) }
 							completedButtonText={ translate( 'Change', { context: 'verb' } ) }
-							completedTitle={ translate( 'You turned on Backup and Scan.' ) }
+							completedTitle={ translate( 'You turned on VaultPress Backup and Scan.' ) }
 							duration={ this.getDuration( 3 ) }
 							completed={ isRewindActive }
 							href={ settingsPath( siteSlug ) }
@@ -240,7 +242,7 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 						/>
 					) }
 
-					{ isPaidPlan &&
+					{ hasVaultPress &&
 						isRewindUnavailable &&
 						productInstallStatus &&
 						! forceShowJetpackBackupTask && (
@@ -258,12 +260,12 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 							/>
 						) }
 
-					{ siteSlug && hasJetpackProductInstallation && productInstallStatus && (
+					{ siteSlug && hasAntiSpam && productInstallStatus && (
 						<Task
 							id="jetpack_akismet"
-							title={ translate( "We're automatically turning on Anti-spam." ) }
+							title={ translate( "We're automatically turning on Akismet Anti-spam." ) }
 							completedButtonText={ translate( 'View spam stats' ) }
-							completedTitle={ translate( "We've automatically turned on Anti-spam." ) }
+							completedTitle={ translate( "We've automatically turned on Akismet Anti-spam." ) }
 							completed={ akismetFinished }
 							href={ `//${ siteSlug.replace(
 								'::',
@@ -345,27 +347,6 @@ class JetpackChecklist extends PureComponent< Props & LocalizeProps > {
 						title={ translate( 'Site Accelerator' ) }
 					/>
 
-					<Task
-						id={ CHECKLIST_KNOWN_TASKS.JETPACK_LAZY_IMAGES }
-						completed={ this.isComplete( CHECKLIST_KNOWN_TASKS.JETPACK_LAZY_IMAGES ) }
-						completedButtonText={ translate( 'Upload images' ) }
-						completedTitle={ translate( 'Lazy load images is improving your site speed.' ) }
-						description={ translate(
-							"Improve your site's speed by only loading images when visible on the screen."
-						) }
-						duration={ this.getDuration( 1 ) }
-						href={
-							this.isComplete( CHECKLIST_KNOWN_TASKS.JETPACK_LAZY_IMAGES )
-								? `/media/${ siteSlug }`
-								: `/settings/performance/${ siteSlug }`
-						}
-						onClick={ this.handleTaskStart( {
-							taskId: CHECKLIST_KNOWN_TASKS.JETPACK_LAZY_IMAGES,
-							tourId: 'jetpackLazyImages',
-						} ) }
-						title={ translate( 'Lazy Load Images' ) }
-					/>
-
 					{ hasVideoHosting && (
 						<Task
 							id={ CHECKLIST_KNOWN_TASKS.JETPACK_VIDEO_HOSTING }
@@ -402,39 +383,33 @@ function mapStateToProps( state: AppState ) {
 	const siteId = getSelectedSiteId( state );
 	const productInstallStatus = getJetpackProductInstallStatus( state, siteId ?? 0 );
 	const rewindState = getRewindState( state, siteId ).state;
-	const isMinimumVersion =
-		siteId && isJetpackMinimumVersion( state, siteId, OFFER_RESET_VIDEO_MINIMUM_JETPACK_VERSION );
 
 	// Link to "My Plan" page in Jetpack
 	const wpAdminUrl = getJetpackWpAdminUrl( state );
 
-	const planSlug = getSitePlanSlug( state, siteId ?? 0 );
-	const isPremium = !! planSlug && isPremiumPlan( planSlug );
-	const isProfessional = ! isPremium && !! planSlug && isBusinessPlan( planSlug );
-	const isPaidPlan = isPremium || isProfessional || isSiteOnPaidPlan( state, siteId ?? 0 );
-
-	const siteProducts = getSiteProducts( state, siteId );
-	const hasAntiSpam =
-		siteProducts && siteProducts.filter( ( product ) => isJetpackAntiSpam( product ) ).length > 0;
-
 	return {
-		akismetFinished: productInstallStatus && productInstallStatus.akismet_status === 'installed',
-		vaultpressFinished:
+		akismetFinished: !! (
+			productInstallStatus && productInstallStatus.akismet_status === 'installed'
+		),
+		vaultpressFinished: !! (
 			productInstallStatus &&
-			[ 'installed', 'skipped' ].includes( productInstallStatus.vaultpress_status ),
+			[ 'installed', 'skipped' ].includes( productInstallStatus.vaultpress_status )
+		),
 		widgetCustomizerPaneUrl: siteId ? getCustomizerUrl( state, siteId, 'widgets' ) : null,
-		isPaidPlan,
-		hasAntiSpam,
+		hasAntiSpam: siteHasFeature( state, siteId, WPCOM_FEATURES_ANTISPAM ),
+		hasBackups: siteHasFeature( state, siteId, WPCOM_FEATURES_BACKUPS ),
+		hasScan: siteHasFeature( state, siteId, WPCOM_FEATURES_SCAN ),
+		hasVaultPress: siteHasFeature( state, siteId, WPCOM_FEATURES_VAULTPRESS_BACKUPS ),
 		rewindState,
 		productInstallStatus,
 		siteId,
 		siteSlug: getSiteSlug( state, siteId ),
 		taskStatuses: getSiteChecklist( state, siteId ?? 0 )?.tasks,
 		wpAdminUrl,
-		hasVideoHosting:
-			siteId &&
-			hasFeature( state, siteId, FEATURE_VIDEO_UPLOADS_JETPACK_PRO ) &&
-			( ! isJetpackOfferResetPlan( planSlug ?? '' ) || isMinimumVersion ),
+		hasVideoHosting: !! (
+			siteHasFeature( state, siteId, FEATURE_VIDEO_UPLOADS_JETPACK_PRO ) &&
+			isJetpackMinimumVersion( state, siteId ?? 0, OFFER_RESET_VIDEO_MINIMUM_JETPACK_VERSION )
+		),
 		sitePurchases: getSitePurchases( state, siteId ),
 	};
 }

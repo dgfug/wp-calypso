@@ -3,48 +3,20 @@ import { useI18n } from '@wordpress/react-i18n';
 import debugFactory from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CheckoutContext from '../lib/checkout-context';
-import { useFormStatusManager } from '../lib/form-status';
-import { LineItemsProvider } from '../lib/line-items';
 import defaultTheme from '../lib/theme';
-import { useTransactionStatusManager } from '../lib/transaction-status';
-import {
-	validateArg,
-	validateLineItems,
-	validatePaymentMethods,
-	validateTotal,
-} from '../lib/validation';
-import {
-	LineItem,
-	CheckoutProviderProps,
-	FormStatus,
-	TransactionStatus,
-	PaymentMethod,
-} from '../types';
+import { validateArg, validatePaymentMethods } from '../lib/validation';
+import { CheckoutProviderProps } from '../types';
 import CheckoutErrorBoundary from './checkout-error-boundary';
-import TransactionStatusHandler from './transaction-status-handler';
-import type {
-	PaymentEventCallback,
-	PaymentErrorCallback,
-	PaymentProcessorResponseData,
-} from '../types';
+import { FormAndTransactionProvider } from './form-and-transaction-provider';
+import type { CheckoutContextInterface, PaymentMethod } from '../types';
 
 const debug = debugFactory( 'composite-checkout:checkout-provider' );
 
-const emptyTotal: LineItem = {
-	id: 'total',
-	type: 'total',
-	amount: { value: 0, displayValue: '0', currency: 'USD' },
-	label: 'Total',
-};
-
 export function CheckoutProvider( {
-	total = emptyTotal,
-	items = [],
 	onPaymentComplete,
 	onPaymentRedirect,
 	onPaymentError,
 	onPageLoadError,
-	onStepChanged,
 	onPaymentMethodChanged,
 	redirectToUrl,
 	theme,
@@ -52,12 +24,11 @@ export function CheckoutProvider( {
 	paymentProcessors,
 	isLoading,
 	isValidating,
+	selectFirstAvailablePaymentMethod,
 	initiallySelectedPaymentMethodId = null,
 	children,
-}: CheckoutProviderProps ): JSX.Element {
+}: CheckoutProviderProps ) {
 	const propsToValidate = {
-		total,
-		items,
 		redirectToUrl,
 		theme,
 		paymentMethods,
@@ -67,68 +38,56 @@ export function CheckoutProvider( {
 		children,
 		initiallySelectedPaymentMethodId,
 	};
+
+	// Keep track of enabled/disabled payment methods.
+	const [ disabledPaymentMethodIds, setDisabledPaymentMethodIds ] = useState< string[] >(
+		paymentMethods.filter( ( method ) => method.isInitiallyDisabled ).map( ( method ) => method.id )
+	);
+	const availablePaymentMethodIds = paymentMethods
+		.filter( ( method ) => ! disabledPaymentMethodIds.includes( method.id ) )
+		.map( ( method ) => method.id );
+
+	// Automatically select first payment method unless explicitly set or disabled.
+	if (
+		selectFirstAvailablePaymentMethod &&
+		! initiallySelectedPaymentMethodId &&
+		availablePaymentMethodIds.length > 0
+	) {
+		initiallySelectedPaymentMethodId = availablePaymentMethodIds[ 0 ];
+	}
+
+	// Keep track of selected payment method.
 	const [ paymentMethodId, setPaymentMethodId ] = useState< string | null >(
 		initiallySelectedPaymentMethodId
 	);
-	const [ prevPaymentMethods, setPrevPaymentMethods ] = useState< PaymentMethod[] >( [] );
-	useEffect( () => {
-		const paymentMethodIds = paymentMethods.map( ( x ) => x?.id );
-		const prevPaymentMethodIds = prevPaymentMethods.map( ( x ) => x?.id );
-		const paymentMethodsChanged =
-			paymentMethodIds.some( ( x ) => ! prevPaymentMethodIds.includes( x ) ) ||
-			prevPaymentMethodIds.some( ( x ) => ! paymentMethodIds.includes( x ) );
-		if ( paymentMethodsChanged ) {
-			debug(
-				'paymentMethods changed; setting payment method to initial selection ',
-				initiallySelectedPaymentMethodId,
-				'from',
-				paymentMethods
-			);
-			setPrevPaymentMethods( paymentMethods );
-			setPaymentMethodId( initiallySelectedPaymentMethodId );
-		}
-	}, [ paymentMethods, prevPaymentMethods, initiallySelectedPaymentMethodId ] );
 
-	const [ formStatus, setFormStatus ] = useFormStatusManager(
-		Boolean( isLoading ),
-		Boolean( isValidating )
+	useDisablePaymentMethodsWhenListChanges( paymentMethods, setDisabledPaymentMethodIds );
+
+	// Reset the selected payment method if the list of payment methods changes.
+	useResetSelectedPaymentMethodWhenListChanges(
+		availablePaymentMethodIds,
+		initiallySelectedPaymentMethodId,
+		setPaymentMethodId
 	);
-	const transactionStatusManager = useTransactionStatusManager();
-	const { transactionLastResponse, transactionStatus, transactionError } = transactionStatusManager;
 
-	useCallEventCallbacks( {
-		onPaymentComplete,
-		onPaymentRedirect,
-		onPaymentError,
-		formStatus,
-		transactionError,
-		transactionStatus,
-		paymentMethodId,
-		transactionLastResponse,
-	} );
-
-	const value = useMemo(
+	// Create a big blob of state to store in React Context for use by all this Provider's children.
+	const value: CheckoutContextInterface = useMemo(
 		() => ( {
 			allPaymentMethods: paymentMethods,
+			disabledPaymentMethodIds,
+			setDisabledPaymentMethodIds,
 			paymentMethodId,
 			setPaymentMethodId,
-			formStatus,
-			setFormStatus,
-			transactionStatusManager,
 			paymentProcessors,
 			onPageLoadError,
-			onStepChanged,
 			onPaymentMethodChanged,
 		} ),
 		[
-			formStatus,
 			paymentMethodId,
 			paymentMethods,
-			setFormStatus,
-			transactionStatusManager,
+			disabledPaymentMethodIds,
 			paymentProcessors,
 			onPageLoadError,
-			onStepChanged,
 			onPaymentMethodChanged,
 		]
 	);
@@ -136,8 +95,8 @@ export function CheckoutProvider( {
 	const { __ } = useI18n();
 	const errorMessage = __( 'Sorry, there was an error loading this page.' );
 	const onLoadError = useCallback(
-		( errorMessage ) => {
-			onPageLoadError?.( 'page_load', errorMessage );
+		( error: Error ) => {
+			onPageLoadError?.( 'page_load', error );
 		},
 		[ onPageLoadError ]
 	);
@@ -145,98 +104,96 @@ export function CheckoutProvider( {
 		<CheckoutErrorBoundary errorMessage={ errorMessage } onError={ onLoadError }>
 			<CheckoutProviderPropValidator propsToValidate={ propsToValidate } />
 			<ThemeProvider theme={ theme || defaultTheme }>
-				<LineItemsProvider items={ items } total={ total }>
-					<CheckoutContext.Provider value={ value }>
-						<TransactionStatusHandler redirectToUrl={ redirectToUrl } />
-						{ children }
-					</CheckoutContext.Provider>
-				</LineItemsProvider>
+				<FormAndTransactionProvider
+					onPaymentComplete={ onPaymentComplete }
+					onPaymentRedirect={ onPaymentRedirect }
+					onPaymentError={ onPaymentError }
+					isLoading={ isLoading }
+					isValidating={ isValidating }
+					redirectToUrl={ redirectToUrl }
+				>
+					<CheckoutContext.Provider value={ value }>{ children }</CheckoutContext.Provider>
+				</FormAndTransactionProvider>
 			</ThemeProvider>
 		</CheckoutErrorBoundary>
 	);
 }
 
+/**
+ * Even though CheckoutProvider is TypeScript, it's possible for consumers to
+ * misuse it in ways that are not easy to debug. This helper component throws
+ * errors if the props are not what they should be.
+ */
 function CheckoutProviderPropValidator( {
 	propsToValidate,
 }: {
 	propsToValidate: CheckoutProviderProps;
 } ) {
-	const { total, items, paymentMethods, paymentProcessors } = propsToValidate;
+	const { paymentMethods, paymentProcessors } = propsToValidate;
 	useEffect( () => {
 		debug( 'propsToValidate', propsToValidate );
 
-		validateArg( total, 'CheckoutProvider missing required prop: total' );
-		validateTotal( total );
-		validateArg( items, 'CheckoutProvider missing required prop: items' );
-		validateLineItems( items );
 		validateArg( paymentProcessors, 'CheckoutProvider missing required prop: paymentProcessors' );
 		validateArg( paymentMethods, 'CheckoutProvider missing required prop: paymentMethods' );
 		validatePaymentMethods( paymentMethods );
-	}, [ items, paymentMethods, paymentProcessors, propsToValidate, total ] );
+	}, [ paymentMethods, paymentProcessors, propsToValidate ] );
 	return null;
 }
 
-function useCallEventCallbacks( {
-	onPaymentComplete,
-	onPaymentRedirect,
-	onPaymentError,
-	formStatus,
-	transactionError,
-	transactionStatus,
-	paymentMethodId,
-	transactionLastResponse,
-}: {
-	onPaymentComplete?: PaymentEventCallback;
-	onPaymentRedirect?: PaymentEventCallback;
-	onPaymentError?: PaymentErrorCallback;
-	formStatus: FormStatus;
-	transactionError: string | null;
-	transactionStatus: TransactionStatus;
-	paymentMethodId: string | null;
-	transactionLastResponse: PaymentProcessorResponseData;
-} ): void {
-	// Store the callbacks as refs so we do not call them more than once if they
-	// are anonymous functions. This way they are only called when the
-	// transactionStatus/formStatus changes, which is what we really want.
-	const paymentCompleteRef = useRef( onPaymentComplete );
-	paymentCompleteRef.current = onPaymentComplete;
-	const paymentRedirectRef = useRef( onPaymentRedirect );
-	paymentRedirectRef.current = onPaymentRedirect;
-	const paymentErrorRef = useRef( onPaymentError );
-	paymentErrorRef.current = onPaymentError;
+function useDisablePaymentMethodsWhenListChanges(
+	paymentMethods: PaymentMethod[],
+	setDisabledPaymentMethodIds: ( setter: ( ids: string[] ) => string[] ) => void
+) {
+	const previousPaymentMethodIds = useRef< string[] >( [] );
 
-	const prevFormStatus = useRef< FormStatus >();
-	const prevTransactionStatus = useRef< TransactionStatus >();
+	const initiallyDisabledPaymentMethodIds = paymentMethods
+		.filter( ( method ) => method.isInitiallyDisabled )
+		.map( ( method ) => method.id );
+
+	const newInitiallyDisabledPaymentMethodIds = initiallyDisabledPaymentMethodIds.filter(
+		( id ) => ! previousPaymentMethodIds.current.includes( id )
+	);
+
+	const paymentMethodIdsHash = paymentMethods.map( ( method ) => method.id ).join( '-_-' );
+	const previousPaymentMethodIdsHash = useRef< string >();
 
 	useEffect( () => {
-		if (
-			paymentCompleteRef.current &&
-			formStatus === FormStatus.COMPLETE &&
-			formStatus !== prevFormStatus.current
-		) {
-			debug( "form status changed to complete so I'm calling onPaymentComplete" );
-			paymentCompleteRef.current( { paymentMethodId, transactionLastResponse } );
+		if ( previousPaymentMethodIdsHash.current !== paymentMethodIdsHash ) {
+			debug( 'paymentMethods changed; disabling any new isInitiallyDisabled payment methods' );
+
+			setDisabledPaymentMethodIds( ( currentlyDisabledIds: string[] ) => [
+				...currentlyDisabledIds,
+				...newInitiallyDisabledPaymentMethodIds,
+			] );
+			previousPaymentMethodIdsHash.current = paymentMethodIdsHash;
+			previousPaymentMethodIds.current = paymentMethods.map( ( method ) => method.id );
 		}
-		prevFormStatus.current = formStatus;
-	}, [ formStatus, transactionLastResponse, paymentMethodId ] );
+	}, [
+		paymentMethodIdsHash,
+		setDisabledPaymentMethodIds,
+		paymentMethods,
+		newInitiallyDisabledPaymentMethodIds,
+	] );
+}
+
+// Reset the selected payment method if the list of payment methods changes.
+function useResetSelectedPaymentMethodWhenListChanges(
+	availablePaymentMethodIds: string[],
+	initiallySelectedPaymentMethodId: string | null,
+	setPaymentMethodId: ( id: string | null ) => void
+) {
+	const hashKey = availablePaymentMethodIds.join( '-_-' );
+	const previousKey = useRef< string >();
 
 	useEffect( () => {
-		if (
-			paymentRedirectRef.current &&
-			transactionStatus === TransactionStatus.REDIRECTING &&
-			transactionStatus !== prevTransactionStatus.current
-		) {
-			debug( "transaction status changed to redirecting so I'm calling onPaymentRedirect" );
-			paymentRedirectRef.current( { paymentMethodId, transactionLastResponse } );
+		if ( previousKey.current !== hashKey ) {
+			debug(
+				'paymentMethods changed; setting payment method to initial selection ',
+				initiallySelectedPaymentMethodId
+			);
+
+			previousKey.current = hashKey;
+			setPaymentMethodId( initiallySelectedPaymentMethodId );
 		}
-		if (
-			paymentErrorRef.current &&
-			transactionStatus === TransactionStatus.ERROR &&
-			transactionStatus !== prevTransactionStatus.current
-		) {
-			debug( "transaction status changed to error so I'm calling onPaymentError" );
-			paymentErrorRef.current( { paymentMethodId, transactionError } );
-		}
-		prevTransactionStatus.current = transactionStatus;
-	}, [ transactionStatus, paymentMethodId, transactionLastResponse, transactionError ] );
+	}, [ hashKey, setPaymentMethodId, initiallySelectedPaymentMethodId ] );
 }

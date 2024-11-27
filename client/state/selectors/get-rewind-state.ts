@@ -5,14 +5,14 @@ import 'calypso/state/rewind/init';
 
 const uninitialized = {
 	state: 'uninitialized',
+	canAutoconfigure: false,
 };
 
 /**
  * Get the entire Rewind state object.
- *
  * @param {AppState} state Global state tree
  * @param {?number|string} siteId the site ID
- * @returns {object} Rewind state object
+ * @returns {Object} Rewind state object
  */
 export default function getRewindState(
 	state: AppState,

@@ -6,8 +6,7 @@ const DAY_IN_MILLIS = 24 * 60 * 1000 * 1000;
 
 /**
  * Returns true if we should fetch the site
- *
- * @param  {object}  state  Global state tree
+ * @param  {Object}  state  Global state tree
  * @param  {number}  siteId The site ID
  * @returns {boolean}        Whether site should be fetched
  */
@@ -15,7 +14,8 @@ const DAY_IN_MILLIS = 24 * 60 * 1000 * 1000;
 export function shouldSiteBeFetched( state, siteId ) {
 	const isNotQueued = ! state.reader.sites.queuedRequests[ siteId ];
 	const isMissing = ! getSite( state, siteId );
-	return isNotQueued && ( isMissing || isStale( state, siteId ) );
+	const staleWithoutError = isStale( state, siteId ) && ! isError( state, siteId );
+	return isNotQueued && ( isMissing || staleWithoutError );
 }
 
 function isStale( state, siteId ) {
@@ -26,12 +26,16 @@ function isStale( state, siteId ) {
 	return lastFetched <= Date.now() - DAY_IN_MILLIS;
 }
 
+function isError( state, siteId ) {
+	const site = getSite( state, siteId );
+	return site && site.is_error;
+}
+
 /**
  * Returns a site object
- *
- * @param  {object}  state  Global state tree
+ * @param  {Object}  state  Global state tree
  * @param  {number}  siteId The site ID
- * @returns {object}        Site
+ * @returns {Object}        Site
  */
 
 export function getSite( state, siteId ) {

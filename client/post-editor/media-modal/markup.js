@@ -1,8 +1,8 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { createElement } from 'react';
-import ReactDomServer from 'react-dom/server';
-import { deserialize } from 'calypso/lib/media-serialization';
+import { renderToStaticMarkup } from 'react-dom/server.browser';
 import * as MediaUtils from 'calypso/lib/media/utils';
+import { deserialize } from 'calypso/lib/media-serialization';
 import { parse, stringify } from 'calypso/lib/shortcode';
 
 /**
@@ -12,10 +12,9 @@ const Markup = {
 	/**
 	 * Given a media object and a site, returns a markup string representing that object
 	 * as HTML.
-	 *
-	 * @param  {object} site    A site object
-	 * @param  {object} media   A media object
-	 * @param  {object} options Appearance options
+	 * @param  {Object} site    A site object
+	 * @param  {Object} media   A media object
+	 * @param  {Object} options Appearance options
 	 * @returns {string}         A markup string
 	 */
 	get: function ( site, media, options ) {
@@ -37,8 +36,7 @@ const Markup = {
 	/**
 	 * Given a media object, returns a link markup string representing that
 	 * object.
-	 *
-	 * @param  {object} media A media object
+	 * @param  {Object} media A media object
 	 * @returns {string}       A link markup string
 	 */
 	link: function ( media ) {
@@ -51,19 +49,18 @@ const Markup = {
 			media.title
 		);
 
-		return ReactDomServer.renderToStaticMarkup( element );
+		return renderToStaticMarkup( element );
 	},
 
 	/**
 	 * Given a media object or markup string and a site, returns a caption React element.
 	 *
 	 * Adapted from WordPress.
-	 *
 	 * @copyright 2015 by the WordPress contributors.
 	 * @license LGPL-2.1
 	 * @see https://github.com/WordPress/WordPress/blob/4.3/wp-includes/js/tinymce/plugins/wpeditimage/plugin.js#L97-L157
-	 * @param  {object} site           A site object
-	 * @param  {(object|string)} media A media object or markup string
+	 * @param  {Object} site           A site object
+	 * @param  {(Object | string)} media A media object or markup string
 	 * @returns {string}                A caption React element, or null if not
 	 *                                 a captioned item.
 	 */
@@ -95,11 +92,7 @@ const Markup = {
 		/*eslint-disable react/no-danger*/
 		return (
 			<dl
-				className={ classNames(
-					'wp-caption',
-					parsed.attrs.named.align,
-					parsed.attrs.named.classes
-				) }
+				className={ clsx( 'wp-caption', parsed.attrs.named.align, parsed.attrs.named.classes ) }
 				style={ { width: parseInt( width, 10 ) } }
 			>
 				<dt className="wp-caption-dt" dangerouslySetInnerHTML={ { __html: img } } />
@@ -113,10 +106,9 @@ const Markup = {
 		/**
 		 * Given an image media object and a site, returns a markup string representing that
 		 * image object as HTML.
-		 *
-		 * @param  {object} site    A site object
-		 * @param  {object} media   An image media object
-		 * @param  {object} options Appearance options
+		 * @param  {Object} site    A site object
+		 * @param  {Object} media   An image media object
+		 * @param  {Object} options Appearance options
 		 * @returns {string}         An image markup string
 		 */
 		image: function ( site, media, options ) {
@@ -155,17 +147,13 @@ const Markup = {
 				alt: media.alt || media.title,
 				width: isFinite( width ) ? width : null,
 				height: isFinite( height ) ? height : null,
-				className: classNames(
-					'align' + options.align,
-					'size-' + options.size,
-					'wp-image-' + media.ID
-				),
+				className: clsx( 'align' + options.align, 'size-' + options.size, 'wp-image-' + media.ID ),
 				// make data-istransient a boolean att https://html.spec.whatwg.org/multipage/common-microsyntaxes.html#boolean-attribute
 				// it is false if it doesn't exist
 				'data-istransient': media.transient ? 'istransient' : null,
 			} );
 
-			let markup = ReactDomServer.renderToStaticMarkup( img );
+			let markup = renderToStaticMarkup( img );
 			if ( media.caption && width ) {
 				markup = stringify( {
 					tag: 'caption',
@@ -183,9 +171,8 @@ const Markup = {
 		/**
 		 * Given an audio media object, returns a markup string representing that
 		 * audio object as HTML.
-		 *
-		 * @param  {object} site  A site object
-		 * @param  {object} media An audio media object
+		 * @param  {Object} site  A site object
+		 * @param  {Object} media An audio media object
 		 * @returns {string}       An audio markup string
 		 */
 		audio: function ( site, media ) {
@@ -200,8 +187,7 @@ const Markup = {
 		/**
 		 * Given a video media object, returns a markup string representing that
 		 * video object as HTML.
-		 *
-		 * @param  {object} site  A site object
+		 * @param  {Object} site  A site object
 		 * @param  {string} media A video media object
 		 * @returns {string}       A video markup string
 		 */

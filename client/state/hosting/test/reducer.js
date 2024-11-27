@@ -1,11 +1,38 @@
 import deepFreeze from 'deep-freeze';
-import { HOSTING_SFTP_USERS_SET, HOSTING_SFTP_USER_UPDATE } from 'calypso/state/action-types';
-import { useSandbox } from 'calypso/test-helpers/use-sinon';
-import reducer, { sftpUsers } from '../reducer';
+import {
+	HOSTING_CLEAR_CACHE_REQUEST,
+	HOSTING_SFTP_USERS_SET,
+	HOSTING_SFTP_USER_UPDATE,
+} from 'calypso/state/action-types';
+import reducer, { lastCacheClearTimestamp, sftpUsers } from '../reducer';
 
 describe( 'reducer', () => {
-	useSandbox( ( sandbox ) => {
-		sandbox.stub( console, 'warn' );
+	jest.spyOn( console, 'warn' ).mockImplementation();
+
+	describe( '#lastCacheClearTimestamp', () => {
+		const timestamp = 1664397666661;
+
+		beforeAll( () => {
+			jest.useFakeTimers( 'modern' ).setSystemTime( timestamp );
+		} );
+
+		afterAll( () => {
+			jest.useRealTimers();
+		} );
+
+		test( 'should default to null', () => {
+			const state = lastCacheClearTimestamp( undefined, {} );
+
+			expect( state ).toEqual( null );
+		} );
+
+		test( 'should update to the current time whenever `HOSTING_CLEAR_CACHE_REQUEST` is dispatched', () => {
+			const state = lastCacheClearTimestamp( undefined, {
+				type: HOSTING_CLEAR_CACHE_REQUEST,
+			} );
+
+			expect( state ).toEqual( timestamp );
+		} );
 	} );
 
 	describe( '#sftpUsers()', () => {
@@ -95,8 +122,18 @@ describe( 'reducer', () => {
 
 		expect( state ).toEqual( {
 			12345678: {
+				lastCacheClearTimestamp: null,
+				lastEdgeCacheClearTimestamp: null,
+				geoAffinity: null,
+				isFetchingGeoAffinity: null,
 				phpVersion: null,
 				sftpUsers: [ 1, 2, 3 ],
+				sshAccess: null,
+				staticFile404: null,
+				isLoadingSftpUsers: false,
+				isLoadingSshAccess: null,
+				isFetchingWpVersion: false,
+				wpVersion: null,
 			},
 		} );
 	} );
@@ -104,8 +141,18 @@ describe( 'reducer', () => {
 	test( 'should accumulate sites', () => {
 		const previousState = {
 			12345678: {
+				lastCacheClearTimestamp: null,
+				lastEdgeCacheClearTimestamp: null,
+				geoAffinity: null,
+				isFetchingGeoAffinity: null,
 				phpVersion: null,
 				sftpUsers: [ 1, 2, 3 ],
+				sshAccess: null,
+				staticFile404: null,
+				isLoadingSftpUsers: false,
+				isLoadingSshAccess: null,
+				isFetchingWpVersion: false,
+				wpVersion: null,
 			},
 		};
 		const state = reducer( previousState, {
@@ -116,12 +163,32 @@ describe( 'reducer', () => {
 
 		expect( state ).toEqual( {
 			12345678: {
+				lastCacheClearTimestamp: null,
+				lastEdgeCacheClearTimestamp: null,
+				geoAffinity: null,
+				isFetchingGeoAffinity: null,
 				phpVersion: null,
 				sftpUsers: [ 1, 2, 3 ],
+				sshAccess: null,
+				staticFile404: null,
+				isLoadingSftpUsers: false,
+				isLoadingSshAccess: null,
+				isFetchingWpVersion: false,
+				wpVersion: null,
 			},
 			9876543: {
+				lastCacheClearTimestamp: null,
+				lastEdgeCacheClearTimestamp: null,
+				geoAffinity: null,
+				isFetchingGeoAffinity: null,
 				phpVersion: null,
 				sftpUsers: [ 9, 8, 7 ],
+				sshAccess: null,
+				staticFile404: null,
+				isLoadingSftpUsers: false,
+				isLoadingSshAccess: null,
+				isFetchingWpVersion: false,
+				wpVersion: null,
 			},
 		} );
 	} );

@@ -3,8 +3,6 @@ import { withShoppingCart } from '../src/index';
 import { planOne, mainCartKey } from './utils/mock-cart-api';
 import { MockProvider, ProductListWithoutHook } from './utils/mock-components';
 
-import '@testing-library/jest-dom/extend-expect';
-
 describe( 'withShoppingCart', () => {
 	it( 'provides both shoppingCartManager and cart props to the wrapped component', async () => {
 		const WrappedProductsList = withShoppingCart( ProductListWithoutHook );
@@ -46,7 +44,7 @@ describe( 'withShoppingCart', () => {
 		};
 
 		render(
-			<MockProvider cartKeyOverride={ 'asjdasldjaldkjasldjsld' }>
+			<MockProvider cartKeyOverride={ 12317981732 }>
 				<TestComponent />
 			</MockProvider>
 		);

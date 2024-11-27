@@ -1,9 +1,9 @@
-import classnames from 'classnames';
+import { safeImageUrl } from '@automattic/calypso-url';
+import clsx from 'clsx';
 import { get } from 'lodash';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import resizeImageUrl from 'calypso/lib/resize-image-url';
-import safeImageUrl from 'calypso/lib/safe-image-url';
 import { getEditorPath } from 'calypso/state/editor/selectors';
 import { getNormalizedPost } from 'calypso/state/posts/selectors';
 import { canCurrentUserEditPost } from 'calypso/state/posts/selectors/can-current-user-edit-post';
@@ -11,7 +11,7 @@ import { canCurrentUserEditPost } from 'calypso/state/posts/selectors/can-curren
 const noop = () => {};
 
 function PostTypeListPostThumbnail( { onClick, thumbnail, postLink } ) {
-	const classes = classnames( 'post-type-list__post-thumbnail-wrapper', {
+	const classes = clsx( 'post-type-list__post-thumbnail-wrapper', {
 		'has-image': !! thumbnail,
 	} );
 

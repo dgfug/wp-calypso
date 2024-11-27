@@ -1,13 +1,13 @@
-import { Gridicon } from '@automattic/components';
+import { Spinner } from '@automattic/components';
 import { isMobile } from '@automattic/viewport';
-import classNames from 'classnames';
+import { Icon, search, closeSmall } from '@wordpress/icons';
+import clsx from 'clsx';
 import i18n from 'i18n-calypso';
 import { debounce } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { v4 as uuid } from 'uuid';
 import FormTextInput from 'calypso/components/forms/form-text-input';
-import Spinner from 'calypso/components/spinner';
 import TranslatableString from 'calypso/components/translatable/proptype';
 import { gaRecordEvent } from 'calypso/lib/analytics/ga';
 
@@ -18,6 +18,9 @@ import './style.scss';
  */
 const SEARCH_DEBOUNCE_MS = 300;
 const noop = () => {};
+
+export const SEARCH_MODE_WHEN_TYPING = 'when-typing';
+export const SEARCH_MODE_ON_ENTER = 'on-enter';
 
 function keyListener( methodToCall, event ) {
 	switch ( event.key ) {
@@ -57,9 +60,12 @@ class Search extends Component {
 		maxLength: PropTypes.number,
 		minLength: PropTypes.number,
 		hideClose: PropTypes.bool,
+		hideFocus: PropTypes.bool,
 		compact: PropTypes.bool,
 		hideOpenIcon: PropTypes.bool,
 		inputLabel: PropTypes.string,
+		searchMode: PropTypes.string,
+		applySearch: PropTypes.bool,
 	};
 
 	static defaultProps = {
@@ -83,8 +89,11 @@ class Search extends Component {
 		dir: undefined,
 		fitsContainer: false,
 		hideClose: false,
+		hideFocus: false,
 		compact: false,
 		hideOpenIcon: false,
+		searchMode: SEARCH_MODE_WHEN_TYPING,
+		applySearch: false,
 	};
 
 	constructor( props ) {
@@ -145,19 +154,13 @@ class Search extends Component {
 		if ( this.state.keyword === prevState.keyword ) {
 			return;
 		}
-		// if there's a keyword change: trigger search
-		if ( this.state.keyword ) {
-			// this.onSearch is debounced when this.props.delaySearch === true
-			// this avoids unnecessary fetches while user types
-			this.onSearch( this.state.keyword );
-		} else {
-			// this.props.onSearch is _not_ debounced
-			// no need to debounce if ! this.state.keyword
-			if ( this.props.delaySearch ) {
-				// Cancel any pending debounce
-				this.onSearch.cancel();
-			}
-			this.props.onSearch( this.state.keyword );
+		// if there's a keyword change and mode is search-on-write: trigger search
+		// The empty string must be handled always becuase it can be triggered:
+		// - by the user clicking on the clear icon
+		// - by the user pressing the ESC key
+		// Additionally, the search can be triggered on demand by using the boolean prop `applySearch`
+		if ( this.isSearchOnWriteMode() || this.state.keyword === '' || this.props.applySearch ) {
+			this.updateSearch();
 		}
 		this.props.onSearchChange( this.state.keyword );
 	}
@@ -279,6 +282,9 @@ class Search extends Component {
 		if ( event.key === 'Escape' && event.target.value === '' ) {
 			this.closeSearch( event );
 		}
+		if ( this.isSearchOnEnterMode() && event.key === 'Enter' ) {
+			this.updateSearch();
+		}
 		this.props.onKeyDown( event );
 	};
 
@@ -300,6 +306,29 @@ class Search extends Component {
 		this.props.onSearchOpen();
 	};
 
+	updateSearch = () => {
+		if ( this.state.keyword ) {
+			// this.onSearch is debounced when this.props.delaySearch === true
+			// this avoids unnecessary fetches while user types
+			this.onSearch( this.state.keyword );
+		} else {
+			// this.props.onSearch is _not_ debounced
+			// no need to debounce if ! this.state.keyword
+			if ( this.props.delaySearch ) {
+				// Cancel any pending debounce
+				this.onSearch.cancel();
+			}
+			this.props.onSearch( this.state.keyword );
+		}
+	};
+
+	isSearchOnEnterMode = () => {
+		return this.props.searchMode === SEARCH_MODE_ON_ENTER;
+	};
+	isSearchOnWriteMode = () => {
+		return ! this.isSearchOnEnterMode();
+	};
+
 	render() {
 		const searchValue = this.state.keyword;
 		const placeholder = this.props.placeholder || i18n.translate( 'Search…', { textOnly: true } );
@@ -314,18 +343,18 @@ class Search extends Component {
 			spellCheck: 'false',
 		};
 
-		const searchClass = classNames( this.props.additionalClasses, this.props.dir, {
+		const searchClass = clsx( this.props.additionalClasses, this.props.dir, {
 			'is-expanded-to-container': this.props.fitsContainer,
 			'is-open': isOpenUnpinnedOrQueried,
 			'is-searching': this.props.searching,
 			'is-compact': this.props.compact,
-			'has-focus': this.state.hasFocus,
+			'has-focus': ! this.props.hideFocus && this.state.hasFocus,
 			'has-open-icon': ! this.props.hideOpenIcon,
 			search: true,
 		} );
 
-		const fadeDivClass = classNames( 'search__input-fade', this.props.dir );
-		const inputClass = classNames( 'search__input', this.props.dir );
+		const fadeDivClass = clsx( 'search__input-fade', this.props.dir );
+		const inputClass = clsx( 'search__input', this.props.dir );
 
 		return (
 			<div dir={ this.props.dir || null } className={ searchClass } role="search">
@@ -340,7 +369,7 @@ class Search extends Component {
 					aria-controls={ 'search-component-' + this.instanceId }
 					aria-label={ i18n.translate( 'Open Search', { context: 'button label' } ) }
 				>
-					{ ! this.props.hideOpenIcon && <Gridicon icon="search" className="search__open-icon" /> }
+					{ ! this.props.hideOpenIcon && <Icon icon={ search } className="search__open-icon" /> }
 				</div>
 				<div className={ fadeDivClass }>
 					<FormTextInput
@@ -396,7 +425,7 @@ class Search extends Component {
 					aria-controls={ 'search-component-' + this.instanceId }
 					aria-label={ i18n.translate( 'Close Search', { context: 'button label' } ) }
 				>
-					<Gridicon icon="cross" className="search__close-icon" />
+					<Icon icon={ closeSmall } className="search__close-icon" />
 				</div>
 			);
 		}

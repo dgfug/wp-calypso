@@ -1,6 +1,3 @@
-import { expect } from 'chai';
-import { flowRight } from 'lodash';
-import { spy } from 'sinon';
 import { ANALYTICS_MULTI_TRACK, ANALYTICS_STAT_BUMP } from 'calypso/state/action-types';
 import {
 	composeAnalytics,
@@ -20,16 +17,16 @@ describe( 'middleware', () => {
 			const expected = Object.assign( statBump, testAction );
 			const composite = withAnalytics( statBump, testAction );
 
-			expect( composite ).to.deep.equal( expected );
+			expect( composite ).toEqual( expected );
 		} );
 
 		test( 'should trigger analytics and run passed thunks', () => {
-			const dispatch = spy();
+			const dispatch = jest.fn();
 			const testAction = ( dispatcher ) => dispatcher( { type: 'test' } );
 			const statBump = bumpStat( 'splines', 'reticulated_count' );
 
 			withAnalytics( statBump, testAction )( dispatch );
-			expect( dispatch ).to.have.been.calledTwice;
+			expect( dispatch ).toHaveBeenCalledTimes( 2 );
 		} );
 
 		test( 'should compose multiple analytics calls', () => {
@@ -48,9 +45,9 @@ describe( 'middleware', () => {
 				},
 			];
 
-			expect( composite.type ).to.equal( ANALYTICS_MULTI_TRACK );
-			expect( composite.meta.analytics ).to.have.lengthOf( 2 );
-			expect( composite.meta.analytics ).to.deep.equal( expected );
+			expect( composite.type ).toEqual( ANALYTICS_MULTI_TRACK );
+			expect( composite.meta.analytics ).toHaveLength( 2 );
+			expect( composite.meta.analytics ).toEqual( expected );
 		} );
 
 		test( 'should compose multiple analytics calls without other actions', () => {
@@ -61,18 +58,17 @@ describe( 'middleware', () => {
 			const testAction = { type: 'RETICULATE_SPLINES' };
 			const actual = withAnalytics( composite, testAction );
 
-			expect( actual.type ).to.equal( testAction.type );
-			expect( actual.meta.analytics ).to.have.lengthOf( 2 );
+			expect( actual.type ).toEqual( testAction.type );
+			expect( actual.meta.analytics ).toHaveLength( 2 );
 		} );
 
 		test( 'should compose multiple analytics calls with normal actions', () => {
-			const composite = flowRight(
-				withAnalytics( bumpStat( 'spline_types', 'ocean' ) ),
-				withAnalytics( bumpStat( 'spline_types', 'river' ) ),
-				() => ( { type: 'RETICULATE_SPLINES' } )
-			)();
+			const action = { type: 'RETICULATE_SPLINES' };
+			const composite = withAnalytics( bumpStat( 'spline_types', 'ocean' ) )(
+				withAnalytics( bumpStat( 'spline_types', 'river' ) )( action )
+			);
 
-			expect( composite.meta.analytics ).to.have.lengthOf( 2 );
+			expect( composite.meta.analytics ).toHaveLength( 2 );
 		} );
 	} );
 
@@ -100,7 +96,7 @@ describe( 'middleware', () => {
 
 			tracksEvent.meta.analytics[ 0 ].payload.properties.client_id = clientId;
 
-			expect( dispatchedEvent ).to.eql( tracksEvent );
+			expect( dispatchedEvent ).toEqual( tracksEvent );
 		} );
 
 		test( 'should create page view event with client id', () => {
@@ -126,7 +122,7 @@ describe( 'middleware', () => {
 
 			pageViewEvent.meta.analytics[ 0 ].payload.client_id = clientId;
 
-			expect( dispatchedEvent ).to.eql( pageViewEvent );
+			expect( dispatchedEvent ).toEqual( pageViewEvent );
 		} );
 	} );
 } );

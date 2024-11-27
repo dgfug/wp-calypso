@@ -1,34 +1,39 @@
-import { PlansIntervalToggle } from '@automattic/plans-grid/src';
+import { FormLabel } from '@automattic/components';
 import styled from '@emotion/styled';
 import { useTranslate } from 'i18n-calypso';
-import SelectDropdown from 'calypso/components/select-dropdown';
+import { useEffect, type FunctionComponent } from 'react';
+import FormRadio from 'calypso/components/forms/form-radio';
 import { PluginAnnualSaving } from 'calypso/my-sites/plugins/plugin-saving';
 import { IntervalLength } from './constants';
-import type { FunctionComponent } from 'react';
 
 type PluginAnnualSavingLabelProps = {
 	isSelected: boolean;
 };
-const Container = styled.div`
-	.plans-interval-toggle {
-		display: inline-flex;
-	}
-`;
-
-const PlansIntervalToggleLabel = styled.span`
-	font-size: 14px;
-	color: var( --studio-gray-60 );
-	margin-right: 10px;
-`;
 
 const PluginAnnualSavingLabelMobile = styled.span< PluginAnnualSavingLabelProps >`
 	color: ${ ( props ) =>
 		props.isSelected ? 'var( --studio-white-100 )' : 'var( --studio-green-60 )' };
 `;
 
-const PluginAnnualSavingLabelDesktop = styled.span`
-	font-size: 12px;
-	color: var( --studio-green-60 );
+const BillingIntervalSwitcherContainer = styled.div`
+	display: flex;
+	flex-wrap: wrap;
+	margin-top: -4px;
+	margin-bottom: 16px;
+`;
+
+const RadioButton = styled( FormRadio )`
+	&:checked:before {
+		background-color: var( --studio-gray-80 );
+	}
+`;
+
+const RadioButtonLabel = styled( FormLabel )`
+	color: var( --studio-gray-60 );
+
+	&:first-of-type {
+		margin-right: 15px;
+	}
 `;
 
 type Props = {
@@ -36,77 +41,73 @@ type Props = {
 	billingPeriod: IntervalLength;
 	compact: boolean;
 	plugin?: {
-		variations?: { yearly?: { product_slug: string }; monthly?: { product_slug: string } };
+		variations?: {
+			yearly?: { product_slug?: string; product_id?: number };
+			monthly?: { product_slug?: string; product_id?: number };
+		};
 	};
 };
 
-const BillingIntervalSwitcher: FunctionComponent< Props > = ( {
-	billingPeriod,
-	onChange,
-	compact,
-	plugin,
-} ) => {
-	const translate = useTranslate();
-	const monthlyLabel = translate( 'Monthly price' );
-	const annualLabel = translate( 'Annual price' );
+const BillingIntervalSwitcher: FunctionComponent< Props > = ( props: Props ) => {
+	const { billingPeriod, onChange, plugin } = props;
 
-	if ( compact ) {
-		return (
-			<Container>
-				<SelectDropdown
-					selectedText={ billingPeriod === IntervalLength.MONTHLY ? monthlyLabel : annualLabel }
-				>
-					<SelectDropdown.Item
-						selected={ billingPeriod === IntervalLength.MONTHLY }
-						onClick={ () => onChange( IntervalLength.MONTHLY ) }
-					>
-						{ monthlyLabel }
-					</SelectDropdown.Item>
-					<SelectDropdown.Item
-						selected={ billingPeriod === IntervalLength.ANNUALLY }
-						onClick={ () => onChange( IntervalLength.ANNUALLY ) }
-					>
-						{ annualLabel }
-						{ plugin && (
-							<PluginAnnualSaving plugin={ plugin }>
-								{ ( annualSaving: { saving: string | null } ) =>
+	const translate = useTranslate();
+	const monthlyLabel = translate( 'Monthly' );
+	const annualLabel = translate( 'Annually' );
+	const saveLabel = translate( 'Save', { context: 'save money' } );
+
+	const searchParams = new URLSearchParams(
+		typeof document !== 'undefined' ? document.location.search : ''
+	);
+	const billingIntervalParam = searchParams.get( 'interval' );
+
+	/**
+	 * Change the billing period based on query params, if passed
+	 */
+	useEffect( () => {
+		if ( billingIntervalParam === 'monthly' ) {
+			onChange( IntervalLength.MONTHLY );
+		}
+
+		if ( billingIntervalParam === 'annually' ) {
+			onChange( IntervalLength.ANNUALLY );
+		}
+	}, [ onChange, billingIntervalParam ] );
+
+	return (
+		<BillingIntervalSwitcherContainer>
+			<RadioButtonLabel>
+				<RadioButton
+					className="billing-interval-switcher__monthly-option"
+					checked={ billingPeriod === IntervalLength.MONTHLY }
+					onChange={ () => onChange( IntervalLength.MONTHLY ) }
+					label={ monthlyLabel }
+				/>
+			</RadioButtonLabel>
+			<RadioButtonLabel>
+				<RadioButton
+					className="billing-interval-switcher__yearly-option"
+					checked={ billingPeriod === IntervalLength.ANNUALLY }
+					onChange={ () => onChange( IntervalLength.ANNUALLY ) }
+					label={
+						<>
+							{ annualLabel }
+							<PluginAnnualSaving
+								plugin={ plugin }
+								renderContent={ ( annualSaving ) =>
 									annualSaving.saving && (
-										<PluginAnnualSavingLabelMobile
-											isSelected={ billingPeriod === IntervalLength.ANNUALLY }
-										>
-											&nbsp;-{ annualSaving.saving }
+										<PluginAnnualSavingLabelMobile isSelected={ false }>
+											&nbsp;({ saveLabel } { annualSaving.saving })
 										</PluginAnnualSavingLabelMobile>
 									)
 								}
-							</PluginAnnualSaving>
-						) }
-					</SelectDropdown.Item>
-				</SelectDropdown>
-			</Container>
-		);
-	}
-
-	return (
-		<Container>
-			<PlansIntervalToggleLabel>{ translate( 'Price' ) }</PlansIntervalToggleLabel>
-			<PlansIntervalToggle intervalType={ billingPeriod } onChange={ onChange }>
-				{ plugin && (
-					<PluginAnnualSaving plugin={ plugin }>
-						{ ( annualSaving: { saving: string | null } ) =>
-							annualSaving.saving && (
-								<PluginAnnualSavingLabelDesktop>
-									&nbsp;
-									{ translate( 'Save %(save)s', {
-										comment: 'Sale price label, ex: Save $51',
-										args: { save: annualSaving.saving },
-									} ) }
-								</PluginAnnualSavingLabelDesktop>
-							)
-						}
-					</PluginAnnualSaving>
-				) }
-			</PlansIntervalToggle>
-		</Container>
+							/>
+						</>
+					}
+				/>
+			</RadioButtonLabel>
+		</BillingIntervalSwitcherContainer>
 	);
 };
+
 export default BillingIntervalSwitcher;

@@ -42,34 +42,45 @@ export function requestMedia( action ) {
 	const path =
 		query && query.source ? `/meta/external-media/${ query.source }` : `/sites/${ siteId }/media`;
 
+	const googlePhotosPicker = query.source === 'google_photos' && query.session_id;
+	const fetchOptions = googlePhotosPicker
+		? {
+				apiNamespace: 'wpcom/v2',
+		  }
+		: {
+				apiVersion: '1.1',
+		  };
+
 	return [
 		http(
 			{
 				method: 'GET',
 				path,
-				apiVersion: '1.1',
 				query,
+				...fetchOptions,
 			},
 			action
 		),
 	];
 }
 
-export const requestMediaSuccess = ( { siteId, query }, data ) => ( dispatch, getState ) => {
-	if (
-		! isEqual(
-			omit( query, 'page_handle' ),
-			omit( getNextPageQuery( getState(), siteId ), 'page_handle' )
-		)
-	) {
-		dispatch( successMediaRequest( siteId, query ) );
-		return;
-	}
+export const requestMediaSuccess =
+	( { siteId, query }, data ) =>
+	( dispatch, getState ) => {
+		if (
+			! isEqual(
+				omit( query, 'page_handle' ),
+				omit( getNextPageQuery( getState(), siteId ), 'page_handle' )
+			)
+		) {
+			dispatch( successMediaRequest( siteId, query ) );
+			return;
+		}
 
-	dispatch( receiveMedia( siteId, data.media, data.found, query ) );
-	dispatch( successMediaRequest( siteId, query ) );
-	dispatch( setNextPageHandle( siteId, data.meta ) );
-};
+		dispatch( receiveMedia( siteId, data.media, data.found, query ) );
+		dispatch( successMediaRequest( siteId, query ) );
+		dispatch( setNextPageHandle( siteId, data.meta ) );
+	};
 
 export const requestMediaError = ( { siteId, query } ) => failMediaRequest( siteId, query );
 

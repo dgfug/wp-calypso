@@ -1,19 +1,20 @@
-@import '@automattic/typography/styles/variables';
-@import '@wordpress/base-styles/breakpoints';
-@import '@wordpress/base-styles/mixins';
+@import "@automattic/typography/styles/variables";
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
+@import "@wordpress/base-styles/colors";
+
+.useMyDomain {
+	.domain-transfer-or-connect__content {
+		box-shadow: none;
+	}
+}
 
 .use-my-domain {
 	display: flex;
 	align-items: center;
 	flex-direction: column;
 	padding: 36px 24px;
-
-	&__page-heading {
-		.formatted-header__title {
-			display: flex;
-			flex-wrap: wrap;
-		}
-	}
+	box-shadow: none;
 
 	& &__domain-illustration {
 		margin-bottom: 36px;
@@ -22,20 +23,33 @@
 	& &__domain-input-fieldset {
 		position: relative;
 		margin: 0 0 20px;
+		flex-grow: 1;
 
 		@include break-mobile {
 			margin: 0;
+		}
+		.use-my-domain__domain-input-note {
+			color: #8c8f94;
 		}
 
 		button.use-my-domain__domain-input-clear {
 			position: absolute;
 			right: 10px;
-			top: -1px;
+			top: 1px;
 
 			.gridicon.use-my-domain__domain-input-clear-icon {
-				fill: var( --studio-gray-50 );
+				fill: var(--studio-gray-50);
 				width: 18px;
 				height: 18px;
+			}
+		}
+
+		.action-button {
+			color: var(--color-link);
+			cursor: pointer;
+
+			&.set-as-primary {
+				display: contents;
 			}
 		}
 	}
@@ -43,15 +57,20 @@
 	& &__domain-input {
 		display: flex;
 		flex-direction: column;
+		row-gap: 8px;
 		width: 100%;
-		align-content: stretch;
+		max-width: 370px;
 
-		@include break-mobile {
-			flex-direction: row;
-		}
+		.form-text-input {
+			padding: 9px 28px 9px 10px;
+			margin-bottom: 9px;
 
-		&-fieldset {
-			flex-grow: 1;
+			text-overflow: ellipsis;
+			overflow: hidden;
+
+			&::placeholder {
+				color: #c3c4c7;
+			}
 		}
 
 		&-button {
@@ -59,11 +78,28 @@
 			height: fit-content;
 			width: 100%;
 			margin-right: 0;
+			margin-top: 5px;
 			padding: 8px 31px;
 
 			@include break-mobile {
-				margin-left: 16px;
+				margin-left: 0;
 				width: initial;
+			}
+		}
+	}
+
+	& &__domain-input-note {
+		font-size: $font-body-extra-small;
+		line-height: 1.2;
+		margin: 0 0 14px;
+		display: flex;
+		align-items: center;
+
+		&-icon {
+			margin-right: 4px !important;
+
+			path {
+				fill: var(--color-text);
 			}
 		}
 	}

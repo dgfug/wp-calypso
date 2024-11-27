@@ -1,12 +1,12 @@
 import { ProgressBar } from '@automattic/components';
 import { TranslateResult, useTranslate } from 'i18n-calypso';
 import * as React from 'react';
-import { useSelector } from 'react-redux';
 import { JetpackBenefitsCard } from 'calypso/blocks/jetpack-benefits/benefit-card';
 import { JetpackBenefitsStandaloneCard } from 'calypso/blocks/jetpack-benefits/standalone-benefit-card';
 import QueryJetpackScan from 'calypso/components/data/query-jetpack-scan';
 import QueryJetpackScanThreatCounts from 'calypso/components/data/query-jetpack-scan-threat-counts';
 import { useLocalizedMoment } from 'calypso/components/localized-moment';
+import { useSelector } from 'calypso/state';
 import getSiteScanProgress from 'calypso/state/selectors/get-site-scan-progress';
 import getSiteScanState from 'calypso/state/selectors/get-site-scan-state';
 import isRequestingJetpackScan from 'calypso/state/selectors/is-requesting-jetpack-scan';
@@ -39,7 +39,6 @@ const JetpackBenefitsScanHistory: React.FC< Props > = ( { siteId, isStandalone }
 	if ( scanState === 'scanning' ) {
 		return (
 			<JetpackBenefitsCard
-				jestMarker="scanning"
 				headline={ translate( 'Site Scan' ) }
 				description={
 					<ProgressBar value={ siteScanProgress ?? 0 } total={ 100 } color="#069E08" />
@@ -53,7 +52,6 @@ const JetpackBenefitsScanHistory: React.FC< Props > = ( { siteId, isStandalone }
 	if ( scanState === 'provisioning' ) {
 		return (
 			<JetpackBenefitsCard
-				jestMarker="provisioning"
 				headline={ translate( 'Site Scan' ) }
 				description={ translate( 'Jetpack is preparing to scan your site.' ) }
 				stat="Preparing"
@@ -65,11 +63,10 @@ const JetpackBenefitsScanHistory: React.FC< Props > = ( { siteId, isStandalone }
 	if ( requestingScanState ) {
 		return (
 			<JetpackBenefitsCard
-				jestMarker="loading"
 				headline={ translate( 'Site Scan' ) }
 				description={ translate( 'Waiting for scan status' ) }
 				stat={ translate( 'Loading' ) }
-				placeholder={ true }
+				placeholder
 			/>
 		);
 	}
@@ -78,7 +75,6 @@ const JetpackBenefitsScanHistory: React.FC< Props > = ( { siteId, isStandalone }
 	if ( ! scanState ) {
 		return (
 			<JetpackBenefitsCard
-				jestMarker="error"
 				headline={ translate( 'Site Scan' ) }
 				description={ translate( 'Jetpack is having trouble scanning your site.' ) }
 			/>
@@ -91,7 +87,6 @@ const JetpackBenefitsScanHistory: React.FC< Props > = ( { siteId, isStandalone }
 	if ( ! mostRecent ) {
 		return (
 			<JetpackBenefitsCard
-				jestMarker="scheduled"
 				headline={ translate( 'Site Scan' ) }
 				description={ translate( 'Jetpack will scan your site for threats soon.' ) }
 				stat="Scheduled"
@@ -144,7 +139,6 @@ const JetpackBenefitsScanHistory: React.FC< Props > = ( { siteId, isStandalone }
 
 	return (
 		<JetpackBenefitsCard
-			jestMarker="default"
 			headline={ translate( 'Site Scan' ) }
 			description={ cardDescription }
 			stat={ cardStat }

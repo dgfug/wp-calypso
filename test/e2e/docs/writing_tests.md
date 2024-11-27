@@ -28,6 +28,8 @@
 specs/search__preview.ts
 ```
 
+<details>
+
 ```typescript
 /**
  * @group calypso-pr
@@ -104,6 +106,8 @@ describe( DataHelper.createSuiteTitle( 'Search: Preview' ), function () {
 } );
 ```
 
+</details>
+
 ## Quick start
 
 1. Create a TypeScript file with the following naming structure.
@@ -131,7 +135,7 @@ import { Page, Browser } from 'playwright';
 
 4. Define a top-level `describe` block.
 
-As per the [Style Guide](style-guide-playwright.md#Tests), there should only be one top-level `describe` block in a spec file.
+As per the [Style Guide](./style_guide.md#only-one-top-level-describe-block), there should only be one top-level `describe` block in a spec file.
 
 Using the `DataHelper.createSuiteTitle()` function, define a short, descriptive name for the overall suite:
 
@@ -151,7 +155,7 @@ For guide on how writing page objects, components and flows please refer to the 
 
 ## Child-level describe blocks
 
-Do not use `DataHelper.createSuiteTitle` for child-level blocks:
+Do not use `DataHelper.createSuiteTitle` for child-level blocks.
 
 Unlike top-level blocks, there are no restrictions on the number of child-level `describe` blocks.
 
@@ -307,7 +311,7 @@ export class ExampleBlockFlow implements BlockFlow {
 	blockEditorSelector = '[aria-label="Block: Example"]';
 
 	async configure( context: EditorContext ): Promise< void > {
-		// use the editor context (things like the editor iframe and Playwrihgt Page) and the configuration data to configure the block in the editor.
+		// use the editor context (things like the editor Locator and Playwright Page) and the configuration data to configure the block in the editor.
 	}
 
 	async validateAfterPublish( context: PublishedPostContext ): Promise< void > {
@@ -316,7 +320,7 @@ export class ExampleBlockFlow implements BlockFlow {
 }
 ```
 
-</details d>
+</details>
 
 <details>
 <summary>Spec test file:</summary>

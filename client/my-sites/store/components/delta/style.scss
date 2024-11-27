@@ -7,36 +7,40 @@
 	&.is-favorable {
 		.delta__icon {
 			&.gridicon {
-				fill: var( --color-success );
+				fill: var(--color-success);
 			}
 		}
 		.delta__labels {
-			.delta__value {
-				color: var( --color-success );
+			.delta__value,
+			.delta__suffix {
+				color: var(--color-success);
 			}
 		}
 	}
+
 	&.is-unfavorable {
 		.delta__icon {
 			&.gridicon {
-				fill: var( --color-error );
+				fill: var(--color-error);
 			}
 		}
 		.delta__labels {
-			.delta__value {
-				color: var( --color-error );
+			.delta__value,
+			.delta__suffix {
+				color: var(--color-error);
 			}
 		}
 	}
+
 	&.is-neutral {
 		.delta__icon {
 			&.gridicon {
-				fill: var( --color-neutral-light );
+				fill: var(--color-neutral-light);
 			}
 		}
 		.delta__labels {
 			.delta__value {
-				color: var( --color-neutral-light );
+				color: var(--color-neutral-light);
 			}
 		}
 	}
@@ -48,21 +52,21 @@
 		min-width: 15px;
 
 		&.gridicon {
-			fill: white;
+			fill: var(--studio-white);
 			padding: 3px 1px;
 			margin: 0;
 		}
 	}
 
 	.delta__labels {
-		align-items: left;
 		display: flex;
 		flex-direction: row;
 		flex-wrap: wrap;
+		justify-content: flex-start;
 
 		.delta__suffix,
 		.delta__value {
-			color: var( --color-neutral-light );
+			color: var(--color-neutral-light);
 			display: inline-block;
 			font-size: $font-body-small;
 			font-weight: 400;

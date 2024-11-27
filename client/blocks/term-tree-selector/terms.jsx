@@ -1,5 +1,6 @@
+import { FormLabel } from '@automattic/components';
 import { AutoSizer, List } from '@automattic/react-virtualized';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import {
 	debounce,
@@ -18,7 +19,6 @@ import { connect } from 'react-redux';
 import QuerySiteSettings from 'calypso/components/data/query-site-settings';
 import QueryTerms from 'calypso/components/data/query-terms';
 import FormCheckbox from 'calypso/components/forms/form-checkbox';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormRadio from 'calypso/components/forms/form-radio';
 import PodcastIndicator from 'calypso/components/podcast-indicator';
 import { gaRecordEvent } from 'calypso/lib/analytics/ga';
@@ -298,14 +298,8 @@ class TermTreeSelectorList extends Component {
 		const setItemRef = ( ...args ) => this.setItemRef( item, ...args );
 		const children = this.getTermChildren( item.ID );
 
-		const {
-			multiple,
-			defaultTermId,
-			translate,
-			selected,
-			taxonomy,
-			podcastingCategoryId,
-		} = this.props;
+		const { multiple, defaultTermId, translate, selected, taxonomy, podcastingCategoryId } =
+			this.props;
 		const itemId = item.ID;
 		const isPodcastingCategory = taxonomy === 'category' && podcastingCategoryId === itemId;
 		const name = decodeEntities( item.name ) || translate( 'Untitled' );
@@ -388,7 +382,7 @@ class TermTreeSelectorList extends Component {
 			( searchLength > 0 || ! isSmall ) &&
 			( this.props.terms || ( ! this.props.terms && searchLength > 0 ) );
 		const { className, isError, loading, siteId, taxonomy, query, height } = this.props;
-		const classes = classNames( 'term-tree-selector', className, {
+		const classes = clsx( 'term-tree-selector', className, {
 			'is-loading': loading,
 			'is-small': isSmall,
 			'is-error': isError,
@@ -412,7 +406,7 @@ class TermTreeSelectorList extends Component {
 					{ ( { width } ) => (
 						<List
 							ref={ this.setListRef }
-							width={ width }
+							width={ width - 2 } // -2 for border
 							height={ isSmall ? this.getCompactContainerHeight() : height }
 							onRowsRendered={ this.setRequestedPages }
 							rowCount={ rowCount }

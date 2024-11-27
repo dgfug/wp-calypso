@@ -1,4 +1,6 @@
-import { Card, Button } from '@automattic/components';
+import { Button, Card, Spinner } from '@automattic/components';
+import { localizeUrl, useHasEnTranslation } from '@automattic/i18n-utils';
+import { DESIGNATED_AGENT, TRANSFER_DOMAIN_REGISTRATION } from '@automattic/urls';
 import { ToggleControl } from '@wordpress/components';
 import { createElement, createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
@@ -6,30 +8,33 @@ import { Icon, lock } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import moment from 'moment';
 import { useState } from 'react';
-import { connect, useDispatch } from 'react-redux';
+import { connect } from 'react-redux';
 import ActionCard from 'calypso/components/action-card';
 import CardHeading from 'calypso/components/card-heading';
 import QueryDomainInfo from 'calypso/components/data/query-domain-info';
-import FormattedHeader from 'calypso/components/formatted-header';
 import Layout from 'calypso/components/layout';
 import Column from 'calypso/components/layout/column';
 import Main from 'calypso/components/main';
 import Notice from 'calypso/components/notice';
-import Spinner from 'calypso/components/spinner';
 import BodySectionCssClass from 'calypso/layout/body-section-css-class';
 import { getSelectedDomain, getTopLevelOfTld, isMappedDomain } from 'calypso/lib/domains';
-import { DESIGNATED_AGENT, TRANSFER_DOMAIN_REGISTRATION } from 'calypso/lib/url/support';
 import wpcom from 'calypso/lib/wp';
-import Breadcrumbs from 'calypso/my-sites/domains/domain-management/components/breadcrumbs';
 import AftermarketAutcionNotice from 'calypso/my-sites/domains/domain-management/components/domain/aftermarket-auction-notice';
+import HundredYearDomainNotTransferrableNotice from 'calypso/my-sites/domains/domain-management/components/domain/hundred-year-domain-not-transferrable-notice';
+import InfoNotice from 'calypso/my-sites/domains/domain-management/components/domain/info-notice';
 import NonOwnerCard from 'calypso/my-sites/domains/domain-management/components/domain/non-owner-card';
+import NonTransferrableDomainNotice from 'calypso/my-sites/domains/domain-management/components/domain/non-transferrable-domain-notice';
+import DomainHeader from 'calypso/my-sites/domains/domain-management/components/domain-header';
 import SelectIpsTag from 'calypso/my-sites/domains/domain-management/transfer/transfer-out/select-ips-tag';
 import {
 	domainManagementEdit,
 	domainManagementList,
 	domainManagementTransferToAnotherUser,
 	domainManagementTransferToOtherSite,
+	domainManagementTransferToAnyUser,
+	isUnderDomainManagementAll,
 } from 'calypso/my-sites/domains/paths';
+import { useDispatch } from 'calypso/state';
 import {
 	getDomainLockError,
 	getDomainTransferCodeError,
@@ -44,6 +49,7 @@ import isPrimaryDomainBySiteId from 'calypso/state/selectors/is-primary-domain-b
 import isSiteAutomatedTransfer from 'calypso/state/selectors/is-site-automated-transfer';
 import { isSupportSession } from 'calypso/state/support/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
+import TransferUnavailableNotice from '../transfer-unavailable-notice';
 import type { TransferPageProps } from './types';
 import type { AppState } from 'calypso/types';
 
@@ -55,17 +61,21 @@ import './style.scss';
 type ToggleControlProps = React.ComponentProps< typeof ToggleControl > & { disabled?: boolean };
 const FixedToggleControl = ( props: ToggleControlProps ) => <ToggleControl { ...props } />;
 
-const TransferPage = ( props: TransferPageProps ): JSX.Element => {
+type ErrResponse = {
+	error?: string;
+};
+
+const TransferPage = ( props: TransferPageProps ) => {
 	const dispatch = useDispatch();
 	const {
+		canTransferToAnyUser,
+		canTransferToOtherSite,
 		currentRoute,
 		domains,
-		isAtomic,
 		isDomainInfoLoading,
 		isDomainLocked,
 		isDomainOnly,
 		isMapping,
-		isPrimaryDomain,
 		isSupportSession,
 		selectedDomainName,
 		selectedSite,
@@ -74,17 +84,21 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 	const [ isRequestingTransferCode, setIsRequestingTransferCode ] = useState( false );
 	const [ isLockingOrUnlockingDomain, setIsLockingOrUnlockingDomain ] = useState( false );
 	const domain = getSelectedDomain( props );
-
-	const renderBreadcrumbs = () => {
+	const hasEnTranslation = useHasEnTranslation();
+	const renderHeader = () => {
 		const items = [
 			{
 				// translators: Internet domains, e.g. mygroovydomain.com
-				label: __( 'Domains' ),
-				href: domainManagementList( selectedSite.slug, selectedDomainName ),
+				label: isUnderDomainManagementAll( currentRoute ) ? __( 'All Domains' ) : __( 'Domains' ),
+				href: domainManagementList(
+					selectedSite?.slug,
+					currentRoute,
+					selectedSite?.options?.is_domain_only
+				),
 			},
 			{
 				label: selectedDomainName,
-				href: domainManagementEdit( selectedSite.slug, selectedDomainName, currentRoute ),
+				href: domainManagementEdit( selectedSite?.slug, selectedDomainName, currentRoute ),
 			},
 			{
 				// translators: Verb - Transfer a domain somewhere else
@@ -98,17 +112,17 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 				__( 'Back to %s' ),
 				selectedDomainName
 			),
-			href: domainManagementEdit( selectedSite.slug, selectedDomainName, currentRoute ),
+			href: domainManagementEdit( selectedSite?.slug, selectedDomainName, currentRoute ),
 			showBackArrow: true,
 		};
 
-		return <Breadcrumbs items={ items } mobileItem={ mobileItem } />;
+		return <DomainHeader items={ items } mobileItem={ mobileItem } />;
 	};
 
 	const renderTransferOptions = () => {
 		const options = [];
 
-		if ( ! isDomainOnly ) {
+		if ( ! isDomainOnly && canTransferToAnyUser ) {
 			const mainText = isMapping
 				? __( 'Transfer this domain connection to any administrator on this site' )
 				: __( 'Transfer this domain to any administrator on this site' );
@@ -117,7 +131,7 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 				<ActionCard
 					key="transfer-to-another-user"
 					buttonHref={ domainManagementTransferToAnotherUser(
-						selectedSite.slug,
+						selectedSite?.slug,
 						selectedDomainName,
 						currentRoute
 					) }
@@ -128,21 +142,50 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 					mainText={ mainText }
 				/>
 			);
+		} else if (
+			! [ 'uk', 'fr', 'ca', 'de', 'jp' ].includes( getTopLevelOfTld( selectedDomainName ) ) &&
+			canTransferToOtherSite
+		) {
+			options.push(
+				<ActionCard
+					key="transfer-to-any-user"
+					buttonHref={ domainManagementTransferToAnyUser(
+						selectedSite?.slug,
+						selectedDomainName,
+						currentRoute
+					) }
+					// translators: Continue is a verb
+					buttonText={ __( 'Continue' ) }
+					// translators: Transfer a domain to another user
+					headerText={ __( 'To another WordPress.com user' ) }
+					mainText={ __( 'Transfer this domain to another WordPress.com user' ) }
+				/>
+			);
 		}
 
-		if ( ! ( isPrimaryDomain && isAtomic ) ) {
-			if ( options.length > 0 ) {
-				options.push( <div key="separator" className="transfer-page__item-separator"></div> );
-			}
-			const mainText = isMapping
-				? __( 'Transfer this domain connection to any site you are an administrator on' )
-				: __( 'Transfer this domain to any site you are an administrator on' );
+		if ( domain?.pendingRegistration || domain?.pendingRegistrationAtRegistry ) {
+			return (
+				<TransferUnavailableNotice
+					message={ __(
+						'We are still setting up your domain. You will not be able to transfer it until the registration setup is done.'
+					) }
+				></TransferUnavailableNotice>
+			);
+		}
 
+		if ( options.length > 0 ) {
+			options.push( <div key="separator" className="transfer-page__item-separator"></div> );
+		}
+		const mainText = isMapping
+			? __( 'Transfer this domain connection to any site you are an administrator on' )
+			: __( 'Transfer this domain to any site you are an administrator on' );
+
+		if ( canTransferToOtherSite ) {
 			options.push(
 				<ActionCard
 					key="transfer-to-another-site"
 					buttonHref={ domainManagementTransferToOtherSite(
-						selectedSite.slug,
+						selectedSite?.slug,
 						selectedDomainName,
 						currentRoute
 					) }
@@ -202,9 +245,13 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 					getNoticeOptions( selectedDomainName )
 				)
 			);
-		} catch ( { error } ) {
+		} catch ( error ) {
 			dispatch(
-				errorNotice( getDomainTransferCodeError( error ), getNoticeOptions( selectedDomainName ) )
+				errorNotice(
+					// Note: getDomainTransferCodeError handles undefined error codes.
+					getDomainTransferCodeError( ( error as ErrResponse )?.error ),
+					getNoticeOptions( selectedDomainName )
+				)
 			);
 		} finally {
 			setIsRequestingTransferCode( false );
@@ -277,7 +324,7 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 					moment( domain.transferAwayEligibleAt ).format( 'LL' )
 				),
 				{
-					a: createElement( 'a', { href: supportLink } ),
+					a: createElement( 'a', { href: localizeUrl( supportLink ) } ),
 				}
 			);
 		}
@@ -300,9 +347,15 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 			<>
 				<p>{ renderTransferMessage() }</p>
 				{ renderTransferLock() }
-				<Button primary={ false } busy={ isRequestingTransferCode } onClick={ requestTransferCode }>
-					{ __( 'Get authorization code' ) }
-				</Button>
+				{ domain?.authCodeRequired && (
+					<Button
+						primary={ false }
+						busy={ isRequestingTransferCode }
+						onClick={ requestTransferCode }
+					>
+						{ __( 'Get authorization code' ) }
+					</Button>
+				) }
 			</>
 		);
 	};
@@ -316,13 +369,25 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 
 		return (
 			<Card className="transfer-page__advanced-transfer-options">
-				<CardHeading size={ 16 }>{ __( 'Advanced Options' ) }</CardHeading>
+				<CardHeading size={ 16 }>
+					{ hasEnTranslation( 'Transfer to another registrar' )
+						? __( 'Transfer to another registrar' )
+						: __( 'Advanced Options' ) }
+				</CardHeading>
+				{ domain?.isGravatarDomain && (
+					<InfoNotice
+						redesigned
+						text={ __(
+							'This domain is provided at no cost for the first year for use with your Gravatar profile. This offer is limited to one free domain per user. If you transfer this domain to another registrar, you will have to pay the standard price to register another domain for your Gravatar profile.'
+						) }
+					/>
+				) }
 				{ topLevelOfTld !== 'uk' ? renderCommonTldTransferOptions() : renderUkTransferOptions() }
 			</Card>
 		);
 	};
 
-	const renderContent = (): JSX.Element | null => {
+	const renderContent = () => {
 		if ( ! domain ) {
 			return null;
 		}
@@ -339,12 +404,20 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 			);
 		}
 
+		if ( domain.isHundredYearDomain ) {
+			return <HundredYearDomainNotTransferrableNotice />;
+		}
+
 		if ( ! domain.currentUserIsOwner ) {
 			return <NonOwnerCard domains={ domains } selectedDomainName={ selectedDomainName } />;
 		}
 
 		if ( domain.aftermarketAuction ) {
 			return <AftermarketAutcionNotice domainName={ selectedDomainName } />;
+		}
+
+		if ( domain.isRedeemable ) {
+			return <NonTransferrableDomainNotice domainName={ selectedDomainName } />;
 		}
 
 		return (
@@ -359,8 +432,7 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 		<Main className="transfer-page" wideLayout>
 			<QueryDomainInfo domainName={ selectedDomainName } />
 			<BodySectionCssClass bodyClass={ [ 'edit__body-white' ] } />
-			{ renderBreadcrumbs() }
-			<FormattedHeader brandFont headerText={ __( 'Transfer' ) } align="left" />
+			{ renderHeader() }
 			<Layout>
 				<Column type="main">{ renderContent() }</Column>
 				<Column type="sidebar">
@@ -374,7 +446,7 @@ const TransferPage = ( props: TransferPageProps ): JSX.Element => {
 									'However, transferring a domain to another provider can take five to seven days during which no changes to the domain can be made. Read <a>this important information</a> before starting a transfer.'
 								),
 								{
-									a: createElement( 'a', { href: TRANSFER_DOMAIN_REGISTRATION } ),
+									a: createElement( 'a', { href: localizeUrl( TRANSFER_DOMAIN_REGISTRATION ) } ),
 								}
 							) }
 						</p>
@@ -390,6 +462,8 @@ const transferPageComponent = connect( ( state: AppState, ownProps: TransferPage
 	const siteId = getSelectedSiteId( state );
 	const domainInfo = getDomainWapiInfoByDomainName( state, ownProps.selectedDomainName );
 	return {
+		canTransferToAnyUser: domain?.canTransferToAnyUser ?? false,
+		canTransferToOtherSite: domain?.canTransferToOtherSite ?? false,
 		currentRoute: getCurrentRoute( state ),
 		isAtomic: isSiteAutomatedTransfer( state, siteId ) ?? false,
 		isDomainInfoLoading: ! domainInfo.hasLoadedFromServer,

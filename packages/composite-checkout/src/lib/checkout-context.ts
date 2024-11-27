@@ -1,34 +1,12 @@
 import { createContext } from 'react';
-import {
-	StepChangedCallback,
-	CheckoutPageErrorCallback,
-	FormStatus,
-	PaymentMethod,
-	PaymentProcessorProp,
-	TransactionStatusManager,
-	PaymentMethodChangedCallback,
-} from '../types';
+import { CheckoutContextInterface } from '../types';
 
-interface CheckoutContext {
-	allPaymentMethods: PaymentMethod[];
-	paymentMethodId: string | null;
-	setPaymentMethodId: ( id: string ) => void;
-	formStatus: FormStatus;
-	setFormStatus: ( newStatus: FormStatus ) => void;
-	transactionStatusManager: TransactionStatusManager | null;
-	paymentProcessors: PaymentProcessorProp;
-	onPageLoadError?: CheckoutPageErrorCallback;
-	onStepChanged?: StepChangedCallback;
-	onPaymentMethodChanged?: PaymentMethodChangedCallback;
-}
-
-const defaultCheckoutContext: CheckoutContext = {
+const defaultCheckoutContext: CheckoutContextInterface = {
 	allPaymentMethods: [],
+	disabledPaymentMethodIds: [],
+	setDisabledPaymentMethodIds: noop,
 	paymentMethodId: null,
 	setPaymentMethodId: noop,
-	formStatus: FormStatus.LOADING,
-	setFormStatus: noop,
-	transactionStatusManager: null,
 	paymentProcessors: {},
 };
 

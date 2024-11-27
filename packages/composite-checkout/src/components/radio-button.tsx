@@ -8,27 +8,24 @@ const RadioButtonWrapper = styled.div<
 	RadioButtonWrapperProps & React.HTMLAttributes< HTMLDivElement >
 >`
 	position: relative;
-	margin-top: 8px;
+	display: ${ ( props ) => ( props.hidden ? 'none' : 'block' ) };
 	border-radius: 3px;
 	box-sizing: border-box;
 	width: 100%;
 	outline: ${ getOutline };
 
-	:first-of-type {
-		margin: 0;
-	}
-
 	::before {
-		display: block;
+		display: ${ ( props ) => ( props.hidden ? 'none' : 'block' ) };
 		width: 100%;
 		height: 100%;
 		position: absolute;
 		top: 0;
 		left: 0;
 		content: '';
-		border: ${ getBorderWidth } solid ${ getBorderColor };
-		border-radius: 3px;
+		border: ${ ( props ) => ( props.checked ? '1px solid ' + getBorderColor( props ) : 'none' ) };
+		border-bottom: ${ ( props ) => '1px solid ' + getBorderColor( props ) };
 		box-sizing: border-box;
+		border-radius: 3px;
 
 		.rtl & {
 			right: 0;
@@ -52,6 +49,15 @@ const RadioButtonWrapper = styled.div<
 	:hover .payment-logos {
 		@media ( ${ ( props ) => props.theme.breakpoints.smallPhoneUp } ) {
 			filter: grayscale( 0 );
+		}
+	}
+
+	.credit-card__logos {
+		${ ( props ) => ( props.checked ? `display:flex;` : `display:none;` ) }
+
+		@media ( ${ ( props ) => props.theme.breakpoints.smallPhoneUp } ) {
+			display: flex;
+			filter: grayscale( ${ getGrayscaleValue } );
 		}
 	}
 
@@ -97,20 +103,28 @@ interface LabelProps {
 	checked?: boolean;
 }
 
+/**
+ * This is the label used by radio buttons. It includes a before/after which
+ * are fake radio button dots whereas the actual radio button dots are hidden.
+ */
 const Label = styled.label< LabelProps & React.LabelHTMLAttributes< HTMLLabelElement > >`
 	position: relative;
-	padding: 16px 14px 16px 40px;
+	padding: 16px 14px 16px 56px;
 	border-radius: 3px;
 	box-sizing: border-box;
 	width: 100%;
 	display: flex;
-	flex-wrap: wrap;
-	justify-content: space-between;
+	flex-direction: column;
+	gap: 10px;
+	justify-content: center;
 	align-items: flex-start;
+	align-content: center;
 	font-size: 14px;
+	height: fit-content;
+	min-height: 72px;
 
 	.rtl & {
-		padding: 16px 40px 16px 14px;
+		padding: 16px 56px 16px 14px;
 	}
 
 	:hover {
@@ -124,8 +138,8 @@ const Label = styled.label< LabelProps & React.LabelHTMLAttributes< HTMLLabelEle
 		content: '';
 		border: 1px solid ${ ( props ) => props.theme.colors.borderColor };
 		border-radius: 100%;
-		top: 19px;
-		left: 16px;
+		top: 40%;
+		left: 24px;
 		position: absolute;
 		background: ${ ( props ) => props.theme.colors.surface };
 		box-sizing: border-box;
@@ -143,8 +157,9 @@ const Label = styled.label< LabelProps & React.LabelHTMLAttributes< HTMLLabelEle
 		height: 8px;
 		content: '';
 		border-radius: 100%;
-		top: 23px;
-		left: 20px;
+		margin-top: 4px;
+		top: 40%;
+		left: 28px;
 		position: absolute;
 		background: ${ getRadioColor };
 		box-sizing: border-box;
@@ -155,6 +170,14 @@ const Label = styled.label< LabelProps & React.LabelHTMLAttributes< HTMLLabelEle
 			left: auto;
 		}
 	}
+
+	@media ( ${ ( props ) => props.theme.breakpoints.smallPhoneUp } ) {
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+			gap: 7px:
+		}
+}
 
 	${ handleLabelDisabled };
 `;
@@ -173,13 +196,20 @@ export default function RadioButton( {
 	children,
 	label,
 	disabled,
+	hidden,
 	id,
 	ariaLabel,
-}: RadioButtonProps ): JSX.Element {
+	...otherProps
+}: RadioButtonProps ) {
 	const [ isFocused, changeFocus ] = useState( false );
 
 	return (
-		<RadioButtonWrapper disabled={ disabled } isFocused={ isFocused } checked={ checked }>
+		<RadioButtonWrapper
+			disabled={ disabled }
+			isFocused={ isFocused }
+			checked={ checked }
+			hidden={ hidden }
+		>
 			<Radio
 				type="radio"
 				name={ name }
@@ -196,6 +226,7 @@ export default function RadioButton( {
 				} }
 				readOnly={ ! onChange }
 				aria-label={ ariaLabel }
+				{ ...otherProps }
 			/>
 			<Label checked={ checked } htmlFor={ id } disabled={ disabled }>
 				{ label }
@@ -210,10 +241,11 @@ interface RadioButtonProps {
 	id: string;
 	label: React.ReactNode;
 	disabled?: boolean;
+	hidden?: boolean;
 	checked?: boolean;
 	value: string;
 	onChange?: () => void;
-	ariaLabel: string;
+	ariaLabel?: string;
 	children?: React.ReactNode;
 }
 
@@ -225,7 +257,7 @@ RadioButton.propTypes = {
 	checked: PropTypes.bool,
 	value: PropTypes.string.isRequired,
 	onChange: PropTypes.func,
-	ariaLabel: PropTypes.string.isRequired,
+	ariaLabel: PropTypes.string,
 };
 
 function handleWrapperDisabled( { disabled }: { disabled?: boolean } ) {
@@ -281,10 +313,6 @@ function getBorderColor( { checked, theme }: { checked?: boolean; theme: Theme }
 
 function getRadioColor( { checked, theme }: { checked?: boolean; theme: Theme } ) {
 	return checked ? theme.colors.highlight : theme.colors.surface;
-}
-
-function getBorderWidth( { checked }: { checked?: boolean } ) {
-	return checked ? '3px' : '1px';
 }
 
 function getGrayscaleValue( { checked }: { checked?: boolean } ) {

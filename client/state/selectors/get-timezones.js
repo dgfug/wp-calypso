@@ -6,15 +6,14 @@ import 'calypso/state/timezones/init';
  * Return all timezones ordered by arrays with
  * the following shape:
  * [
- *   [ <continent>, [
- *     [ <timezone-value>, <timezone-label> ],
- *   ] ]
- *   ...
+ * [ <continent>, [
+ * [ <timezone-value>, <timezone-label> ],
+ * ] ]
+ * ...
  * ]
  *
  * This structure facilitates the creation of a select element.
- *
- * @param  {object} state - Global state tree
+ * @param  {Object} state - Global state tree
  * @returns {Array} Timezones arrays
  */
 export default function getTimezones( state ) {

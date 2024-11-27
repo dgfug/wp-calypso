@@ -2,28 +2,25 @@
  * @jest-environment jsdom
  */
 
-import { fireEvent, render } from '@testing-library/react';
-import page from 'page';
-import { ReactChild } from 'react';
+import page from '@automattic/calypso-router';
+import { render } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ReactElement } from 'react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 import EligibilityWarnings from '..';
 
-import '@testing-library/jest-dom/extend-expect';
-
-jest.mock( 'page', () => ( {
+jest.mock( '@automattic/calypso-router', () => ( {
 	redirect: jest.fn(),
 } ) );
 
-function renderWithStore( element: ReactChild, initialState: Record< string, unknown > ) {
+function renderWithStore( element: ReactElement, initialState: Record< string, unknown > ) {
 	const store = createStore( ( state ) => state, initialState );
 	return {
 		...render( <Provider store={ store }>{ element }</Provider> ),
 		store,
 	};
 }
-
-global.document = {};
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 const noop = () => {};
@@ -49,6 +46,7 @@ function createState( {
 		siteSettings: {
 			saveRequests: {},
 		},
+		marketplace: { billingInterval: { interval: 'ANNUALLY' } },
 	};
 }
 
@@ -145,7 +143,7 @@ describe( '<EligibilityWarnings>', () => {
 		expect( container.querySelectorAll( '.notice.is-warning' ) ).toHaveLength( 0 );
 	} );
 
-	it( 'goes to checkout when clicking "Upgrade and continue"', () => {
+	it( 'goes to checkout when clicking "Upgrade and continue"', async () => {
 		const state = createState( {
 			holds: [ 'NO_BUSINESS_PLAN' ],
 			siteUrl: 'https://example.wordpress.com',
@@ -162,14 +160,16 @@ describe( '<EligibilityWarnings>', () => {
 		expect( upgradeAndContinue ).toBeVisible();
 		expect( upgradeAndContinue ).not.toBeDisabled();
 
-		fireEvent.click( upgradeAndContinue );
+		await userEvent.click( upgradeAndContinue );
 
 		expect( handleProceed ).not.toHaveBeenCalled();
 		expect( page.redirect ).toHaveBeenCalledTimes( 1 );
-		expect( page.redirect ).toHaveBeenCalledWith( '/checkout/example.wordpress.com/business' );
+		expect( page.redirect ).toHaveBeenCalledWith(
+			'/checkout/example.wordpress.com/business-bundle'
+		);
 	} );
 
-	it( `disables the "Continue" button if holds can't be handled automatically`, () => {
+	it( `disables the "Continue" button if holds can't be handled automatically`, async () => {
 		const state = createState( {
 			holds: [ 'NON_ADMIN_USER', 'SITE_PRIVATE' ],
 		} );
@@ -185,7 +185,7 @@ describe( '<EligibilityWarnings>', () => {
 
 		expect( continueButton ).toBeDisabled();
 
-		fireEvent.click( continueButton );
+		await userEvent.click( continueButton );
 		expect( handleProceed ).not.toHaveBeenCalled();
 	} );
 } );

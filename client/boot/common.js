@@ -1,32 +1,34 @@
 import accessibleFocus from '@automattic/accessible-focus';
 import config from '@automattic/calypso-config';
+import page from '@automattic/calypso-router';
+import { addBreadcrumb, initSentry } from '@automattic/calypso-sentry';
 import { getUrlParts } from '@automattic/calypso-url';
+import { geolocateCurrencySymbol } from '@automattic/format-currency';
+import { getLanguageSlugs } from '@automattic/i18n-utils';
+import { getToken } from '@automattic/oauth-token';
+import { JETPACK_PRICING_PAGE } from '@automattic/urls';
 import debugFactory from 'debug';
-import page from 'page';
 import ReactDom from 'react-dom';
 import Modal from 'react-modal';
 import store from 'store';
 import emailVerification from 'calypso/components/email-verification';
 import { ProviderWrappedLayout } from 'calypso/controller';
+import isA8CForAgencies from 'calypso/lib/a8c-for-agencies/is-a8c-for-agencies';
 import { initializeAnalytics } from 'calypso/lib/analytics/init';
-import { bumpStat } from 'calypso/lib/analytics/mc';
 import getSuperProps from 'calypso/lib/analytics/super-props';
 import { tracksEvents } from 'calypso/lib/analytics/tracks';
 import Logger from 'calypso/lib/catch-js-errors';
 import DesktopListeners from 'calypso/lib/desktop-listeners';
 import detectHistoryNavigation from 'calypso/lib/detect-history-navigation';
-import { getLanguageSlugs } from 'calypso/lib/i18n-utils/utils';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 import loadDevHelpers from 'calypso/lib/load-dev-helpers';
 import { attachLogmein } from 'calypso/lib/logmein';
-import { getToken } from 'calypso/lib/oauth-token';
 import { checkFormHandler } from 'calypso/lib/protect-form';
 import { setReduxStore as setReduxBridgeReduxStore } from 'calypso/lib/redux-bridge';
 import { getSiteFragment, normalize } from 'calypso/lib/route';
 import { isLegacyRoute } from 'calypso/lib/route/legacy-routes';
 import { hasTouch } from 'calypso/lib/touch-detect';
 import { isOutsideCalypso } from 'calypso/lib/url';
-import { JETPACK_PRICING_PAGE } from 'calypso/lib/url/support';
 import { initializeCurrentUser } from 'calypso/lib/user/shared-utils';
 import { onDisablePersistence } from 'calypso/lib/user/store';
 import { setSupportSessionReduxStore } from 'calypso/lib/user/support-user-interop';
@@ -34,14 +36,13 @@ import { setupRoutes } from 'calypso/sections-middleware';
 import { createReduxStore } from 'calypso/state';
 import { setCurrentUser } from 'calypso/state/current-user/actions';
 import { getCurrentUserId, isUserLoggedIn } from 'calypso/state/current-user/selectors';
-import { initConnection as initHappychatConnection } from 'calypso/state/happychat/connection/actions';
-import wasHappychatRecentlyActive from 'calypso/state/happychat/selectors/was-happychat-recently-active';
-import { requestHappychatEligibility } from 'calypso/state/happychat/user/actions';
-import { getHappychatAuth } from 'calypso/state/happychat/utils';
-import { getInitialState, persistOnChange } from 'calypso/state/initial-state';
-import { loadPersistedState } from 'calypso/state/persisted-state';
+import { getInitialState, getStateFromCache, persistOnChange } from 'calypso/state/initial-state';
 import { init as pushNotificationsInit } from 'calypso/state/push-notifications/actions';
-import { createQueryClient } from 'calypso/state/query-client';
+import {
+	createQueryClient,
+	getInitialQueryState,
+	hydrateServerState,
+} from 'calypso/state/query-client';
 import initialReducer from 'calypso/state/reducer';
 import { setStore } from 'calypso/state/redux-store';
 import { setRoute } from 'calypso/state/route/actions';
@@ -53,7 +54,6 @@ const debug = debugFactory( 'calypso' );
 
 const setupContextMiddleware = ( reduxStore, reactQueryClient ) => {
 	page( '*', ( context, next ) => {
-		// page.js url parsing is broken so we had to disable it with `decodeURLComponents: false`
 		const parsed = getUrlParts( context.canonicalPath );
 		const path = parsed.pathname + parsed.search || null;
 		context.prevPath = path === context.path ? false : path;
@@ -135,7 +135,7 @@ function saveOauthFlags() {
 
 function authorizePath() {
 	const redirectUri = new URL(
-		isJetpackCloud() ? '/connect/oauth/token' : '/api/oauth/token',
+		isJetpackCloud() || isA8CForAgencies() ? '/connect/oauth/token' : '/api/oauth/token',
 		window.location
 	);
 	redirectUri.search = new URLSearchParams( {
@@ -154,15 +154,24 @@ function authorizePath() {
 	return authUri.toString();
 }
 
+const JP_CLOUD_PUBLIC_ROUTES = [ '/pricing', '/plans', '/features/comparison', '/manage/pricing' ];
+const A4A_PUBLIC_ROUTES = [ '/signup' ];
+
 const oauthTokenMiddleware = () => {
 	if ( config.isEnabled( 'oauth' ) ) {
 		const loggedOutRoutes = [ '/start', '/api/oauth/token', '/connect' ];
 
-		if ( isJetpackCloud() && config.isEnabled( 'jetpack/pricing-page' ) ) {
-			loggedOutRoutes.push( '/pricing', '/plans' );
-			getLanguageSlugs().forEach( ( slug ) =>
-				loggedOutRoutes.push( `/${ slug }/pricing`, `/${ slug }/plans` )
-			);
+		if ( isJetpackCloud() ) {
+			loggedOutRoutes.push( ...JP_CLOUD_PUBLIC_ROUTES );
+			getLanguageSlugs().forEach( ( slug ) => {
+				loggedOutRoutes.push(
+					...JP_CLOUD_PUBLIC_ROUTES.map( ( route ) => `/${ slug }${ route }` )
+				);
+			} );
+		}
+
+		if ( isA8CForAgencies() ) {
+			loggedOutRoutes.push( ...A4A_PUBLIC_ROUTES );
 		}
 
 		// Forces OAuth users to the /login page if no token is present
@@ -214,14 +223,14 @@ const utils = () => {
 const configureReduxStore = ( currentUser, reduxStore ) => {
 	debug( 'Executing Calypso configure Redux store.' );
 
-	if ( currentUser ) {
+	if ( currentUser && currentUser.ID ) {
 		// Set current user in Redux store
 		reduxStore.dispatch( setCurrentUser( currentUser ) );
 	}
 
 	if ( config.isEnabled( 'network-connection' ) ) {
-		asyncRequire( 'calypso/lib/network-connection', ( networkConnection ) =>
-			networkConnection.init( reduxStore )
+		asyncRequire( 'calypso/lib/network-connection' ).then( ( networkConnection ) =>
+			networkConnection.default.init( reduxStore )
 		);
 	}
 
@@ -236,11 +245,34 @@ const configureReduxStore = ( currentUser, reduxStore ) => {
 	}
 };
 
-function setupErrorLogger( reduxStore ) {
+export function setupErrorLogger( reduxStore ) {
+	// Add a bit of metadata from the redux store to the sentry event.
+	const beforeSend = ( event ) => {
+		const state = reduxStore.getState();
+		const tags = {
+			blog_id: getSelectedSiteId( state ),
+			calypso_section: getSectionName( state ),
+		};
+
+		event.tags = {
+			...tags,
+			...event.tags,
+		};
+
+		return event;
+	};
+
+	// Note that Sentry can disable itself and do some cleanup if needed, so we
+	// run it before the catch-js-errors check. (Otherwise, cleanup would never
+	// never happen.)
+	initSentry( { beforeSend, userId: getCurrentUserId( reduxStore.getState() ) } );
+
 	if ( ! config.isEnabled( 'catch-js-errors' ) ) {
 		return;
 	}
 
+	// At this point, the normal error logger is still set up so that logstash
+	// contains a definitive log of calypso errors.
 	const errorLogger = new Logger();
 
 	// Save errorLogger to a singleton for use in arbitrary logging.
@@ -264,10 +296,23 @@ function setupErrorLogger( reduxStore ) {
 		errorLogger.saveExtraData( { lastTracksEvent } )
 	);
 
+	let prevPath;
 	page( '*', function ( context, next ) {
-		errorLogger.saveNewPath(
-			context.canonicalPath.replace( getSiteFragment( context.canonicalPath ), ':siteId' )
+		const path = context.canonicalPath.replace(
+			getSiteFragment( context.canonicalPath ),
+			':siteId'
 		);
+		// Also save the context to Sentry for easier debugging.
+		addBreadcrumb( {
+			category: 'navigation',
+			data: {
+				from: prevPath ?? path,
+				to: path,
+				should_capture: true, // Hint that this is our own breadcrumb, not the default navigation one.
+			},
+		} );
+		prevPath = path;
+		errorLogger.saveNewPath( path );
 		next();
 	} );
 }
@@ -309,21 +354,6 @@ const setupMiddlewares = ( currentUser, reduxStore, reactQueryClient ) => {
 	} );
 
 	page( '*', function ( context, next ) {
-		const path = context.pathname;
-
-		// Bypass this global handler for legacy routes
-		// to avoid bumping stats and changing focus to the content
-		if ( isLegacyRoute( path ) ) {
-			return next();
-		}
-
-		// Bump general stat tracking overall Newdash usage
-		bumpStat( { newdash_pageviews: 'route' } );
-
-		next();
-	} );
-
-	page( '*', function ( context, next ) {
 		if ( '/me/account' !== context.path && currentUser.phone_account ) {
 			page( '/me/account' );
 		}
@@ -351,22 +381,13 @@ const setupMiddlewares = ( currentUser, reduxStore, reactQueryClient ) => {
 					// pricing page is outside of Calypso, needs a full page load
 					window.location = isJetpackCloud()
 						? JETPACK_PRICING_PAGE
-						: 'https://wordpress.com/pricing';
+						: 'https://wordpress.com/pricing/';
 				}
 				return;
 			}
 
 			next();
 		} );
-	}
-
-	const state = reduxStore.getState();
-
-	if ( config.isEnabled( 'happychat' ) ) {
-		reduxStore.dispatch( requestHappychatEligibility() );
-	}
-	if ( wasHappychatRecentlyActive( state ) ) {
-		reduxStore.dispatch( initHappychatConnection( getHappychatAuth( state )() ) );
 	}
 
 	if ( window.electron ) {
@@ -391,13 +412,18 @@ function renderLayout( reduxStore, reactQueryClient ) {
 const boot = async ( currentUser, registerRoutes ) => {
 	saveOauthFlags();
 	utils();
-	await loadPersistedState();
-	const queryClient = await createQueryClient( currentUser?.ID );
+
+	const { queryClient, unsubscribePersister } = await createQueryClient( currentUser?.ID );
+	const initialQueryState = getInitialQueryState();
+	hydrateServerState( queryClient, initialQueryState );
+
 	const initialState = getInitialState( initialReducer, currentUser?.ID );
 	const reduxStore = createReduxStore( initialState, initialReducer );
-	setStore( reduxStore, currentUser?.ID );
+	setStore( reduxStore, getStateFromCache( currentUser?.ID ) );
 	onDisablePersistence( persistOnChange( reduxStore, currentUser?.ID ) );
+	onDisablePersistence( unsubscribePersister );
 	setupLocale( currentUser, reduxStore );
+	geolocateCurrencySymbol();
 	configureReduxStore( currentUser, reduxStore );
 	setupMiddlewares( currentUser, reduxStore, queryClient );
 	detectHistoryNavigation.start();
@@ -411,7 +437,7 @@ const boot = async ( currentUser, registerRoutes ) => {
 		renderLayout( reduxStore, queryClient );
 	}
 
-	page.start( { decodeURLComponents: false } );
+	page.start();
 };
 
 export const bootApp = async ( appName, registerRoutes ) => {

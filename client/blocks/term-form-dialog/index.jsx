@@ -1,4 +1,4 @@
-import { Dialog } from '@automattic/components';
+import { Dialog, FormInputValidation } from '@automattic/components';
 import { isMobile } from '@automattic/viewport';
 import { ToggleControl } from '@wordpress/components';
 import { localize } from 'i18n-calypso';
@@ -7,12 +7,12 @@ import { Component } from 'react';
 import { connect } from 'react-redux';
 import TermTreeSelectorTerms from 'calypso/blocks/term-tree-selector/terms';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
 import FormLegend from 'calypso/components/forms/form-legend';
 import FormSectionHeading from 'calypso/components/forms/form-section-heading';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import FormTextarea from 'calypso/components/forms/form-textarea';
 import { recordGoogleEvent, bumpStat } from 'calypso/state/analytics/actions';
+import { errorNotice } from 'calypso/state/notices/actions';
 import { getPostTypeTaxonomy } from 'calypso/state/post-types/taxonomies/selectors';
 import { addTerm, updateTerm } from 'calypso/state/terms/actions';
 import { getTerms } from 'calypso/state/terms/selectors';
@@ -117,7 +117,7 @@ class TermFormDialog extends Component {
 		}
 
 		this.setState( { saving: true } );
-		const { siteId, taxonomy } = this.props;
+		const { siteId, taxonomy, translate } = this.props;
 		const statLabels = {
 			mc: `edited_${ taxonomy }`,
 			ga: `Edited ${ taxonomy }`,
@@ -135,11 +135,20 @@ class TermFormDialog extends Component {
 		this.props.bumpStat( 'taxonomy_manager', statLabels.mc );
 		this.props.recordGoogleEvent( 'Taxonomy Manager', statLabels.ga );
 
-		savePromise.then( ( savedTerm ) => {
-			this.setState( { saving: false } );
-			this.props.onSuccess( savedTerm );
-			this.closeDialog();
-		} );
+		savePromise
+			.then( ( savedTerm ) => {
+				this.props.onSuccess( savedTerm );
+			} )
+			.catch( () => {
+				this.props.errorNotice( translate( 'Something went wrong. Please try again.' ), {
+					id: 'taxonomy-manager-save',
+					duration: 4000,
+				} );
+			} )
+			.finally( () => {
+				this.setState( { saving: false } );
+				this.closeDialog();
+			} );
 	};
 
 	constructor( props ) {
@@ -306,14 +315,8 @@ class TermFormDialog extends Component {
 	}
 
 	render() {
-		const {
-			isHierarchical,
-			labels,
-			term,
-			translate,
-			showDescriptionInput,
-			showDialog,
-		} = this.props;
+		const { isHierarchical, labels, term, translate, showDescriptionInput, showDialog } =
+			this.props;
 		const { name, description } = this.state;
 		const isNew = ! term;
 		const submitLabel = isNew ? translate( 'Add' ) : translate( 'Update' );
@@ -389,5 +392,5 @@ export default connect(
 			siteId,
 		};
 	},
-	{ addTerm, updateTerm, recordGoogleEvent, bumpStat }
+	{ addTerm, updateTerm, recordGoogleEvent, bumpStat, errorNotice }
 )( localize( TermFormDialog ) );

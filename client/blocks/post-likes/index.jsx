@@ -1,10 +1,11 @@
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { PureComponent } from 'react';
 import { connect } from 'react-redux';
-import QueryPostLikes from 'calypso/components/data/query-post-likes';
+import QueryPostLikers from 'calypso/components/data/query-post-likers';
 import Gravatar from 'calypso/components/gravatar';
 import { recordGoogleEvent } from 'calypso/state/analytics/actions';
+import { getCurrentUserId } from 'calypso/state/current-user/selectors';
 import { countPostLikes } from 'calypso/state/posts/selectors/count-post-likes';
 import { getPostLikes } from 'calypso/state/posts/selectors/get-post-likes';
 
@@ -33,14 +34,14 @@ class PostLikes extends PureComponent {
 				className="post-likes__item"
 				onClick={ likeUrl ? this.trackLikeClick : null }
 			>
-				<Gravatar user={ like } alt={ like.login } title={ like.login } size={ 24 } />
+				<Gravatar user={ like } alt={ like.login } title={ like.login } size={ 32 } />
 				{ showDisplayNames && <span className="post-likes__display-name">{ like.name }</span> }
 			</LikeWrapper>
 		);
 	};
 
 	renderExtraCount() {
-		const { likes, likeCount, showDisplayNames, translate, numberFormat } = this.props;
+		const { likes, likeCount, translate, numberFormat } = this.props;
 
 		if ( ! likes || likeCount <= likes.length ) {
 			return null;
@@ -48,15 +49,9 @@ class PostLikes extends PureComponent {
 
 		const extraCount = likeCount - likes.length;
 
-		let message;
-		if ( showDisplayNames ) {
-			message = translate( '+ %(extraCount)s more', '+ %(extraCount)s more', {
-				count: extraCount,
-				args: { extraCount: numberFormat( extraCount ) },
-			} );
-		} else {
-			message = '+ ' + numberFormat( extraCount );
-		}
+		const message = translate( '%(extraCount)s more', {
+			args: { extraCount: numberFormat( extraCount ) },
+		} );
 
 		return (
 			<span key="placeholder" className="post-likes__count">
@@ -76,7 +71,21 @@ class PostLikes extends PureComponent {
 			showDisplayNames,
 			onMouseEnter,
 			onMouseLeave,
+			currentUserId,
 		} = this.props;
+
+		// Sort likes so that the current user's like is always first
+		const sortedLikes = likes
+			? [ ...likes ].sort( ( a, b ) => {
+					if ( a.ID === currentUserId ) {
+						return -1;
+					}
+					if ( b.ID === currentUserId ) {
+						return 1;
+					}
+					return 0;
+			  } )
+			: [];
 
 		let noLikesLabel;
 
@@ -86,22 +95,26 @@ class PostLikes extends PureComponent {
 			noLikesLabel = translate( 'There are no likes on this post yet.' );
 		}
 
-		const isLoading = ! likes;
+		// Prevent loading for postId `0`
+		const isLoading = !! postId && ! sortedLikes;
 
-		const classes = classnames( 'post-likes', { 'has-display-names': showDisplayNames } );
+		const classes = clsx( 'post-likes', {
+			'has-display-names': showDisplayNames,
+			'no-likes': ! likeCount,
+		} );
 		const extraProps = { onMouseEnter, onMouseLeave };
 
 		return (
 			<div className={ classes } { ...extraProps }>
-				<QueryPostLikes siteId={ siteId } postId={ postId } needsLikers={ true } />
+				{ !! postId && <QueryPostLikers siteId={ siteId } postId={ postId } /> }
 				{ isLoading && (
 					<span key="placeholder" className="post-likes__count is-loading">
 						…
 					</span>
 				) }
-				{ likes && likes.map( this.renderLike ) }
+				{ sortedLikes && sortedLikes.map( this.renderLike ) }
 				{ this.renderExtraCount() }
-				{ likeCount === 0 && noLikesLabel }
+				{ ! isLoading && ! likeCount && noLikesLabel }
 			</div>
 		);
 	}
@@ -111,9 +124,11 @@ export default connect(
 	( state, { siteId, postId } ) => {
 		const likeCount = countPostLikes( state, siteId, postId );
 		const likes = getPostLikes( state, siteId, postId );
+		const currentUserId = getCurrentUserId( state );
 		return {
 			likeCount,
 			likes,
+			currentUserId,
 		};
 	},
 	{ recordGoogleEvent }

@@ -1,3 +1,4 @@
+import { localizeUrl } from '@automattic/i18n-utils';
 import {
 	ButtonRow,
 	makeTour,
@@ -6,7 +7,6 @@ import {
 	Step,
 	Tour,
 } from 'calypso/layout/guided-tours/config-elements';
-import { localizeUrl } from 'calypso/lib/i18n-utils';
 import meta from './meta';
 
 const CONNECT_BUTTON_SELECTOR = '.sharing-service.not-connected .button.is-compact';
@@ -22,10 +22,10 @@ export const marketingConnectionsTour = makeTour(
 			style={ {
 				marginLeft: '-24px',
 			} }
-			waitForTarget={ true }
+			waitForTarget
 			target={ CONNECT_BUTTON_SELECTOR }
 			onTargetDisappear={ handleDisappear }
-			keepRepositioning={ true }
+			keepRepositioning
 		>
 			{ ( { translate } ) => (
 				<>

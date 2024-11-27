@@ -2,12 +2,12 @@
  * @jest-environment jsdom
  */
 
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import moment from 'moment';
 import { unmountComponentAtNode } from 'react-dom';
 import Modal from 'react-modal';
 import UpcomingRenewalsDialog from '../upcoming-renewals-dialog';
-import '@testing-library/jest-dom/extend-expect';
 
 describe( '<UpcomingRenewalsDialog>', () => {
 	let modalRoot;
@@ -58,7 +58,7 @@ describe( '<UpcomingRenewalsDialog>', () => {
 	test( 'displays names and price for each purchase ordered by expiration date ascending', () => {
 		render(
 			<UpcomingRenewalsDialog
-				isVisible={ true }
+				isVisible
 				purchases={ mockPurchases() }
 				site={ site }
 				onConfirm={ jest.fn() }
@@ -100,7 +100,7 @@ describe( '<UpcomingRenewalsDialog>', () => {
 		];
 		render(
 			<UpcomingRenewalsDialog
-				isVisible={ true }
+				isVisible
 				purchases={ purchases }
 				site={ site }
 				onConfirm={ jest.fn() }
@@ -113,12 +113,12 @@ describe( '<UpcomingRenewalsDialog>', () => {
 		).toHaveTextContent( /autorenewing-domain\.liveDotLive Domain Registration: renews in 5 days/ );
 	} );
 
-	test( 'selects all purchases by default', () => {
+	test( 'selects all purchases by default', async () => {
 		const onConfirm = jest.fn();
 		const purchases = mockPurchases();
 		render(
 			<UpcomingRenewalsDialog
-				isVisible={ true }
+				isVisible
 				purchases={ purchases }
 				site={ site }
 				onConfirm={ onConfirm }
@@ -126,17 +126,18 @@ describe( '<UpcomingRenewalsDialog>', () => {
 			/>
 		);
 
-		fireEvent.click( screen.getByText( 'Renew now' ) );
+		await userEvent.click( screen.getByText( 'Renew now' ) );
 
 		expect( onConfirm ).toHaveBeenCalledWith( purchases );
 	} );
 
-	test( 'submits only the selected purchases', () => {
+	test( 'submits only the selected purchases', async () => {
+		const user = userEvent.setup();
 		const onConfirm = jest.fn();
 		const purchases = mockPurchases();
 		render(
 			<UpcomingRenewalsDialog
-				isVisible={ true }
+				isVisible
 				purchases={ purchases }
 				site={ site }
 				onConfirm={ onConfirm }
@@ -144,16 +145,17 @@ describe( '<UpcomingRenewalsDialog>', () => {
 			/>
 		);
 
-		fireEvent.click( document.body.querySelector( 'input[name=personal-bundle-1]' ) );
-		fireEvent.click( screen.getByText( 'Renew now' ) );
+		await user.click( document.body.querySelector( 'input[name=personal-bundle-1]' ) );
+		await user.click( screen.getByText( 'Renew now' ) );
 
 		expect( onConfirm ).toHaveBeenCalledWith( [ purchases[ 1 ] ] );
 	} );
 
-	test( 'disables the submit button if no purchases are selected', () => {
+	test( 'disables the submit button if no purchases are selected', async () => {
+		const user = userEvent.setup();
 		render(
 			<UpcomingRenewalsDialog
-				isVisible={ true }
+				isVisible
 				purchases={ mockPurchases() }
 				site={ site }
 				onConfirm={ jest.fn() }
@@ -161,9 +163,8 @@ describe( '<UpcomingRenewalsDialog>', () => {
 			/>
 		);
 
-		fireEvent.click( document.body.querySelector( 'input[name=dotlive_domain-2]' ) );
-
-		fireEvent.click( document.body.querySelector( 'input[name=personal-bundle-1]' ) );
+		await user.click( document.body.querySelector( 'input[name=dotlive_domain-2]' ) );
+		await user.click( document.body.querySelector( 'input[name=personal-bundle-1]' ) );
 
 		expect( screen.getByText( 'Renew now' ) ).toHaveProperty( 'disabled', true );
 	} );

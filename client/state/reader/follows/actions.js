@@ -12,6 +12,8 @@ import {
 	READER_UPDATE_NEW_POST_EMAIL_SUBSCRIPTION,
 	READER_SUBSCRIBE_TO_NEW_POST_NOTIFICATIONS,
 	READER_UNSUBSCRIBE_TO_NEW_POST_NOTIFICATIONS,
+	READER_FOLLOW_COMPLETE,
+	READER_FOLLOWS_MARK_AS_STALE,
 } from 'calypso/state/reader/action-types';
 
 import 'calypso/state/data-layer/wpcom/read/following/mine';
@@ -28,35 +30,49 @@ import 'calypso/state/data-layer/wpcom/read/sites/notification-subscriptions/new
 import 'calypso/state/reader/init';
 
 /**
- * Extended information about a reader follow
- *
- * @typedef {object} follow
- * @property {number} ID
+ * @typedef {Object} Follow
+ * @property {number} ID The subscription ID
  * @property {string} URL The URL being followed. Usually a feed.
  * @property {string} feed_URL Same as URL
  * @property {number} blog_ID The blog ID. Optional.
  * @property {number} feed_ID The feed ID
  * @property {number} date_subscribed The date subscribed. Seconds since epoch.
  * @property {boolean} is_owner Is the current user the owner of this site
- * @property {object} delivery_methods
+ * @property {Object} delivery_methods The delivery methods for this subscription
+ */
+
+/**
+ * @typedef {Object} RecommendedSiteInfo
+ * @property {number} seed - Random number for the recommendation logic
+ * @property {number} siteId - Identifier of the recommended site
+ * @property {string} siteTitle - Title of the recommended site
  */
 
 /**
  * Follow a feed URL
- *
- * @param  {string} feedUrl      The feed URL
- * @param {object} followInfo		A subscription, optional
- * @returns {object}              The action
+ * @param   {string} feedUrl      			The feed URL
+ * @param   {?Follow} followInfo   			A subscription, optional
+ * @param   {?Object} recommendedSiteInfo   A subscription, optional
+ * @returns {Object}              			The action
  */
-export function follow( feedUrl, followInfo ) {
+export function follow( feedUrl, followInfo, recommendedSiteInfo ) {
 	const action = {
 		type: READER_FOLLOW,
+		payload: {
+			feedUrl,
+			...( followInfo ? { follow: followInfo } : {} ),
+			...( recommendedSiteInfo ? { recommendedSiteInfo } : {} ),
+		},
+	};
+
+	return action;
+}
+
+export function requestFollowCompleted( feedUrl ) {
+	return {
+		type: READER_FOLLOW_COMPLETE,
 		payload: { feedUrl },
 	};
-	if ( followInfo ) {
-		action.payload.follow = followInfo;
-	}
-	return action;
 }
 
 export function unfollow( feedUrl ) {
@@ -69,10 +85,9 @@ export function unfollow( feedUrl ) {
 /**
  * Returns an action object to signal that an error was encountered
  * when following a URL.
- *
  * @param  {string} feedUrl Feed URL
- * @param  {object} error Error response (contains keys 'info' and 'subscribed')
- * @returns {object} Action
+ * @param  {Object} error Error response (contains keys 'info' and 'subscribed')
+ * @returns {Object} Action
  */
 export function recordFollowError( feedUrl, error ) {
 	const action = {
@@ -92,8 +107,7 @@ export function receiveFollows( { follows, totalCount } ) {
 
 /**
  * Returns an action object to signal that follows have been requested.
- *
- * @returns {object} 		Action object
+ * @returns {Object} 		Action object
  */
 export function requestFollows() {
 	return {
@@ -103,9 +117,8 @@ export function requestFollows() {
 
 /**
  * Represents a completed sync.
- *
  * @param  {Array} followedUrls An array of all the feed URLS seen during the sync
- * @returns {object}              The action
+ * @returns {Object}              The action
  */
 export function syncComplete( followedUrls ) {
 	return {
@@ -175,5 +188,11 @@ export function unsubscribeToNewPostNotifications( blogId ) {
 		payload: {
 			blogId,
 		},
+	};
+}
+
+export function markFollowsAsStale() {
+	return {
+		type: READER_FOLLOWS_MARK_AS_STALE,
 	};
 }

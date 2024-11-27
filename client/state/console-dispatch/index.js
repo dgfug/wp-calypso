@@ -8,23 +8,24 @@
  * Will only attach if the `window` variable is available
  * globally. If not it will simply be an empty link in the
  * chain, passing straight through.
- *
  * @param {Function} next next store enhancer in chain
  * @returns {Function} console dispatcher store enhancer
  */
-export const consoleDispatcher = ( next ) => ( ...args ) => {
-	const store = next( ...args );
+export const consoleDispatcher =
+	( next ) =>
+	( ...args ) => {
+		const store = next( ...args );
 
-	if ( 'undefined' !== typeof window ) {
-		Object.assign( window, store );
+		if ( 'undefined' !== typeof window ) {
+			Object.assign( window, store );
 
-		Object.defineProperty( window, 'state', {
-			enumerable: true,
-			get: store.getState,
-		} );
-	}
+			Object.defineProperty( window, 'state', {
+				enumerable: true,
+				get: store.getState,
+			} );
+		}
 
-	return store;
-};
+		return store;
+	};
 
 export default consoleDispatcher;

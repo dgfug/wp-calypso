@@ -5,9 +5,8 @@ const root = '/me/settings/profile-links';
 
 /**
  * `ProfileLinks` constructor.
- *
  * @param {WPCOM} wpcom - wpcom instance
- * @returns {null} null
+ * @returns {ProfileLinks|undefined}
  */
 export default function ProfileLinks( wpcom ) {
 	if ( ! ( this instanceof ProfileLinks ) ) {
@@ -20,17 +19,16 @@ export default function ProfileLinks( wpcom ) {
 /**
  * Get profile links of the current user.
  *
- * *Example:*
- *   // Get profile links of the current user
- *    wpcom
- *    .me()
- *    .settings()
- *    .profileLinks()
- *    .get( function( err, data ) {
- *      // profile links data
- *    } );
- *
- * @param {object} [query] - query object parameter
+ * Example:
+ * // Get profile links of the current user
+ * wpcom
+ * .me()
+ * .settings()
+ * .profileLinks()
+ * .get( function( err, data ) {
+ * // profile links data
+ * } );
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -44,21 +42,20 @@ ProfileLinks.prototype.mine = ProfileLinks.prototype.get;
 /**
  * Add a profile link to current user.
  *
- * *Example:*
- *    // Add profile link to current user
- *    wpcom
- *    .me()
- *    .settings()
- *    .profileLinks()
- *    .add( {
- *      title: "WordPress Blog",
- *      value: "en.blog.wordpress.com"
- *    }, function( err, data ) {
- *      // profile has been added
- *    } );
- *
- * @param {Array|object} links - profile links
- * @param {object} [query] - query object parameter
+ * Example:
+ * // Add profile link to current user
+ * wpcom
+ * .me()
+ * .settings()
+ * .profileLinks()
+ * .add( {
+ * title: "WordPress Blog",
+ * value: "en.blog.wordpress.com"
+ * }, function( err, data ) {
+ * // profile has been added
+ * } );
+ * @param {Array | Object} links - profile links
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -84,18 +81,17 @@ ProfileLinks.prototype.add = function ( links, query, fn ) {
 /**
  * Remove your ProfileLinks from a Post.
  *
- * *Example:*
- *    // Remove profile link from current user
- *    wpcom
- *    .me()
- *    .settings()
- *    .profileLinks()
- *    .del( 'example.wordpress.com', function( err, data ) {
- *      // profile has been deleted
- *    } );
- *
+ * Example:
+ * // Remove profile link from current user
+ * wpcom
+ * .me()
+ * .settings()
+ * .profileLinks()
+ * .del( 'example.wordpress.com', function( err, data ) {
+ * // profile has been deleted
+ * } );
  * @param {string} slug - the URL of the profile link
- * @param {object} [query] - query object parameter
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */

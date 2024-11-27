@@ -7,11 +7,14 @@ type FocusType = 'Sites' | 'Sidebar';
 
 const selectors = {
 	sidebar: '.sidebar',
+	sidebarNoticeButton: ( name: string ) =>
+		`.sidebar .current-site__notices button:text("${ name }")`,
 	collapsedSidebar: '.is-sidebar-collapsed',
 	focusedLayout: ( focus: FocusType ) => `.layout.focus-${ focus.toLowerCase() }`,
 
 	// Buttons and links within Sidebar
 	linkWithText: ( text: string ) => `a:has-text("${ text }")`,
+	planName: ':text-is("Upgrades"):visible .sidebar__inline-text',
 };
 
 /**
@@ -34,9 +37,12 @@ export class SidebarComponent {
 	 * Waits for the WordPress.com Calypso sidebar to be ready on the page.
 	 */
 	async waitForSidebarInitialization(): Promise< void > {
-		await this.page.waitForLoadState( 'load' );
 		const sidebarLocator = this.page.locator( selectors.sidebar );
-		await sidebarLocator.waitFor();
+
+		await Promise.all( [
+			this.page.waitForLoadState( 'load', { timeout: 20 * 1000 } ),
+			sidebarLocator.waitFor( { timeout: 20 * 1000 } ),
+		] );
 
 		// If the sidebar is collapsed (via the Collapse Menu toggle),
 		// re-expand the sidebar.
@@ -74,7 +80,7 @@ export class SidebarComponent {
 		if ( subitem ) {
 			const subitemSelector = `.is-toggle-open :text-is("${ subitem }"):visible`;
 			await Promise.all( [
-				this.page.waitForNavigation(),
+				this.page.waitForNavigation( { timeout: 30 * 1000 } ),
 				this.page.dispatchEvent( subitemSelector, 'click' ),
 			] );
 		}
@@ -100,6 +106,39 @@ export class SidebarComponent {
 		// Verify the expected item or subitem is selected.
 		const locator = this.page.locator( selectedMenuItem );
 		await locator.waitFor( { state: 'attached' } );
+	}
+
+	/**
+	 * Open a notice of the sidebar menu.
+	 *
+	 * @param {string} noticeButtonName Name of the notice button where the click will be performed.
+	 * @param {string} expectedUrl Expected URL after clicking on the notice.
+	 * @returns {Promise<void>} No return value.
+	 */
+	async openNotice( noticeButtonName: string, expectedUrl?: string ): Promise< void > {
+		await this.waitForSidebarInitialization();
+
+		if ( envVariables.VIEWPORT_NAME === 'mobile' ) {
+			await this.openMobileSidebar();
+		}
+
+		// Top level menu item selector.
+		const itemSelector = selectors.sidebarNoticeButton( noticeButtonName );
+		await this.page.dispatchEvent( itemSelector, 'click' );
+
+		const currentURL = this.page.url();
+		// Do not verify selected menu items or retry if navigation takes user out of Calypso (eg. WP-Admin, Widgets editor)...
+		if ( ! currentURL.startsWith( getCalypsoURL() ) ) {
+			return;
+		}
+		// ... or to a page in Calypso that closes the sidebar.
+		if ( currentURL.match( /\/(post|page|site-editor)\// ) ) {
+			return;
+		}
+
+		if ( expectedUrl ) {
+			await this.page.waitForURL( expectedUrl );
+		}
 	}
 
 	/* Miscellaneous actions on sidebar */
@@ -132,6 +171,38 @@ export class SidebarComponent {
 		] );
 	}
 
+	/**
+	 * Returns the current plan name as shown on the sidebar.
+	 *
+	 * Note, the plan name shown in the sidebar may not always be
+	 * accurate due to race conditions. Consider this method as
+	 * secondary validation.
+	 *
+	 * Additionally, on mobile viewports if the current page is
+	 * Upgrades > Plans the plan name is not visible in the sidebar.
+	 * This method should be used after navigating away from the
+	 * Plans page.
+	 *
+	 * @returns {Promise<string>} Name of the plan.
+	 * @throws {Error} If the viewport is mobile and the currently displayed page is Upgrades > Plans.
+	 */
+	async getCurrentPlanName(): Promise< string > {
+		await this.waitForSidebarInitialization();
+
+		if ( envVariables.VIEWPORT_NAME === 'mobile' ) {
+			if ( this.page.url().includes( getCalypsoURL( 'plans' ) ) ) {
+				throw new Error(
+					'Unable to retrieve current plan name on mobile sidebar.\nNavigate away from Upgrades > Plans page and try again.'
+				);
+			}
+
+			await this.openMobileSidebar();
+		}
+
+		const planNameLocator = this.page.locator( selectors.planName );
+		return await planNameLocator.innerText();
+	}
+
 	/* Viewport-specific methods */
 
 	/**
@@ -157,7 +228,7 @@ export class SidebarComponent {
 		await this.waitForSidebarInitialization();
 
 		const navbarComponent = new NavbarComponent( this.page );
-		await navbarComponent.clickMySites();
+		await navbarComponent.clickMobileMenu();
 
 		// `focus-sidebar` attribute is added to the main layout screen.
 		const layoutElement = await this.page.waitForSelector( selectors.focusedLayout( 'Sidebar' ) );

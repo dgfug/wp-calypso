@@ -1,9 +1,12 @@
+@import "calypso/assets/stylesheets/shared/mixins/breakpoints";
+@import "@automattic/typography/styles/variables";
+
 .section-nav-tab .count {
 	margin-left: 8px;
 }
 
 .section-nav-tab {
-	@include breakpoint-deprecated( '>480px' ) {
+	@mixin tabs-view-styles {
 		width: auto;
 		flex: none;
 		border-bottom: 2px solid transparent;
@@ -11,12 +14,20 @@
 		text-align: center;
 
 		&.is-selected {
-			border-bottom-color: var( --color-neutral-70 );
+			border-bottom-color: var(--color-neutral-70);
 		}
 
-		&:hover:not( .is-selected ) {
-			border-bottom-color: var( --color-primary-0 );
+		&:hover:not(.is-selected) {
+			border-bottom-color: var(--color-primary-0);
 		}
+	}
+
+	.enforce-tabs-view & {
+		@include tabs-view-styles;
+	}
+
+	@include breakpoint-deprecated( ">480px" ) {
+		@include tabs-view-styles;
 	}
 }
 
@@ -36,27 +47,27 @@
 	font-size: $font-body-small;
 	font-weight: 600;
 	line-height: 18px;
-	color: var( --color-neutral-70 );
+	color: var(--color-neutral-70);
 	cursor: pointer;
 
 	&:visited {
-		color: var( --color-neutral-70 );
+		color: var(--color-neutral-70);
 	}
 
 	&[disabled],
 	.notouch &[disabled]:hover {
-		color: var( --color-neutral-20 );
+		color: var(--color-neutral-20);
 		cursor: default;
 	}
 
 	.is-selected & {
-		color: var( --color-text-inverted );
-		background-color: var( --color-primary );
+		color: var(--color-text-inverted);
+		background-color: var(--color-primary);
 
-		@include breakpoint-deprecated( '<480px' ) {
+		@include breakpoint-deprecated( "<480px" ) {
 			.count {
-				color: var( --color-text-inverted );
-				border-color: var( --color-border-inverted );
+				color: var(--color-text-inverted);
+				border-color: var(--color-border-inverted);
 			}
 		}
 	}
@@ -65,7 +76,7 @@
 		outline: none;
 
 		.accessible-focus & {
-			box-shadow: inset 0 0 0 2px var( --color-primary-light );
+			box-shadow: inset 0 0 0 2px var(--color-primary-light);
 		}
 	}
 
@@ -78,41 +89,75 @@
 
 	.notouch & {
 		&:hover {
-			background-color: var( --color-primary-0 );
-			color: var( --color-primary );
+			background-color: var(--color-primary-0);
+			color: var(--color-primary);
+		}
+	}
+
+	.notouch .minimal & {
+		&:hover {
+			background-color: transparent;
 		}
 	}
 
 	.notouch .is-selected & {
 		&:hover {
-			color: var( --color-text-inverted );
+			color: var(--color-text-inverted);
 		}
 	}
 
-	@include breakpoint-deprecated( '>480px' ) {
+	@mixin tabs-view-styles {
 		display: block;
 		width: auto;
 		padding: 16px 16px 14px;
-		color: var( --color-primary );
+		color: var(--color-primary);
 		font-weight: 400;
 
 		&:visited {
-			color: var( --color-primary );
+			color: var(--color-primary);
 		}
+	}
+
+	@mixin tabs-view-selected-styles {
+		color: var(--color-neutral-70);
+		background-color: transparent;
+
+		&::after {
+			display: none;
+		}
+
+		.notouch & {
+			&:hover {
+				color: var(--color-neutral-70);
+			}
+		}
+	}
+
+	@mixin tabs-view-minimal-styles {
+		color: var(--color-neutral-70);
+	}
+
+	.enforce-tabs-view & {
+		@include tabs-view-styles;
+	}
+
+	.enforce-tabs-view .is-selected & {
+		@include tabs-view-selected-styles;
+	}
+
+	.enforce-tabs-view.minimal & {
+		@include tabs-view-minimal-styles;
+	}
+
+	@include breakpoint-deprecated( ">480px" ) {
+		@include tabs-view-styles;
 
 		.is-selected & {
-			color: var( --color-neutral-70 );
-			background-color: transparent;
-
-			&::after {
-				display: none;
-			}
+			@include tabs-view-selected-styles;
 		}
 
-		.notouch .is-selected & {
-			&:hover {
-				color: var( --color-neutral-70 );
-			}
+		.minimal & {
+			@include tabs-view-minimal-styles;
 		}
 	}
 }
@@ -123,20 +168,86 @@
 	width: 0;
 	color: inherit;
 
-	@include breakpoint-deprecated( '>480px' ) {
+	@mixin tabs-view-styles {
 		display: inline;
 		flex: none;
 		width: auto;
 	}
+
+	.enforce-tabs-view & {
+		@include tabs-view-styles;
+	}
+
+	@include breakpoint-deprecated( ">480px" ) {
+		@include tabs-view-styles;
+	}
+}
+.section-nav-updated.section-nav {
+	.is-selected.section-nav-tab .section-nav-tab__link .count {
+		color: var(--color-text);
+	}
+
+	@include breakpoint-deprecated( ">660px" ) {
+		.section-nav-tab__link {
+			color: var(--studio-gray-70);
+			&:hover {
+				background-color: transparent;
+				color: var(--studio-gray-80);
+			}
+			&:visited {
+				color: var(--studio-gray-80);
+			}
+		}
+		.section-nav-tab:hover:not(.is-selected) {
+			border-bottom-color: transparent;
+		}
+		.is-selected {
+			.section-nav-tab__link {
+				color: var(--studio-gray-70);
+			}
+		}
+	}
+
+	.section-nav__mobile-header {
+		.count {
+			margin-inline-start: 8px;
+		}
+		.gridicon {
+			margin-inline-start: auto;
+		}
+	}
+
+	.count {
+		background: var(--studio-gray-5);
+		border-radius: 3px;
+		border: none;
+		font-weight: normal;
+	}
+	margin-bottom: 0;
+	@include breakpoint-deprecated( ">660px" ) {
+		box-shadow: none;
+	}
 }
 
-.section-nav-tab__title {
-	display: flex;
-	align-items: center;
-	box-sizing: border-box;
-	padding: 15px;
-	width: 100%;
-	font-size: $font-body-small;
-	line-height: 18px;
-	color: var( --color-neutral-70 );
+.theme-jetpack-cloud .section-nav-updated.section-nav {
+	@include breakpoint-deprecated( ">660px" ) {
+		background: var(--color-primary-0);
+	}
+}
+
+.plugins-section-nav {
+	@include breakpoint-deprecated( ">660px" ) {
+		.section-nav-tabs.is-dropdown {
+			margin: 8px 0;
+			z-index: 99;
+			.select-dropdown__header .count {
+				top: unset;
+				margin-inline-end: 20px;
+			}
+			.select-dropdown__item-count .count {
+				position: static;
+				color: var(--color-primary);
+			}
+		}
+	}
 }

@@ -1,6 +1,35 @@
 #### Unreleased
 
-#### trunk
+#### v8.0.0 (2023-09-14)
+
+- Breaking: Updated peer dependency `eslint-plugin-jsdoc` to 46.5.1, which
+  may result in more rule violations which were not previously detected.
+- Breaking: Minimum node version is now 14.21.3 (formerly 14.0.0).
+- Breaking: Minimum eslint version is now 8.48.0 (formerly >=8.6.0).
+- Enhancement: Added rule `wpcalypso/i18n-translate-identifier`.
+- Enhancement: Added rule `wpcalypso/i18n-unlocalized-url`.
+- Fix: Fixed spread operator error.
+
+#### v7.0.0 (2022-01-24)
+
+- Breaking: For JSDoc types like `{object}`, prefer capitalized variants to match
+  the WordPress coding style. (Like `{Object}`.) Violations are autofixable. You
+  can override this by setting `settings.jsdoc.preferredTypes.object` to 'object'
+  in your eslint config.
+- Breaking: Updated peer dependency `eslint-plugin-jsdoc` to v39.6.7, which includes
+  fixes to some JSDoc rules like `jsdoc/require-returns-check`. This may result
+  in more rule violations which were not previously detected.
+- Breaking: Require at least NodeJS 14, since dependencies dropped support for older versions.
+- Enhancement: The `jsdoc/check-types` rule now sets `unifyParentAndChildTypeChecks`
+  to true to enforce `preferredTypes` on unions as well (e.g. `{string | Object}`).
+
+#### v6.1.0 (2022-08-24)
+
+- Add missing optional peer dependency on `eslint-plugin-react`.
+- Mark the peer dependency on `eslint-plugin-react-hooks` as optional to match that on `eslint-plugin-react`.
+- Update `jsx-classname-namespace` rule to check only for BEM convention.
+
+#### v6.0.0 (2022-05-13)
 
 - Breaking: Migrated from `babel-eslint` to `@babel/eslint-parser`. This requires `@babel/core` to be
   installed (added as a `peerDependency` to this package) and a valid Babel configuration file to exist.

@@ -1,6 +1,10 @@
-@import '@automattic/typography/styles/variables';
-@import '@wordpress/base-styles/breakpoints';
-@import '@wordpress/base-styles/mixins';
+@import "@automattic/typography/styles/variables";
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
+
+body.edit__body-white.theme-default.color-scheme {
+	--color-surface-backdrop: var(--studio-white);
+}
 
 .settings-header__children {
 	white-space: nowrap;
@@ -10,8 +14,6 @@
 
 .settings-header {
 	&__container {
-		margin-bottom: 24px;
-
 		&-title {
 			display: flex;
 			flex-wrap: wrap;
@@ -23,24 +25,6 @@
 			header.settings-header__title {
 				margin: 8px 0;
 				text-transform: lowercase;
-
-				.formatted-header__title {
-					font-weight: 400;
-					margin: 0;
-					line-height: 100%;
-
-					@include break-zoomed-in {
-						font-size: $font-title-medium;
-					}
-
-					@include break-small {
-						font-size: $font-title-large;
-					}
-				}
-			}
-
-			@include breakpoint-deprecated( '<660px' ) {
-				margin: 0 16px 24px;
 			}
 		}
 
@@ -56,8 +40,8 @@
 				justify-content: center;
 				align-items: center;
 				font-size: $font-body-extra-small;
-				border-radius: 4px; /* stylelint-disable-line */
-				font-weight: 500; /* stylelint-disable-line */
+				border-radius: 4px;
+				font-weight: 500;
 
 				.settings-header__badge-indicator {
 					display: flex;
@@ -73,44 +57,44 @@
 				}
 
 				&--success {
-					background: rgba( 184, 230, 191, 0.6 );
-					color: var( --studio-green-80 );
+					background: rgba(184, 230, 191, 0.6);
+					color: var(--studio-green-80);
 
 					svg {
-						fill: var( --studio-green-80 );
+						fill: var(--studio-green-80);
 					}
 
 					.settings-header__badge-indicator svg {
-						fill: var( --studio-green-50 );
+						fill: var(--studio-green-50);
 					}
 				}
 
 				&--warning {
-					background: var( --studio-orange-0 );
-					color: var( --studio-yellow-80 );
+					background: var(--studio-orange-0);
+					color: var(--studio-yellow-80);
 
 					svg {
-						fill: var( --studio-orange-40 );
+						fill: var(--studio-orange-40);
 					}
 				}
 
 				&--premium {
-					background: var( --studio-yellow-10 );
-					color: var( --studio-yellow-80 );
+					background: var(--studio-yellow-10);
+					color: var(--studio-yellow-80);
 
 					svg {
-						fill: var( --studio-yellow-80 );
+						fill: var(--studio-yellow-80);
 						margin-right: 0;
 						margin-left: 4px;
 					}
 				}
 
 				&--neutral {
-					background: rgba( 220, 220, 222, 0.6 );
-					color: var( --studio-gray-80 );
+					background: rgba(220, 220, 222, 0.6);
+					color: var(--studio-gray-80);
 
 					svg {
-						fill: var( --studio-gray-80 );
+						fill: var(--studio-gray-80);
 					}
 				}
 			}
@@ -119,7 +103,7 @@
 
 	&__domain-notice {
 		flex-basis: 100%;
-		background-color: var( --studio-gray-0 );
+		background-color: var(--studio-gray-0);
 		display: flex;
 		align-items: center;
 		padding: 5px;
@@ -137,31 +121,44 @@
 		min-width: 18px;
 		position: relative;
 		top: 2px;
-		fill: var( --studio-green-50 );
+		fill: var(--studio-green-50);
 
 		&--error {
-			fill: var( --studio-orange-40 );
+			fill: var(--studio-orange-40);
 		}
 	}
 
 	&__domain-notice-icon--rotated {
-		transform: rotate( 180deg );
+		transform: rotate(180deg);
 	}
 
 	&__domain-notice-message {
 		font-weight: 400;
 		font-size: $font-body-small;
-		color: var( --studio-gray-80 );
+		color: var(--studio-gray-80);
 
 		button.button-plain {
 			cursor: pointer;
-			color: var( --color-link );
+			color: var(--color-link);
 
 			&:hover,
 			&:focus,
 			&:active {
-				color: var( --color-link-dark );
+				color: var(--color-link-dark);
 			}
+		}
+	}
+
+	&__domain-notice-dismiss-button {
+		margin-left: auto;
+		width: 18px;
+		height: 18px;
+		color: var(--color-text-subtle);
+		cursor: pointer;
+
+		@include break-small {
+			width: 24px;
+			height: 24px;
 		}
 	}
 }
@@ -172,5 +169,43 @@
 		display: block;
 		margin-top: 4px;
 		margin-bottom: 0;
+	}
+
+	.set-as-primary__notice {
+		flex-basis: 100%;
+		background-color: var(--studio-gray-0);
+		display: flex;
+		align-items: center;
+		padding: 5px;
+		margin-top: 12px;
+		margin-bottom: 24px;
+		gap: 8px;
+		border-radius: 2px;
+
+		.set-as-primary__notice-icon.gridicon {
+			align-self: flex-start;
+			min-width: 18px;
+			fill: var(--studio-orange-40);
+			transform: rotate(180deg);
+			position: relative;
+		}
+
+		.set-as-primary__notice-message {
+			font-weight: 400;
+			font-size: $font-body-small;
+			color: var(--studio-gray-80);
+		}
+	}
+}
+
+.is-mobile-app-view {
+	&.is-section-domains .focus-content:not(.has-no-sidebar) .layout__content {
+		padding-top: 0;
+	}
+	.domain-settings-page {
+		.navigation-header,
+		.breadcrumbs-back {
+			display: none;
+		}
 	}
 }

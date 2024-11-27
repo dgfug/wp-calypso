@@ -14,7 +14,6 @@ import { collectTranslationTimings, clearTranslationTimings } from './collectors
 /**
  * This reporter is added to _all_ performance tracking metrics.
  * Be sure to add only metrics that make sense for tracked pages and are always present.
- *
  * @param state redux state
  */
 const buildDefaultCollector = ( state ) => {
@@ -27,10 +26,8 @@ const buildDefaultCollector = ( state ) => {
 	const userCountryCode = getCurrentUserCountryCode( state );
 	const userBootstrapped = isCurrentUserBootstrapped( state );
 	const userLocale = getCurrentUserLocale( state );
-	const {
-		count: translationsChunksCount,
-		total: translationsChunksDuration,
-	} = collectTranslationTimings();
+	const { count: translationsChunksCount, total: translationsChunksDuration } =
+		collectTranslationTimings();
 	clearTranslationTimings();
 
 	return ( report ) => {
@@ -54,7 +51,7 @@ const buildMetadataCollector = ( metadata = {} ) => {
 	};
 };
 
-const isPerformanceTrackingEnabled = () => {
+export const isPerformanceTrackingEnabled = () => {
 	return config.isEnabled( 'rum-tracking/logstash' );
 };
 
@@ -64,10 +61,17 @@ export const startPerformanceTracking = ( name, { fullPageLoad = false } = {} ) 
 	}
 };
 
-export const stopPerformanceTracking = ( name, { state = {}, metadata = {} } = {} ) => {
+export const stopPerformanceTracking = (
+	name,
+	{ state = {}, metadata = {}, extraCollectors = [] } = {}
+) => {
 	if ( isPerformanceTrackingEnabled() ) {
 		stop( name, {
-			collectors: [ buildDefaultCollector( state ), buildMetadataCollector( metadata ) ],
+			collectors: [
+				buildDefaultCollector( state ),
+				buildMetadataCollector( metadata ),
+				...extraCollectors.map( ( collector ) => collector( state, metadata ) ),
+			],
 		} );
 	}
 };

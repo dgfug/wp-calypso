@@ -1,12 +1,14 @@
-import classnames from 'classnames';
+import { FormLabel } from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { debounce } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import ReactDom from 'react-dom';
+import { connect } from 'react-redux';
 import ClipboardButtonInput from 'calypso/components/clipboard-button-input';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormRadio from 'calypso/components/forms/form-radio';
+import FormSelect from 'calypso/components/forms/form-select';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import FormTextarea from 'calypso/components/forms/form-textarea';
 import TrackInputChanges from 'calypso/components/track-input-changes';
@@ -14,7 +16,12 @@ import { withUpdateMedia } from 'calypso/data/media/with-update-media';
 import { FormCheckbox } from 'calypso/devdocs/design/playground-scope';
 import { gaRecordEvent } from 'calypso/lib/analytics/ga';
 import { bumpStat } from 'calypso/lib/analytics/mc';
+import decodeEntities from 'calypso/lib/formatting/decode/browser';
 import { getMimePrefix, url } from 'calypso/lib/media/utils';
+import versionCompare from 'calypso/lib/version-compare';
+import { isJetpackSite } from 'calypso/state/sites/selectors';
+import getSiteOption from 'calypso/state/sites/selectors/get-site-option';
+import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import EditorMediaModalFieldset from '../fieldset';
 
 const noop = () => {};
@@ -40,11 +47,9 @@ class EditorMediaModalDetailFields extends Component {
 		};
 	}
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( nextProps ) {
-		if ( nextProps.item && nextProps.item.ID !== this.props.item?.ID ) {
-			this.updateChange( true );
-			this.setState( { modifiedChanges: null } );
+	componentDidUpdate( prevProps ) {
+		if ( prevProps.item && prevProps.item.privacy_setting !== this.props.item?.privacy_setting ) {
+			window.postMessage( { event: 'videopress_refresh_iframe' }, '*' );
 		}
 	}
 
@@ -74,6 +79,10 @@ class EditorMediaModalDetailFields extends Component {
 
 	isMimePrefix( prefix ) {
 		return getMimePrefix( this.props.item ) === prefix;
+	}
+
+	isVideoPress() {
+		return !! this.getItemValue( 'videopress_guid' );
 	}
 
 	updateChange( saveImmediately = false ) {
@@ -116,6 +125,11 @@ class EditorMediaModalDetailFields extends Component {
 
 	handleRatingChange = ( { currentTarget } ) => {
 		this.setFieldByName( 'rating', currentTarget.value );
+	};
+
+	handlePrivacySettingChange = ( { currentTarget } ) => {
+		const clippedValue = Math.max( 0, Math.min( 2, parseInt( currentTarget.value, 10 ) ) );
+		this.setFieldByName( 'privacy_setting', clippedValue );
 	};
 
 	handleDisplayEmbed = () => {
@@ -161,11 +175,11 @@ class EditorMediaModalDetailFields extends Component {
 	}
 
 	renderVideoPressShortcode = () => {
-		const videopressGuid = this.getItemValue( 'videopress_guid' );
-
-		if ( ! videopressGuid ) {
+		if ( ! this.isVideoPress() ) {
 			return;
 		}
+
+		const videopressGuid = this.getItemValue( 'videopress_guid' );
 
 		return (
 			<EditorMediaModalFieldset legend={ this.props.translate( 'Shortcode' ) }>
@@ -201,7 +215,7 @@ class EditorMediaModalDetailFields extends Component {
 
 		return (
 			<EditorMediaModalFieldset legend={ this.props.translate( 'Rating' ) }>
-				<div className={ classnames( 'form-radios-bar' ) } style={ { display: 'flex' } }>
+				<div className={ clsx( 'form-radios-bar' ) } style={ { display: 'flex' } }>
 					{ items.map( ( item, i ) => (
 						<FormLabel key={ item.value + i } style={ { paddingRight: '15px' } }>
 							<FormRadio
@@ -212,6 +226,29 @@ class EditorMediaModalDetailFields extends Component {
 						</FormLabel>
 					) ) }
 				</div>
+			</EditorMediaModalFieldset>
+		);
+	};
+
+	renderPrivacySetting = () => {
+		if ( ! this.isVideoPress() ) {
+			return;
+		}
+
+		const privacySetting = this.getItemValue( 'privacy_setting' );
+		return (
+			<EditorMediaModalFieldset legend={ this.props.translate( 'Privacy' ) }>
+				<FormSelect value={ privacySetting } onChange={ this.handlePrivacySettingChange }>
+					<option key={ 2 } value={ 2 }>
+						{ this.props.translate( 'Site Default' ) }
+					</option>
+					<option key={ 0 } value={ 0 }>
+						{ this.props.translate( 'Public' ) }
+					</option>
+					<option key={ 1 } value={ 1 }>
+						{ this.props.translate( 'Private' ) }
+					</option>
+				</FormSelect>
 			</EditorMediaModalFieldset>
 		);
 	};
@@ -242,9 +279,7 @@ class EditorMediaModalDetailFields extends Component {
 	};
 
 	renderAllowDownloadOption = () => {
-		// Make sure this is actually a VideoPress video
-		const videopressGuid = this.getItemValue( 'videopress_guid' );
-		if ( ! videopressGuid ) {
+		if ( ! this.isVideoPress() ) {
 			return;
 		}
 
@@ -281,7 +316,7 @@ class EditorMediaModalDetailFields extends Component {
 					<TrackInputChanges onNewValue={ this.bumpTitleStat }>
 						<FormTextInput
 							name="title"
-							value={ this.getItemValue( 'title' ) }
+							value={ decodeEntities( this.getItemValue( 'title' ) ) }
 							onChange={ this.setFieldValue }
 						/>
 					</TrackInputChanges>
@@ -291,7 +326,7 @@ class EditorMediaModalDetailFields extends Component {
 					<TrackInputChanges onNewValue={ this.bumpCaptionStat }>
 						<FormTextarea
 							name="caption"
-							value={ this.getItemValue( 'caption' ) }
+							value={ decodeEntities( this.getItemValue( 'caption' ) ) }
 							onChange={ this.setFieldValue }
 						/>
 					</TrackInputChanges>
@@ -303,7 +338,7 @@ class EditorMediaModalDetailFields extends Component {
 					<TrackInputChanges onNewValue={ this.bumpDescriptionStat }>
 						<FormTextarea
 							name="description"
-							value={ this.getItemValue( 'description' ) }
+							value={ decodeEntities( this.getItemValue( 'description' ) ) }
 							onChange={ this.setFieldValue }
 						/>
 					</TrackInputChanges>
@@ -316,10 +351,23 @@ class EditorMediaModalDetailFields extends Component {
 				{ this.renderShareEmbed() }
 				{ this.renderAllowDownloadOption() }
 				{ this.renderRating() }
+				{ this.props.hasVideoPrivacyFeature && this.renderPrivacySetting() }
 				{ this.renderVideoPressShortcode() }
 			</div>
 		);
 	}
 }
 
-export default localize( withUpdateMedia( EditorMediaModalDetailFields ) );
+export default connect( ( state ) => {
+	const siteId = getSelectedSiteId( state );
+	const isWpcom = ! isJetpackSite( state, siteId );
+	const siteJetpackVersion = getSiteOption( state, siteId, 'jetpack_version' );
+	const isJetpackPrivateVideoSupported =
+		siteJetpackVersion && versionCompare( siteJetpackVersion, '10.9', '>=' );
+	const hasVideoPrivacyFeature = isWpcom || isJetpackPrivateVideoSupported;
+
+	return {
+		siteId,
+		hasVideoPrivacyFeature,
+	};
+} )( localize( withUpdateMedia( EditorMediaModalDetailFields ) ) );

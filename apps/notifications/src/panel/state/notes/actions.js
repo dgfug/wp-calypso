@@ -5,9 +5,10 @@ export const addNotes = ( notes ) => ( {
 	notes,
 } );
 
-export const removeNotes = ( noteIds ) => ( {
+export const removeNotes = ( noteIds, isComment = false ) => ( {
 	type: types.NOTES_REMOVE,
 	noteIds,
+	isComment,
 } );
 
 export const noteAction = ( action ) => ( noteId ) => ( {
@@ -38,11 +39,9 @@ export const likeNote = ( noteId, isLiked ) => ( {
  * the app so that stale data coming in from polling
  * operations don't accidentally change this value to
  * an incorrect state and cause a flash of the approval status.
- *
  * @see approveNote
- *
  * @param {number} noteId
- * @returns {object} action object
+ * @returns {Object} action object
  */
 export const resetLocalApproval = ( noteId ) => ( {
 	type: types.RESET_LOCAL_APPROVAL,
@@ -56,11 +55,9 @@ export const resetLocalApproval = ( noteId ) => ( {
  * the app so that stale data coming in from polling
  * operations don't accidentally change this value to
  * an incorrect state and cause a flash of the like status.
- *
  * @see likeNote
- *
  * @param {number} noteId
- * @returns {object} action object
+ * @returns {Object} action object
  */
 export const resetLocalLike = ( noteId ) => ( {
 	type: types.RESET_LOCAL_LIKE,

@@ -1,33 +1,45 @@
+/**
+ * @group gutenberg
+ * @group jetpack-wpcom-integration
+ */
+
 import {
 	DataHelper,
 	envVariables,
-	GutenbergEditorPage,
+	EditorPage,
 	PublishedPostPage,
 	TestAccount,
 	PagesPage,
-	PageTemplateModalComponent,
+	getTestAccountByFeature,
+	envToFeatureKey,
 } from '@automattic/calypso-e2e';
-import { Browser, Page, Frame } from 'playwright';
+import { Browser, Page } from 'playwright';
 
 declare const browser: Browser;
 
-const pageTemplateCategory = 'About';
-const pageTemplateLable = 'About layout with intro and contact';
-const expectedTemplateText = 'Our Mission';
 const customUrlSlug = `about-${ DataHelper.getTimestamp() }-${ DataHelper.getRandomInteger(
 	0,
 	100
 ) }`;
 
 describe( DataHelper.createSuiteTitle( 'Editor: Basic Post Flow' ), function () {
+	const features = envToFeatureKey( envVariables );
+	const accountName = getTestAccountByFeature(
+		features,
+		// The default accounts for gutenberg+simple are `gutenbergSimpleSiteEdgeUser` for GB edge
+		// and `gutenbergSimpleSiteUser` for stable. The criteria below conflicts with the default
+		// one that would return the `gutenbergSimpleSiteUser`. We also can't define it as part of
+		// the default criteria, and should pass it here, as an override. For this specific function
+		// call, `simpleSitePersonalPlanUser` will be retured when gutenberg is stable, and siteType
+		// is simple.
+		[ { gutenberg: 'stable', siteType: 'simple', accountName: 'simpleSitePersonalPlanUser' } ]
+	);
+
 	let page: Page;
-	let gutenbergEditorPage: GutenbergEditorPage;
-	let editorIframe: Frame;
+	let editorPage: EditorPage;
 	let pagesPage: PagesPage;
 	let publishedUrl: URL;
-	const accountName = envVariables.GUTENBERG_EDGE
-		? 'gutenbergSimpleSiteEdgeUser'
-		: 'simpleSitePersonalPlanUser';
+	let pageTemplateToSelect: string;
 
 	beforeAll( async () => {
 		page = await browser.newPage();
@@ -46,34 +58,40 @@ describe( DataHelper.createSuiteTitle( 'Editor: Basic Post Flow' ), function () 
 	} );
 
 	it( 'Select page template', async function () {
-		gutenbergEditorPage = new GutenbergEditorPage( page );
-		// @TODO Consider moving this to GutenbergEditorPage.
-		editorIframe = await gutenbergEditorPage.waitUntilLoaded();
-		const pageTemplateModalComponent = new PageTemplateModalComponent( editorIframe, page );
-		await pageTemplateModalComponent.selectTemplateCatagory( pageTemplateCategory );
-		await pageTemplateModalComponent.selectTemplate( pageTemplateLable );
+		editorPage = new EditorPage( page );
+		// Allow some time for CPU and/or network to catch up.
+		await editorPage.selectTemplateCategory( 'About', { timeout: 20 * 1000 } );
+
+		const editorParent = await editorPage.getEditorParent();
+		pageTemplateToSelect =
+			( await editorParent
+				.getByRole( 'listbox', { name: 'Block patterns' } )
+				.getByRole( 'option' )
+				.first()
+				.getAttribute( 'aria-label' ) ) ?? '';
+		await editorPage.selectTemplate( pageTemplateToSelect, { timeout: 15 * 1000 } );
 	} );
 
 	it( 'Template content loads into editor', async function () {
-		// @TODO Consider moving this to GutenbergEditorPage.
-		await editorIframe.waitForSelector( `text=${ expectedTemplateText }` );
+		const editorCanvas = await editorPage.getEditorCanvas();
+		await editorCanvas.locator( `h1.wp-block:text-is('${ pageTemplateToSelect }')` ).waitFor();
 	} );
 
 	it( 'Open setting sidebar', async function () {
-		await gutenbergEditorPage.openSettings();
+		await editorPage.openSettings();
 	} );
 
 	it( 'Set custom URL slug', async function () {
-		await gutenbergEditorPage.setURLSlug( customUrlSlug );
+		await editorPage.setURLSlug( customUrlSlug );
 	} );
 
 	// This step is required on mobile, but doesn't hurt anything on desktop, so avoiding conditional.
 	it( 'Close settings sidebar', async function () {
-		await gutenbergEditorPage.closeSettings();
+		await editorPage.closeSettings();
 	} );
 
 	it( 'Publish page', async function () {
-		publishedUrl = await gutenbergEditorPage.publish( { visit: true } );
+		publishedUrl = await editorPage.publish( { visit: true } );
 	} );
 
 	it( 'Published URL contains the custom URL slug', async function () {
@@ -83,6 +101,6 @@ describe( DataHelper.createSuiteTitle( 'Editor: Basic Post Flow' ), function () 
 	it( 'Published page contains template content', async function () {
 		// Not a typo, it's the POM page class for a WordPress page. :)
 		const publishedPagePage = new PublishedPostPage( page );
-		await publishedPagePage.validateTextInPost( expectedTemplateText );
+		await publishedPagePage.validateTextInPost( pageTemplateToSelect );
 	} );
 } );

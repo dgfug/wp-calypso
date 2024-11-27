@@ -1,5 +1,5 @@
 import { Card } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { get, flowRight } from 'lodash';
 import { Component } from 'react';
@@ -56,11 +56,11 @@ class StatModuleFollowersPage extends Component {
 			}
 
 			paginationSummary = translate(
-				'Showing %(startIndex)s - %(endIndex)s of %(total)s %(itemType)s followers',
+				'Showing %(startIndex)s - %(endIndex)s of %(total)s %(itemType)s subscribers',
 				{
 					context: 'pagination',
 					comment:
-						'"Showing [start index] - [end index] of [total] [item]" Example: Showing 21 - 40 of 300 WordPress.com followers',
+						'"Showing [start index] - [end index] of [total] [item]" Example: Showing 21 - 40 of 300 WordPress.com subscribers',
 					args: {
 						startIndex: numberFormat( startIndex ),
 						endIndex: numberFormat( endIndex ),
@@ -89,20 +89,20 @@ class StatModuleFollowersPage extends Component {
 			labelLegend = translate( 'Post', {
 				context: 'noun',
 			} );
-			valueLegend = translate( 'Followers' );
+			valueLegend = translate( 'Subscribers' );
 		} else if ( data && data.subscribers ) {
 			followers = <StatsList data={ data.subscribers } moduleName="Followers" />;
-			labelLegend = translate( 'Follower' );
+			labelLegend = translate( 'Subscriber' );
 			valueLegend = translate( 'Since' );
 		}
 		return (
 			<div className="followers">
 				<QuerySiteStats statType="statsCommentFollowers" siteId={ siteId } query={ query } />
-				<SectionHeader label={ translate( 'Comments Followers' ) } />
-				<Card className={ classNames( classes ) }>
+				<SectionHeader label={ translate( 'Comments Subscribers' ) } />
+				<Card className={ clsx( classes ) }>
 					<div className="module-content">
 						{ noData && ! hasError && ! isLoading && (
-							<ErrorPanel className="is-empty-message" message={ translate( 'No followers' ) } />
+							<ErrorPanel className="is-empty-message" message={ translate( 'No subscribers' ) } />
 						) }
 
 						{ paginationSummary }

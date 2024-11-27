@@ -1,5 +1,5 @@
 import { Card } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { includes } from 'lodash';
 import PropTypes from 'prop-types';
 import { PureComponent } from 'react';
@@ -38,6 +38,7 @@ class SiteImporter extends PureComponent {
 			icon: PropTypes.string.isRequired,
 			description: PropTypes.node.isRequired,
 			uploadDescription: PropTypes.node,
+			engine: PropTypes.string.isRequired,
 		} ).isRequired,
 		importerStatus: PropTypes.shape( {
 			errorData: PropTypes.shape( {
@@ -71,11 +72,11 @@ class SiteImporter extends PureComponent {
 	};
 
 	render() {
-		const { title, icon, description, uploadDescription } = this.props.importerData;
+		const { title, icon, description, uploadDescription, engine } = this.props.importerData;
 		const { importerStatus } = this.props;
 		const isEnabled = appStates.DISABLED !== importerStatus.importerState;
 		const showStart = includes( compactStates, importerStatus.importerState );
-		const cardClasses = classNames( 'importer__site-importer-card', {
+		const cardClasses = clsx( 'importer__site-importer-card', {
 			'is-compact': showStart,
 			'is-disabled': ! isEnabled,
 		} );
@@ -108,6 +109,7 @@ class SiteImporter extends PureComponent {
 						importerStatus={ importerStatus }
 						onStartImport={ this.validateSite }
 						isEnabled={ isEnabled }
+						targetPlatform={ engine }
 					/>
 				) }
 			</Card>

@@ -4,12 +4,11 @@
  *
  * Returns an object  *
  * Specifically:
- *  - facilitates simple string concatenation inside translate,
- *     e.g. translate( "A long string " + "broken up over multiple lines" ),
- *  - wraps quotes and backslashes for php consumption
- *
- * @param  {object} match - parser matching object
- * @returns {object} data object combining the strings and options passed into translate();
+ * - facilitates simple string concatenation inside translate,
+ * e.g. translate( "A long string " + "broken up over multiple lines" ),
+ * - wraps quotes and backslashes for php consumption
+ * @param  {Object} match - parser matching object
+ * @returns {Object | undefined} data object combining the strings and options passed into translate();
  */
 module.exports = function preProcessXGettextJSMatch( match ) {
 	const finalProps = { line: match.line };
@@ -76,8 +75,7 @@ module.exports = function preProcessXGettextJSMatch( match ) {
 /**
  * Long translation strings can be broken into multiple strings concatenated with the + operator.
  * This function concatenates the substrings into a single string.
- *
- * @param  {object} ASTNode - the BinaryExpression object returned from the AST parser
+ * @param  {Object} ASTNode - the BinaryExpression object returned from the AST parser
  * @returns {string}          - the concatenated string
  */
 function concatenateBinaryExpression( ASTNode ) {
@@ -100,7 +98,6 @@ function concatenateBinaryExpression( ASTNode ) {
 /**
  * Takes a valid javascript literal (with the quotes included) and returns a double-quoted
  * version of that string
- *
  * @param  {string} literal - origin literal (string with quotes)
  * @returns {string}         - double quote representation of the string
  */
@@ -144,11 +141,12 @@ function makeDoubleQuoted( literal ) {
 /**
  * Takes a string argument and turns it into a valid string representation for most languages/format (with double quotes)
  * Anything else than a string is left unchanged
- *
  * @param  {string} input  - origin string or other type of input
  * @returns {string}        - universal representation of string or input unchanged
  */
 function encapsulateString( input ) {
-	if ( 'string' !== typeof input ) return input;
+	if ( 'string' !== typeof input ) {
+		return input;
+	}
 	return '"' + input.replace( /(\\|")/g, '\\$1' ) + '"';
 }

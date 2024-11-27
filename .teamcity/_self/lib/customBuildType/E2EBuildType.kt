@@ -2,6 +2,8 @@ package _self.lib.customBuildType
 
 import Settings
 import _self.bashNodeScript
+import _self.lib.utils.mergeTrunk
+import jetbrains.buildServer.configs.kotlin.v2019_2.AbsoluteId
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
@@ -38,7 +40,8 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
  * @param getCalypsoLiveURL String containing the commands to be run in order to obtain the live URL. Only used for Calypso E2E.
  * @param testGroup String corresponding to an existing group defined for Jest Runner Group.
  * @param buildParams Environment variables and other parameters to set for the build.
- * @param buildFeatures Features to enable on top of the default feature set (perfmon, commitStatusPublisher).
+ * @param buildFeatures Features to enable on top of the default feature set (perfmon).
+ * @param enableCommitStatusPublisher Boolean toggle to enable the commit status publisher in Build Features.
  * @param buildTriggers Rules to trigger the build. By default, no triggers are defined.
  * @param buildDepedencies If the build configuration depends on another existing build configuration, define it here.
  */
@@ -52,8 +55,11 @@ open class E2EBuildType(
 	var testGroup: String,
 	var buildParams: ParametrizedWithType.() -> Unit = {},
 	var buildFeatures: BuildFeatures.() -> Unit,
+	var enableCommitStatusPublisher: Boolean = false,
 	var buildTriggers: Triggers.() -> Unit = {},
 	var buildDependencies: Dependencies.() -> Unit = {},
+	var addWpcomVcsRoot: Boolean = false,
+	var buildSteps: BuildSteps.() -> Unit = {}
 
 ): BuildType() {
 	init {
@@ -62,9 +68,11 @@ open class E2EBuildType(
 		val testGroup = testGroup
 		val buildParams = buildParams
 		val buildFeatures = buildFeatures
+		val enableCommitStatusPublisher = enableCommitStatusPublisher
 		val buildTriggers = buildTriggers
 		val buildDependencies = buildDependencies
 		val params = params
+		val buildSteps = buildSteps
 
 		id( buildId )
 		uuid = buildUuid
@@ -73,7 +81,7 @@ open class E2EBuildType(
 		maxRunningBuilds = concurrentBuilds
 
 		artifactRules = """
-			logs.tgz => logs.tgz
+			logs => logs.tgz
 			screenshots => screenshots
 			trace => trace
 		""".trimIndent()
@@ -86,19 +94,28 @@ open class E2EBuildType(
 		params {
 			param("env.NODE_CONFIG_ENV", "test")
 			param("env.PLAYWRIGHT_BROWSERS_PATH", "0")
-			param("env.TEAMCITY_VERSION", "2021")
-			param("env.HEADLESS", "false")
+			param("env.HEADLESS", "true")
 			param("env.LOCALE", "en")
-			param("env.DEBUG", "pw:api")
+			param("env.DEBUG", "")
 			buildParams()
 		}
 
 		steps {
+			// IMPORTANT! This step MUST match what the docker image does. If trunk
+			// is merged when building the docker image, it must also be merged
+			// to run the tests, or they may not be compatible. See the "mergeTrunk"
+			// step in BuildDockerImage in WebApp.kt.
+			mergeTrunk( skipIfConflict = true )
+
 			bashNodeScript {
 				name = "Prepare environment"
 				scriptContent = """
 					# Install deps
 					yarn workspaces focus wp-e2e-tests @automattic/calypso-e2e
+
+					# Decrypt secrets
+					# Must do before build so the secrets are in the dist output
+					E2E_SECRETS_KEY="%E2E_SECRETS_ENCRYPTION_KEY_CURRENT%" yarn workspace @automattic/calypso-e2e decrypt-secrets
 
 					# Build packages
 					yarn workspace @automattic/calypso-e2e build
@@ -115,26 +132,35 @@ open class E2EBuildType(
 
 					# For Calypso E2E build configurations, the URL environment variable
 					# is computed and exported by a script that must be executed at runtime.
-					# This script ultimately sets the URL environment variable for Calypso E2E only.
+					# Unset variables throw an error, so we initialize CALYPSO_LIVE_URL as empty first.
+					export CALYPSO_LIVE_URL=''
+
+					# This script, if provided, will ultimately sets the CALYPSO_LIVE_URL environment variable.
 					$getCalypsoLiveURL
+
+					# We only want to override the Calypso URL if we have a live one to use!
+					if [[ -n ${'$'}CALYPSO_LIVE_URL ]]; then
+						export CALYPSO_BASE_URL=${'$'}CALYPSO_LIVE_URL
+					fi
 
 					# Enter testing directory.
 					cd test/e2e
 					mkdir temp
 
-					# Decrypt config
-					openssl aes-256-cbc -md sha1 -d -in ./config/encrypted.enc -out ./config/local-test.json -k "%E2E_CONFIG_ENCRYPTION_KEY%"
-
-					# As noted above, Calypso E2E build configuration exports the URL
-					# environment variable in the Run tests step. Therefore, the export
-					# for NODE_CONFIG variable has to be done here instead of
-					# within the Kotlin DSL as a param() value.
-					export NODE_CONFIG="{\"calypsoBaseURL\":\"${'$'}{URL/}\"}"
+					# Disable exit on error to support retries.
+					set +o errexit
 
 					# Run suite.
-					xvfb-run yarn jest --reporters=jest-teamcity --reporters=default --maxWorkers=%E2E_WORKERS% --group=$testGroup
+					xvfb-run yarn jest --reporters=jest-teamcity --reporters=default --maxWorkers=%JEST_E2E_WORKERS% --workerIdleMemoryLimit=1GB --group=$testGroup
+
+					# Restore exit on error.
+					set -o errexit
+
+					# Retry failed tests only.
+					RETRY_COUNT=1 xvfb-run yarn jest --reporters=jest-teamcity --reporters=default --maxWorkers=%JEST_E2E_WORKERS% --workerIdleMemoryLimit=1GB --group=$testGroup --onlyFailures
 				"""
 				dockerImage = "%docker_image_e2e%"
+				dockerRunParameters = "-u %env.UID% --shm-size=4g"
 			}
 
 			bashNodeScript {
@@ -144,30 +170,35 @@ open class E2EBuildType(
 					set -x
 
 					mkdir -p screenshots
-					find test/e2e -type f -path '*/screenshots/*' -print0 | xargs -r -0 mv -t screenshots
+					find test/e2e/results -type f \( -iname \*.webm -o -iname \*.png \) -print0 | xargs -r -0 mv -t screenshots
 
 					mkdir -p logs
-					find test/e2e -name '*.log' -print0 | xargs -r -0 tar cvfz logs.tgz
+					find test/e2e/results -name '*.log' -print0 | xargs -r -0 mv -t logs
 
 					mkdir -p trace
 					find test/e2e/results -name '*.zip' -print0 | xargs -r -0 mv -t trace
 				""".trimIndent()
 				dockerImage = "%docker_image_e2e%"
 			}
+			buildSteps()
 		}
 
 		features {
 			perfmon {
 			}
-			commitStatusPublisher {
-				vcsRootExtId = "${Settings.WpCalypso.id}"
-				publisher = github {
-					githubUrl = "https://api.github.com"
-					authType = personalToken {
-						token = "credentialsJSON:57e22787-e451-48ed-9fea-b9bf30775b36"
+
+			if (enableCommitStatusPublisher) {
+				commitStatusPublisher {
+					vcsRootExtId = "${Settings.WpCalypso.id}"
+					publisher = github {
+						githubUrl = "https://api.github.com"
+						authType = personalToken {
+							token = "credentialsJSON:57e22787-e451-48ed-9fea-b9bf30775b36"
+						}
 					}
 				}
 			}
+
 			buildFeatures()
 		}
 
@@ -180,6 +211,9 @@ open class E2EBuildType(
 			executionTimeoutMin = 20
 			// Don't fail if the runner exists with a non zero code. This allows a build to pass if the failed tests have been muted previously.
 			nonZeroExitCode = false
+
+			// Support retries using the --onlyFailures flag in Jest.
+			supportTestRetry = true
 
 			// Fail if the number of passing tests is 50% or less than the last build. This will catch the case where the test runner crashes and no tests are run.
 			failOnMetricChange {

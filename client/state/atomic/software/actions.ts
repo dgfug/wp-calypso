@@ -21,39 +21,36 @@ export interface AtomicSoftwareError {
 
 /**
  * Initiate plugin install and activation.
- *
  * @param {string} siteId Site ID.
  * @param {string} softwareSet Software set slug.
- * @returns {object} An action object.
+ * @returns {Object} An action object.
  */
 export const requestAtomicSoftwareInstall = ( siteId: number, softwareSet: string ) =>
 	( {
 		type: ATOMIC_SOFTWARE_INITIATE_INSTALL,
 		siteId,
 		softwareSet,
-	} as const );
+	} ) as const;
 
 /**
  * Fetch install status.
- *
  * @param {string} siteId Site ID.
  * @param {string} softwareSet Software set slug.
- * @returns {object} An action object.
+ * @returns {Object} An action object.
  */
 export const requestAtomicSoftwareStatus = ( siteId: number, softwareSet: string ) =>
 	( {
 		type: ATOMIC_SOFTWARE_REQUEST_STATUS,
 		siteId,
 		softwareSet,
-	} as const );
+	} ) as const;
 
 /**
  * Set the install status.
- *
  * @param {number} siteId The site id to which the status belongs.
  * @param {string} softwareSet The software set slug.
- * @param {object} status The new status of the transfer.
- * @returns {object} An action object
+ * @param {Object} status The new status of the transfer.
+ * @returns {Object} An action object
  */
 export const setAtomicSoftwareStatus = (
 	siteId: number,
@@ -65,15 +62,14 @@ export const setAtomicSoftwareStatus = (
 		siteId,
 		softwareSet,
 		status,
-	} as const );
+	} ) as const;
 
 /**
  * Set the install error.
- *
  * @param {number} siteId The site id to which the status belongs.
  * @param {string} softwareSet The software set slug.*
  * @param {AtomicSoftwareError} error The error of the install.
- * @returns {object} An action object
+ * @returns {Object} An action object
  */
 export const setAtomicSoftwareError = (
 	siteId: number,
@@ -85,14 +81,13 @@ export const setAtomicSoftwareError = (
 		siteId,
 		softwareSet,
 		error,
-	} as const );
+	} ) as const;
 
 /**
  * Clean the install status.
- *
  * @param {number} siteId The site id to which the status belongs.
  * @param {string} softwareSet The software set slug.*
- * @returns {object} An action object
+ * @returns {Object} An action object
  */
 export const cleanAtomicSoftwareStatus = ( siteId: number, softwareSet: string ) =>
 	( {
@@ -101,4 +96,4 @@ export const cleanAtomicSoftwareStatus = ( siteId: number, softwareSet: string )
 		softwareSet,
 		status: null,
 		error: null,
-	} as const );
+	} ) as const;

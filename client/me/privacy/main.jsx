@@ -1,3 +1,4 @@
+import config from '@automattic/calypso-config';
 import { Card } from '@automattic/components';
 import { withLocalizeUrl } from '@automattic/i18n-utils';
 import { ToggleControl } from '@wordpress/components';
@@ -7,11 +8,10 @@ import { Component } from 'react';
 import { connect } from 'react-redux';
 import DocumentHead from 'calypso/components/data/document-head';
 import QueryUserSettings from 'calypso/components/data/query-user-settings';
-import ExternalLink from 'calypso/components/external-link';
-import FormattedHeader from 'calypso/components/formatted-header';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
 import Main from 'calypso/components/main';
+import NavigationHeader from 'calypso/components/navigation-header';
 import SectionHeader from 'calypso/components/section-header';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import { protectForm } from 'calypso/lib/protect-form';
@@ -21,6 +21,7 @@ import getUserSetting from 'calypso/state/selectors/get-user-setting';
 import hasUnsavedUserSettings from 'calypso/state/selectors/has-unsaved-user-settings';
 import { setUserSetting, saveUserSettings } from 'calypso/state/user-settings/actions';
 import { isUpdatingUserSettings } from 'calypso/state/user-settings/selectors';
+import { DoNotSellSetting } from './do-not-sell';
 import DPA from './dpa';
 
 const TRACKS_OPT_OUT_USER_SETTINGS_KEY = 'tracks_opt_out';
@@ -55,12 +56,8 @@ class Privacy extends Component {
 
 		const isSubmitButtonDisabled = ! hasUnsavedUserSettings || isUpdatingUserSettings;
 
-		const cookiePolicyLink = (
-			<ExternalLink href={ localizeUrl( 'https://automattic.com/cookies' ) } target="_blank" />
-		);
-		const privacyPolicyLink = (
-			<ExternalLink href={ localizeUrl( 'https://automattic.com/privacy' ) } target="_blank" />
-		);
+		const cookiePolicyLink = <a href={ localizeUrl( 'https://automattic.com/cookies/' ) } />;
+		const privacyPolicyLink = <a href={ localizeUrl( 'https://automattic.com/privacy/' ) } />;
 
 		return (
 			<Main wideLayout className="privacy">
@@ -68,7 +65,7 @@ class Privacy extends Component {
 				<PageViewTracker path="/me/privacy" title="Me > Privacy" />
 				<DocumentHead title={ translate( 'Privacy Settings' ) } />
 				<ReauthRequired twoStepAuthorization={ twoStepAuthorization } />
-				<FormattedHeader brandFont headerText={ translate( 'Privacy' ) } align="left" />
+				<NavigationHeader navigationItems={ [] } title={ translate( 'Privacy' ) } />
 
 				<SectionHeader label={ translate( 'Usage information' ) } />
 				<Card className="privacy__settings">
@@ -125,6 +122,7 @@ class Privacy extends Component {
 					</form>
 				</Card>
 				<DPA />
+				{ config.isEnabled( 'cookie-banner' ) && <DoNotSellSetting /> }
 			</Main>
 		);
 	}

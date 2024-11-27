@@ -3,7 +3,6 @@ const root = '/domains/';
 class Domains {
 	/**
 	 * `Domains` constructor.
-	 *
 	 * @param wpcom - wpcom instance
 	 * @returns {undefined} undefined
 	 */
@@ -17,8 +16,7 @@ class Domains {
 	/**
 	 * Get a list of suggested domain names that are available for
 	 * registration based on a given term or domain name.
-	 *
-	 * @param {string|object} [query] - query object parameter
+	 * @param {string | Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -31,8 +29,7 @@ class Domains {
 
 	/**
 	 * GET example domain suggestions
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -42,8 +39,7 @@ class Domains {
 
 	/**
 	 * Get a localized list of supported countries for domain registrations.
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -53,9 +49,8 @@ class Domains {
 
 	/**
 	 * Get a localized list of supported states for domain registrations.
-	 *
 	 * @param {string} countryCode - country code ISO 3166-1 alpha-2 identifier
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */

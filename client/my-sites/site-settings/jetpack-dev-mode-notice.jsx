@@ -8,7 +8,7 @@ import { isJetpackSite } from 'calypso/state/sites/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 
 const JetpackDevModeNotice = ( { isJetpackSiteInDevMode, siteId, siteIsJetpack, translate } ) => {
-	if ( ! siteIsJetpack ) {
+	if ( ! siteIsJetpack || ! isJetpackSiteInDevMode ) {
 		return null;
 	}
 
@@ -23,7 +23,7 @@ const JetpackDevModeNotice = ( { isJetpackSiteInDevMode, siteId, siteIsJetpack, 
 					) }
 					showDismiss={ false }
 				>
-					<NoticeAction href={ 'https://jetpack.com/support/development-mode/' } external>
+					<NoticeAction href="https://jetpack.com/support/development-mode/" external>
 						{ translate( 'Learn more' ) }
 					</NoticeAction>
 				</Notice>

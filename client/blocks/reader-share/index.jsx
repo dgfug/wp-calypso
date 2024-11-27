@@ -1,70 +1,31 @@
-import config from '@automattic/calypso-config';
-import { Button, Gridicon } from '@automattic/components';
-import classnames from 'classnames';
-import { localize } from 'i18n-calypso';
+import { Button } from '@automattic/components';
+import clsx from 'clsx';
+import { localize, translate } from 'i18n-calypso';
 import { defer } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { createRef, Component } from 'react';
 import { connect } from 'react-redux';
-import PopoverMenuItem from 'calypso/components/popover-menu/item';
-import SiteSelector from 'calypso/components/site-selector';
-import SocialLogo from 'calypso/components/social-logo';
-import ReaderPopoverMenu from 'calypso/reader/components/reader-popover/menu';
+import ReaderRepostIcon from 'calypso/reader/components/icons/repost';
+import ReaderShareIcon from 'calypso/reader/components/icons/share-icon';
 import * as stats from 'calypso/reader/stats';
 import { preloadEditor } from 'calypso/sections-preloaders';
+import { recordReaderTracksEvent } from 'calypso/state/reader/analytics/actions';
 import getPrimarySiteId from 'calypso/state/selectors/get-primary-site-id';
+import ReaderReblogSelection from './reblog';
+import ReaderSocialShareSelection from './social';
 
 import './style.scss';
 
-/**
- * Local variables
- */
-const actionMap = {
-	twitter( post ) {
-		const baseUrl = new URL( 'https://twitter.com/intent/tweet' );
-		const params = new URLSearchParams( {
-			text: post.title,
-			url: post.URL,
-		} );
-		baseUrl.search = params.toString();
-
-		const twitterUrl = baseUrl.href;
-
-		window.open( twitterUrl, 'twitter', 'width=550,height=420,resizeable,scrollbars' );
-	},
-	facebook( post ) {
-		const baseUrl = new URL( 'https://www.facebook.com/sharer.php' );
-		const params = new URLSearchParams( {
-			u: post.URL,
-			app_id: config( 'facebook_api_key' ),
-		} );
-		baseUrl.search = params.toString();
-
-		const facebookUrl = baseUrl.href;
-
-		window.open( facebookUrl, 'facebook', 'width=626,height=436,resizeable,scrollbars' );
-	},
+// Global event system used to close Reader share/reblog popovers from any component.
+const createShareMenuEvent = () => {
+	const subscribers = new Set();
+	return {
+		subscribe: ( callback ) => subscribers.add( callback ),
+		unsubscribe: ( callback ) => subscribers.delete( callback ),
+		trigger: () => subscribers.forEach( ( callback ) => callback() ),
+	};
 };
-
-function buildQuerystringForPost( post ) {
-	const args = {};
-
-	if ( post.content_embeds && post.content_embeds.length ) {
-		args.embed = post.content_embeds[ 0 ].embedUrl || post.content_embeds[ 0 ].src;
-	}
-	if ( post.canonical_image && post.canonical_image.uri ) {
-		args.image = post.canonical_image.uri;
-	}
-
-	args.title = `${ post.title } — ${ post.site_name }`;
-	args.text = post.excerpt;
-	args.url = post.URL;
-	args.is_post_share = true; // There is a dependency on this here https://github.com/Automattic/wp-calypso/blob/a69ded693a99fa6a957b590b1a538f32a581eb8a/client/gutenberg/editor/controller.js#L209
-
-	const params = new URLSearchParams( args );
-	return params.toString();
-}
+export const READER_SHARE_MENU_CLOSE = createShareMenuEvent();
 
 class ReaderShare extends Component {
 	static propTypes = {
@@ -73,7 +34,7 @@ class ReaderShare extends Component {
 
 	static defaultProps = {
 		position: 'bottom',
-		iconSize: 24,
+		iconSize: 20,
 	};
 
 	state = {
@@ -88,6 +49,7 @@ class ReaderShare extends Component {
 
 	componentDidMount() {
 		this.mounted = true;
+		READER_SHARE_MENU_CLOSE.subscribe( this.closeMenu );
 	}
 
 	componentWillUnmount() {
@@ -96,6 +58,7 @@ class ReaderShare extends Component {
 			this.closeHandle = null;
 		}
 		this.mounted = false;
+		READER_SHARE_MENU_CLOSE.unsubscribe( this.closeMenu );
 	}
 
 	deferMenuChange = ( showing ) => {
@@ -111,11 +74,26 @@ class ReaderShare extends Component {
 
 	toggle = () => {
 		if ( ! this.state.showingMenu ) {
-			stats.recordAction( 'open_share' );
-			stats.recordGaEvent( 'Opened Share' );
-			stats.recordTrack( 'calypso_reader_share_opened', {
-				has_sites: this.props.hasSites,
-			} );
+			// Determine if we want to use reblog or share for stat/tracks names.
+			// If reblogging a comment, add comment to the reblog stat/tracks names.
+			const actionName = this.props.isReblogSelection
+				? `open_reader_${ this.props.comment ? 'comment_' : '' }reblog`
+				: 'open_share';
+			const eventName = this.props.isReblogSelection
+				? `Opened Reader ${ this.props.comment ? 'Comment ' : '' }Reblog`
+				: 'Opened Share';
+			const trackName = this.props.isReblogSelection
+				? `calypso_reader_${ this.props.comment ? 'comment_' : '' }reblog_opened`
+				: 'calypso_reader_share_opened';
+			stats.recordAction( actionName );
+			stats.recordGaEvent( eventName );
+			this.props.recordReaderTracksEvent(
+				trackName,
+				{
+					has_sites: this.props.hasSites,
+				},
+				{ post: this.props.post }
+			);
 		}
 		this.deferMenuChange( ! this.state.showingMenu );
 	};
@@ -129,34 +107,21 @@ class ReaderShare extends Component {
 		}
 	};
 
-	pickSiteToShareTo = ( slug ) => {
-		stats.recordAction( 'share_wordpress' );
-		stats.recordGaEvent( 'Clicked on Share to WordPress' );
-		stats.recordTrack( 'calypso_reader_share_to_site' );
-		page( `/post/${ slug }?` + buildQuerystringForPost( this.props.post ) );
-		return true;
-	};
-
-	closeExternalShareMenu = ( action ) => {
-		this.closeMenu();
-		const actionFunc = actionMap[ action ];
-		if ( actionFunc ) {
-			stats.recordAction( 'share_' + action );
-			stats.recordGaEvent( 'Clicked on Share to ' + action );
-			stats.recordTrack( 'calypso_reader_share_action_picked', {
-				action: action,
-			} );
-			actionFunc( this.props.post );
-		}
-	};
-
 	render() {
-		const { translate } = this.props;
-		const buttonClasses = classnames( {
+		const buttonClasses = clsx( {
 			'reader-share__button': true,
 			'ignore-click': true,
 			'is-active': this.state.showingMenu,
+			tooltip: true,
 		} );
+
+		const popoverProps = {
+			key: 'menu',
+			context: this.shareButton.current,
+			isVisible: this.state.showingMenu,
+			position: this.props.position,
+			className: 'popover reader-share__popover',
+		};
 
 		// The event.preventDefault() on the wrapping div is needed to prevent the
 		// full post opening when a share method is selected in the popover
@@ -172,54 +137,56 @@ class ReaderShare extends Component {
 					onMouseEnter={ preloadEditor }
 					onTouchStart={ preloadEditor }
 					ref={ this.shareButton }
+					data-tooltip={
+						this.props.isReblogSelection
+							? translate( 'Repost with your thoughts' )
+							: translate( 'Share' )
+					}
 				>
-					<Gridicon aria-hidden="true" icon="share" />
-					<span className="reader-share__button-label">
-						{ translate( 'Share', { comment: 'Share the post' } ) }
-					</span>
+					{ ! this.props.isReblogSelection ? (
+						<>
+							{ ReaderShareIcon( {
+								iconSize: this.props.iconSize,
+								viewBox: '0 -2 24 24',
+							} ) }
+							<span className="reader-share__label">{ translate( 'Share' ) }</span>
+						</>
+					) : (
+						<>
+							{ ReaderRepostIcon( {
+								iconSize: this.props.iconSize,
+								viewBox: '0 -1 20 20',
+							} ) }
+							<span className="repost__label">{ translate( 'Repost' ) }</span>
+						</>
+					) }
 				</Button>
-				{ this.state.showingMenu && (
-					<ReaderPopoverMenu
-						key="menu"
-						context={ this.shareButton.current }
-						isVisible={ this.state.showingMenu }
-						onClose={ this.closeExternalShareMenu }
-						position={ this.props.position }
-						className="popover reader-share__popover"
-						popoverTitle={ translate( 'Share on' ) }
-					>
-						<PopoverMenuItem
-							action="facebook"
-							className="reader-share__popover-item"
-							title={ translate( 'Share on Facebook' ) }
-							focusOnHover={ false }
-						>
-							<SocialLogo icon="facebook" />
-							<span>Facebook</span>
-						</PopoverMenuItem>
-						<PopoverMenuItem
-							action="twitter"
-							className="reader-share__popover-item"
-							title={ translate( 'Share on Twitter' ) }
-							focusOnHover={ false }
-						>
-							<SocialLogo icon="twitter" />
-							<span>Twitter</span>
-						</PopoverMenuItem>
-						{ this.props.hasSites && (
-							<SiteSelector
-								className="reader-share__site-selector"
-								onSiteSelect={ this.pickSiteToShareTo }
-								groups
-							/>
-						) }
-					</ReaderPopoverMenu>
-				) }
+				{ this.state.showingMenu &&
+					( ! this.props.isReblogSelection ? (
+						<ReaderSocialShareSelection
+							post={ this.props.post }
+							popoverProps={ popoverProps }
+							closeMenu={ this.closeMenu }
+						/>
+					) : (
+						<ReaderReblogSelection
+							post={ this.props.post }
+							comment={ this.props.comment }
+							popoverProps={ popoverProps }
+							closeMenu={ this.closeMenu }
+						/>
+					) ) }
 			</div>
 		);
 	}
 }
 
-export default connect( ( state ) => ( {
-	hasSites: !! getPrimarySiteId( state ),
-} ) )( localize( ReaderShare ) );
+const mapStateToProps = ( state ) => {
+	return {
+		hasSites: !! getPrimarySiteId( state ),
+	};
+};
+
+const mapDispatchToProps = { recordReaderTracksEvent };
+
+export default connect( mapStateToProps, mapDispatchToProps )( localize( ReaderShare ) );

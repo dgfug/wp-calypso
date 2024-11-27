@@ -1,5 +1,7 @@
 import { CheckoutProvider, Button } from '@automattic/composite-checkout';
+import { formatCurrency } from '@automattic/format-currency';
 import { useShoppingCart } from '@automattic/shopping-cart';
+import { isBillingInfoEmpty } from '@automattic/wpcom-checkout';
 import styled from '@emotion/styled';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -76,12 +78,39 @@ const HiddenText = styled.span`
 	width: 1px;
 `;
 
-function MiniCartTotal( { responseCart }: { responseCart: ResponseCart } ) {
+const TaxCalculationLineItemWrapper = styled.div`
+	font-size: 12px;
+	text-wrap: pretty;
+	line-height: 1em;
+`;
+
+function TaxNotCalculatedLineItem() {
 	const { __ } = useI18n();
 	return (
+		<TaxCalculationLineItemWrapper>{ __( 'Tax: to be calculated' ) }</TaxCalculationLineItemWrapper>
+	);
+}
+
+function TaxAddedLineItem() {
+	const { __ } = useI18n();
+	return (
+		<TaxCalculationLineItemWrapper>
+			{ __( 'Includes applicable taxes' ) }
+		</TaxCalculationLineItemWrapper>
+	);
+}
+
+function MiniCartTotal( { responseCart }: { responseCart: ResponseCart } ) {
+	const { _x } = useI18n();
+	return (
 		<MiniCartTotalWrapper className="mini-cart__total">
-			<span>{ __( 'Total' ) }</span>
-			<span>{ responseCart.total_cost_display }</span>
+			<span>{ _x( 'Total', 'The label of the total line item in checkout' ) }</span>
+			<span>
+				{ formatCurrency( responseCart.total_cost_integer, responseCart.currency, {
+					isSmallestUnit: true,
+					stripZeros: true,
+				} ) }
+			</span>
 		</MiniCartTotalWrapper>
 	);
 }
@@ -104,6 +133,8 @@ export function MiniCart( {
 	closeCart,
 	onRemoveProduct,
 	onRemoveCoupon,
+	checkoutLabel,
+	emptyCart,
 }: {
 	selectedSiteSlug: string;
 	cartKey: number | undefined;
@@ -111,15 +142,14 @@ export function MiniCart( {
 	closeCart: () => void;
 	onRemoveProduct?: ( uuid: string ) => void;
 	onRemoveCoupon?: () => void;
-} ): JSX.Element | null {
-	const {
-		responseCart,
-		removeCoupon,
-		removeProductFromCart,
-		isLoading,
-		isPendingUpdate,
-	} = useShoppingCart( cartKey ? cartKey : undefined );
+	checkoutLabel?: string;
+	emptyCart?: React.ReactNode;
+} ) {
+	const { responseCart, removeCoupon, removeProductFromCart, isLoading, isPendingUpdate } =
+		useShoppingCart( cartKey ? cartKey : undefined );
 	const { __ } = useI18n();
+
+	const shouldRenderEmptyCart = emptyCart && responseCart.products.length <= 0;
 	const isDisabled = isLoading || isPendingUpdate;
 
 	const handleRemoveCoupon = () => {
@@ -161,18 +191,25 @@ export function MiniCart( {
 					removeProductFromCart={ handleRemoveProduct }
 					responseCart={ responseCart }
 				/>
-				<MiniCartTotal responseCart={ responseCart } />
+				{ shouldRenderEmptyCart && emptyCart }
+				{ ! shouldRenderEmptyCart && <MiniCartTotal responseCart={ responseCart } /> }
+				{ ! shouldRenderEmptyCart && isBillingInfoEmpty( responseCart ) && (
+					<TaxNotCalculatedLineItem />
+				) }
+				{ ! shouldRenderEmptyCart && ! isBillingInfoEmpty( responseCart ) && <TaxAddedLineItem /> }
 				<MiniCartFooter className="mini-cart__footer">
-					<Button
-						className="mini-cart__checkout"
-						buttonType="primary"
-						fullWidth
-						disabled={ isDisabled }
-						isBusy={ isDisabled }
-						onClick={ () => goToCheckout( selectedSiteSlug ) }
-					>
-						{ __( 'Checkout' ) }
-					</Button>
+					{ ! shouldRenderEmptyCart && (
+						<Button
+							className="mini-cart__checkout"
+							buttonType="primary"
+							fullWidth
+							disabled={ isDisabled }
+							isBusy={ isDisabled }
+							onClick={ () => goToCheckout( selectedSiteSlug ) }
+						>
+							{ checkoutLabel || __( 'Checkout' ) }
+						</Button>
+					) }
 				</MiniCartFooter>
 			</MiniCartWrapper>
 		</CheckoutProvider>

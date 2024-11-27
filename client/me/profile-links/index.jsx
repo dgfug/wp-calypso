@@ -7,9 +7,9 @@ import QueryProfileLinks from 'calypso/components/data/query-profile-links';
 import Notice from 'calypso/components/notice';
 import SectionHeader from 'calypso/components/section-header';
 import ProfileLink from 'calypso/me/profile-link';
+import AddProfileLinksButtons from 'calypso/me/profile-links/add-buttons';
 import ProfileLinksAddOther from 'calypso/me/profile-links-add-other';
 import ProfileLinksAddWordPress from 'calypso/me/profile-links-add-wordpress';
-import AddProfileLinksButtons from 'calypso/me/profile-links/add-buttons';
 import {
 	deleteUserProfileLink,
 	resetUserProfileLinkErrors,
@@ -123,7 +123,7 @@ class ProfileLinks extends Component {
 				{ times( 2, ( index ) => (
 					<ProfileLink
 						title="Loading Profile Links"
-						url="http://wordpress.com"
+						url="https://wordpress.com/"
 						slug="A placeholder profile link"
 						isPlaceholder
 						key={ index }
@@ -146,7 +146,11 @@ class ProfileLinks extends Component {
 
 		return (
 			<div>
-				<p>{ this.props.translate( 'Manage which sites appear in your profile.' ) }</p>
+				<p>
+					{ this.props.translate(
+						'Manage which sites appear when people visit your Gravatar profile.'
+					) }
+				</p>
 
 				{ this.possiblyRenderError() }
 				{ links }

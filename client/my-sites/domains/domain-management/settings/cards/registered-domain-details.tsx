@@ -3,12 +3,12 @@
 import { Button } from '@automattic/components';
 import formatCurrency from '@automattic/format-currency';
 import { useTranslate } from 'i18n-calypso';
-import { useSelector } from 'react-redux';
 import { useLocalizedMoment } from 'calypso/components/localized-moment';
 import { getRenewalPrice, isExpiring } from 'calypso/lib/purchases';
 import AutoRenewToggle from 'calypso/me/purchases/manage-purchase/auto-renew-toggle';
 import RenewButton from 'calypso/my-sites/domains/domain-management/edit/card/renew-button';
 import { getManagePurchaseUrlFor } from 'calypso/my-sites/purchases/paths';
+import { useSelector } from 'calypso/state';
 import { getProductBySlug } from 'calypso/state/products-list/selectors';
 import type { DetailsCardProps } from './types';
 
@@ -19,7 +19,7 @@ const RegisteredDomainDetails = ( {
 	isLoadingPurchase,
 	purchase,
 	selectedSite,
-}: DetailsCardProps ): JSX.Element => {
+}: DetailsCardProps ) => {
 	const moment = useLocalizedMoment();
 	const translate = useTranslate();
 	const redemptionProduct = useSelector( ( state ) =>
@@ -27,11 +27,15 @@ const RegisteredDomainDetails = ( {
 	);
 
 	const renderDates = () => {
-		const untilDateLabel = domain.expired
-			? // translators: this is followed by a date, e.g. Expired on December 15, 2021
-			  translate( 'Expired on' )
-			: // translators: this is followed by a date, e.g. Registered until January 21, 2023
-			  translate( 'Registered until' );
+		// translators: this is followed by a date, e.g. Registered until December 15, 2021
+		let untilDateLabel = translate( 'Registered until' );
+		if ( domain.expired ) {
+			// translators: this is followed by a date, e.g. Expired on December 15, 2021
+			untilDateLabel = translate( 'Expired on' );
+		} else if ( domain.isHundredYearDomain ) {
+			// translators: this is followed by a date, e.g. Paid until December 15, 2021
+			untilDateLabel = translate( 'Paid until' );
+		}
 
 		return (
 			<>
@@ -52,6 +56,7 @@ const RegisteredDomainDetails = ( {
 		return (
 			! domain.currentUserIsOwner ||
 			( ! isLoadingPurchase && ! purchase ) ||
+			( ! domain.isRenewable && ! domain.isRedeemable ) ||
 			domain.aftermarketAuction
 		);
 	};
@@ -72,25 +77,30 @@ const RegisteredDomainDetails = ( {
 				getRenewalPrice( purchase ) +
 				( domain.isRedeemable && redemptionProduct ? redemptionProduct.cost : 0 );
 			const currencyCode = purchase.currencyCode;
-			formattedPrice = formatCurrency( renewalPrice, currencyCode, { stripZeros: true } )!;
+			formattedPrice = formatCurrency( renewalPrice, currencyCode, { stripZeros: true } ) ?? '';
 		}
 
-		const autoRenewAdditionalText = ! isExpiring( purchase )
-			? translate( 'We will attempt to renew on %(renewalDate)s for %(price)s', {
-					args: {
-						renewalDate: moment( domain.autoRenewalDate ).format( 'LL' ),
-						price: formattedPrice,
-					},
-			  } )
-			: null;
+		const autoRenewAdditionalText =
+			purchase && ! isExpiring( purchase ) && ! domain.expired
+				? translate( 'We will attempt to renew on %(renewalDate)s for %(price)s', {
+						args: {
+							renewalDate: moment( domain.autoRenewalDate ).format( 'LL' ),
+							price: formattedPrice,
+						},
+				  } )
+				: null;
+
+		if ( ! purchase ) {
+			return null;
+		}
 
 		return (
 			<>
 				<AutoRenewToggle
-					planName={ selectedSite.plan.product_name_short }
+					planName={ selectedSite.plan?.product_name_short }
 					siteDomain={ selectedSite.domain }
 					purchase={ purchase }
-					withTextStatus={ true }
+					withTextStatus
 					toggleSource="registered-domain-status"
 				/>
 				{ autoRenewAdditionalText && (
@@ -104,8 +114,10 @@ const RegisteredDomainDetails = ( {
 		return (
 			! domain.subscriptionId ||
 			domain.isPendingRenewal ||
+			domain.pendingRegistrationAtRegistry ||
+			domain.pendingRegistration ||
 			! domain.currentUserCanManage ||
-			( domain.expired && ! domain.isRenewable && ! domain.isRedeemable ) ||
+			( ! domain.isRenewable && ! domain.isRedeemable ) ||
 			( ! isLoadingPurchase && ! purchase ) ||
 			domain.aftermarketAuction
 		);
@@ -120,13 +132,8 @@ const RegisteredDomainDetails = ( {
 			<RenewButton
 				purchase={ purchase }
 				selectedSite={ selectedSite }
-				subscriptionId={ parseInt( domain.subscriptionId!, 10 ) }
+				subscriptionId={ parseInt( domain.subscriptionId ?? '', 10 ) }
 				tracksProps={ { source: 'registered-domain-status', domain_status: 'active' } }
-				customLabel={
-					! domain.expired || domain.isRenewable
-						? translate( 'Renew now' )
-						: translate( 'Redeem now' )
-				}
 				disabled={ isLoadingPurchase }
 			/>
 		);
@@ -147,7 +154,7 @@ const RegisteredDomainDetails = ( {
 		<div className="details-card">
 			<div className="details-card__section dates">{ renderDates() }</div>
 			<div className="details-card__section">{ renderAutoRenewToggle() }</div>
-			<div className="details-card__section">
+			<div className="details-card__section details-card__section-actions">
 				{ renderRenewButton() }
 				{ renderPaymentDetailsButton() }
 			</div>

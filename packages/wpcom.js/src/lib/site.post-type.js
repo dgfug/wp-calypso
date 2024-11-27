@@ -4,7 +4,6 @@
 export default class SitePostType {
 	/**
 	 * Create a SitePostType instance
-	 *
 	 * @param {string} postType - post type
 	 * @param {string} siteId - site id
 	 * @param {WPCOM} wpcom - wpcom instance
@@ -32,8 +31,7 @@ export default class SitePostType {
 
 	/**
 	 * Get a list of taxonomies for the post type
-	 *
-	 * @param {object} query - query object
+	 * @param {Object} query - query object
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */

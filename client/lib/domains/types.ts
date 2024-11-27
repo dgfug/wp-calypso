@@ -45,16 +45,32 @@ export type TitanEmailSubscription = EmailSubscription & {
 
 export type TransferStatus = keyof typeof transferStatus | null;
 
+export type DnssecRecords = {
+	dnskey?: string;
+	dsData?: Array< string >;
+};
+
 export type ResponseDomain = {
 	adminEmail: string | null | undefined;
+	aftermarketAuction: boolean;
+	aftermarketAuctionEnd: string | null;
+	aftermarketAuctionStart: string | null;
 	aRecordsRequiredForMapping?: Array< string >;
+	authCodeRequired: boolean;
 	autoRenewalDate: string;
 	autoRenewing: boolean;
-	aftermarketAuction: boolean;
 	beginTransferUntilDate: string;
 	blogId: number;
 	bundledPlanSubscriptionId: string | number | null | undefined;
+	canManageDnsRecords: boolean;
+	canManageNameServers: boolean;
+	cannotManageDnsRecordsReason: string | null;
+	cannotManageNameServersReason: string | null;
+	cannotUpdateContactInfoReason: string | null;
 	canSetAsPrimary: boolean;
+	canTransferToOtherSite: boolean;
+	canTransferToAnyUser: boolean;
+	canUpdateContactInfo: boolean;
 	connectionMode: string;
 	contactInfoDisclosed: boolean;
 	contactInfoDisclosureAvailable: boolean;
@@ -63,6 +79,7 @@ export type ResponseDomain = {
 	currentUserCanManage: boolean;
 	currentUserCannotAddEmailReason: CannotAddEmailReason | null;
 	currentUserIsOwner: boolean;
+	dnssecRecords?: DnssecRecords;
 	domain: string;
 	domainLockingAvailable: boolean;
 	domainRegistrationAgreementUrl: string | null;
@@ -73,13 +90,20 @@ export type ResponseDomain = {
 	gdprConsentStatus: GDPRConsentStatus;
 	googleAppsSubscription: GoogleEmailSubscription | null;
 	hasEmailForwardsDnsRecords?: boolean | null;
+	hasPendingContactUpdate: boolean;
 	hasRegistration: boolean;
 	hasWpcomNameservers: boolean;
 	hasZone: boolean;
 	isAutoRenewing: boolean;
+	isDnssecEnabled: boolean;
+	isDnssecSupported: boolean;
 	isEligibleForInboundTransfer: boolean;
-	isIcannVerificationSuspended: boolean;
+	isIcannVerificationSuspended: boolean | null;
+	isGravatarDomain: boolean;
+	isHundredYearDomain: boolean;
 	isLocked: boolean;
+	isMappedToAtomicSite: boolean;
+	isMoveToNewSitePending: boolean;
 	isPendingIcannVerification: boolean;
 	isPendingRenewal: boolean;
 	isPendingWhoisUpdate: boolean;
@@ -90,24 +114,30 @@ export type ResponseDomain = {
 	isSubdomain: boolean;
 	isWPCOMDomain: boolean;
 	isWpcomStagingDomain: boolean;
+	lastTransferError?: string | null;
 	manualTransferRequired: boolean;
 	mustRemovePrivacyBeforeContactUpdate: boolean;
 	name: string;
-	newRegistration: boolean;
+	nominetDomainSuspended: boolean;
+	nominetPendingContactVerificationRequest: boolean;
 	owner: string;
 	partnerDomain: boolean;
 	pendingRegistration: boolean;
+	pendingRegistrationAtRegistry: boolean;
+	pendingRegistrationAtRegistryUrl: string;
 	pendingRegistrationTime: string;
 	pendingTransfer?: boolean;
 	pointsToWpcom: boolean;
 	privacyAvailable: boolean;
 	privateDomain: boolean;
 	redeemableUntil: string;
+	registeredViaTrustee: boolean;
+	registeredViaTrusteeUrl: string;
 	registrar: string;
 	registrationDate: string;
-	renewableUntil: string;
 	registryExpiryDate: string;
-	sslStatus: string | null;
+	renewableUntil: string;
+	sslStatus: 'active' | 'pending' | 'disabled' | 'newly_registered' | null;
 	subdomainPart?: string;
 	subscriptionId: string | null;
 	supportsDomainConnect: boolean;
@@ -168,5 +198,22 @@ export type SetDomainNoticeResponseDataSuccess = {
 		[ domainName: string ]: {
 			[ domainNotice: string ]: string;
 		};
+	};
+};
+
+export type DomainDiagnostics = {
+	email_dns_records: {
+		code?: string;
+		records: {
+			[ dnsRecordType: string ]: {
+				status: string;
+				correct_record: string;
+				error_message?: string;
+			};
+		};
+		is_using_wpcom_name_servers: boolean;
+		all_essential_email_dns_records_are_correct: boolean;
+		dismissed_email_dns_issues_notice: boolean;
+		should_offer_automatic_fixes: boolean;
 	};
 };

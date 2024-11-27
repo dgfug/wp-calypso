@@ -1,8 +1,8 @@
 import { Button, Card } from '@automattic/components';
+import clsx from 'clsx';
 import { useTranslate, TranslateResult } from 'i18n-calypso';
 import { FunctionComponent, ReactNode, Fragment } from 'react';
 import FormattedHeader from 'calypso/components/formatted-header';
-import JetpackUpsell from 'calypso/components/jetpack/upsell';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 
 interface Props {
@@ -22,36 +22,28 @@ const JetpackSearchContent: FunctionComponent< Props > = ( {
 	iconComponent,
 	onClick,
 } ) => {
-	const isCloud = isJetpackCloud();
 	const translate = useTranslate();
-
-	// Jetpack Cloud uses the Upsell component to render content
-	// This is not related to our upsell
-	if ( isCloud ) {
-		return (
-			<JetpackUpsell
-				headerText={ headerText }
-				bodyText={ bodyText }
-				buttonLink={ buttonLink }
-				buttonText={ buttonText }
-				onClick={ onClick }
-				iconComponent={ iconComponent }
-			/>
-		);
-	}
 
 	return (
 		<Fragment>
-			<FormattedHeader
-				headerText={ translate( 'Jetpack Search' ) }
-				id="jetpack-search-header"
-				align="left"
-				brandFont
-			/>
+			{ ! isJetpackCloud() && (
+				<FormattedHeader
+					headerText={ translate( 'Jetpack Search' ) }
+					id="jetpack-search-header"
+					align="left"
+					brandFont
+				/>
+			) }
 			<Card>
 				<div className="jetpack-search__content">
-					{ iconComponent }
-					{ headerText && <h1 className="jetpack-search__header">{ headerText }</h1> }
+					<div className="jetpack-search__logo">{ iconComponent }</div>
+					<h2
+						className={ clsx( 'jetpack-search__header', {
+							'wp-brand-font': ! isJetpackCloud(),
+						} ) }
+					>
+						{ headerText }
+					</h2>
 					<p>{ bodyText }</p>
 					<Button
 						primary

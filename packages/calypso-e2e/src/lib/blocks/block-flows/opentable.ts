@@ -1,5 +1,4 @@
-import { Frame } from 'playwright';
-import { BlockFlow, EditorContext, PublishedPostContext } from '..';
+import { BlockFlow, EditorContext, PublishedPostContext } from '.';
 
 interface ConfigurationData {
 	// Both name lookup and restaurant ID lookup are supported.
@@ -10,7 +9,8 @@ const blockParentSelector = 'div[aria-label="Block: OpenTable"]';
 const selectors = {
 	// Search
 	searchInput: `${ blockParentSelector } input`,
-	suggestion: ( name: string ) => `${ blockParentSelector } strong:has-text("${ name }")`,
+	suggestion: ( name: string ) =>
+		`${ blockParentSelector } .components-form-token-field__suggestion-match:has-text("${ name }")`,
 
 	// Button
 	embedButton: `${ blockParentSelector } button[type="submit"]`,
@@ -40,10 +40,29 @@ export class OpenTableFlow implements BlockFlow {
 	 * @param {EditorContext} context The current context for the editor at the point of test execution
 	 */
 	async configure( context: EditorContext ): Promise< void > {
+		const editorCanvas = await context.editorPage.getEditorCanvas();
 		const restaurant = this.configurationData.restaurant.toString();
-		await context.editorIframe.fill( selectors.searchInput, restaurant );
-		await context.editorIframe.click( selectors.suggestion( restaurant ) );
-		await context.editorIframe.click( selectors.embedButton );
+		const searchLocator = editorCanvas.locator( selectors.searchInput );
+
+		/**
+		 * Due to API inconsistency of OpenTable, we need to try a few times to get the correct restaurant.
+		 * https://github.com/Automattic/wp-calypso/issues/92836
+		 */
+		for ( let i = 0; i < 10; i++ ) {
+			try {
+				await searchLocator.fill( restaurant );
+				const suggestionLocator = editorCanvas
+					.locator( selectors.suggestion( restaurant ) )
+					.first(); // There are many restaurants out there, let's grab the first if the name wasn't specific enough.
+				await suggestionLocator.click();
+				break;
+			} catch ( e ) {
+				await searchLocator.fill( '' );
+			}
+		}
+
+		const embedButtonLocator = editorCanvas.locator( selectors.embedButton );
+		await embedButtonLocator.click();
 	}
 
 	/**
@@ -52,11 +71,11 @@ export class OpenTableFlow implements BlockFlow {
 	 * @param {PublishedPostContext} context The current context for the published post at the point of test execution
 	 */
 	async validateAfterPublish( context: PublishedPostContext ): Promise< void > {
-		const frameHandle = await context.page.waitForSelector(
-			`iframe[title="Online Reservations | OpenTable, ${ this.configurationData.restaurant.toString() }"]`
-		);
-		const frame = ( await frameHandle.contentFrame() ) as Frame;
-		await frame.waitForSelector( `:text("Make a Reservation")` );
-		await frame.waitForSelector( 'div[aria-label="Powered By OpenTable"]' );
+		const expectedTextLocator = await context.page
+			.frameLocator(
+				`iframe[title="Online Reservations | OpenTable, ${ this.configurationData.restaurant.toString() }"]`
+			)
+			.locator( ':text("Make a Reservation")' );
+		await expectedTextLocator.waitFor();
 	}
 }

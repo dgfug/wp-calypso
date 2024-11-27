@@ -1,4 +1,4 @@
-import { Page, Response } from 'playwright';
+import { Page } from 'playwright';
 import { getCalypsoURL } from '../../data-helper';
 
 const selectors = {
@@ -36,8 +36,9 @@ export class ReaderPage {
 	 *
 	 * Example {@link https://wordpress.com/read}
 	 */
-	async visit(): Promise< Response | null > {
-		return await this.page.goto( getCalypsoURL( 'read' ) );
+	async visit(): Promise< void > {
+		await this.page.goto( getCalypsoURL( 'read' ) );
+		await this.page.waitForURL( /read/ );
 	}
 
 	/**
@@ -66,7 +67,8 @@ export class ReaderPage {
 	 */
 	async visitPost( { index, text }: { index?: number; text?: string } = {} ): Promise< void > {
 		// Wait for main reader stream to populate.
-		await this.page.waitForSelector( selectors.streamPlaceholder, { state: 'hidden' } );
+		// Use the `last` method to narrow down the locators in case more than 1 placeholders exist.
+		await this.page.locator( selectors.streamPlaceholder ).last().waitFor( { state: 'hidden' } );
 
 		let selector = '';
 
@@ -79,7 +81,7 @@ export class ReaderPage {
 		}
 
 		await Promise.all( [
-			this.page.waitForNavigation( { waitUntil: 'networkidle' } ),
+			this.page.waitForURL( /read\/feeds\/[\d]+\/posts.*/ ),
 			this.page.click( selector ),
 		] );
 	}

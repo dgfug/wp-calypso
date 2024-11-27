@@ -1,10 +1,11 @@
-import classnames from 'classnames';
+import { Badge } from '@automattic/components';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
 import moment from 'moment';
 import * as React from 'react';
-import Badge from 'calypso/components/badge';
 import { Threat } from 'calypso/components/jetpack/threat-item/types';
 import {
+	getThreatPayloadSubtitle,
 	getThreatType,
 	getThreatVulnerability,
 } from 'calypso/components/jetpack/threat-item/utils';
@@ -61,6 +62,11 @@ const getThreatStatusMessage = ( translate: ReturnType< typeof useTranslate >, t
 const ThreatItemSubheader: React.FC< Props > = ( { threat } ) => {
 	const translate = useTranslate();
 	if ( threat.status === 'current' ) {
+		const threatPayloadSubtitle = getThreatPayloadSubtitle( threat );
+		if ( threatPayloadSubtitle ) {
+			return <>{ threatPayloadSubtitle }</>;
+		}
+
 		switch ( getThreatType( threat ) ) {
 			case 'file':
 				return (
@@ -94,7 +100,7 @@ const ThreatItemSubheader: React.FC< Props > = ( { threat } ) => {
 						<>
 							<span className="threat-item-subheader__status-separator"></span>
 							<span
-								className={ classnames(
+								className={ clsx(
 									'threat-item-subheader__status',
 									entryActionClassNames( threat )
 								) }
@@ -105,10 +111,7 @@ const ThreatItemSubheader: React.FC< Props > = ( { threat } ) => {
 					) }
 				</div>
 				<Badge
-					className={ classnames(
-						'threat-item-subheader__badge',
-						entryActionClassNames( threat )
-					) }
+					className={ clsx( 'threat-item-subheader__badge', entryActionClassNames( threat ) ) }
 				>
 					<small>
 						{ threat.status === 'fixed' ? translate( 'fixed' ) : translate( 'ignored' ) }

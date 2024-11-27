@@ -1,20 +1,27 @@
+import page from '@automattic/calypso-router';
 import { get } from 'lodash';
-import page from 'page';
 import { makeLayout, render as clientRender } from 'calypso/controller';
 import { navigation, siteSelection, sites } from 'calypso/my-sites/controller';
 import {
+	acceptSiteTransfer,
 	deleteSite,
 	disconnectSite,
 	disconnectSiteConfirm,
 	general,
 	legacyRedirects,
 	manageConnection,
-	redirectIfCantDeleteSite,
 	redirectToGeneral,
 	redirectToTraffic,
 	startOver,
+	startSiteOwnerTransfer,
+	renderSiteTransferredScreen,
+	wpcomSiteTools,
 } from 'calypso/my-sites/site-settings/controller';
 import { setScroll, siteSettings } from 'calypso/my-sites/site-settings/settings-controller';
+import {
+	redirectIfCantDeleteSite,
+	redirectIfCantStartSiteOwnerTransfer,
+} from 'calypso/sites/settings/administration/controller';
 
 export default function () {
 	page( '/settings', '/settings/general' );
@@ -98,10 +105,49 @@ export default function () {
 		clientRender
 	);
 
+	page(
+		'/settings/start-site-transfer/:site_id',
+		siteSelection,
+		redirectIfCantStartSiteOwnerTransfer,
+		navigation,
+		setScroll,
+		startSiteOwnerTransfer,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/settings/site-transferred/:site_id',
+		siteSelection,
+		renderSiteTransferredScreen,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/settings/site-transfer/:site_id/accept/:invitation_key',
+		acceptSiteTransfer,
+		makeLayout,
+		clientRender
+	);
+
 	page( '/settings/traffic/:site_id', redirectToTraffic );
 	page( '/settings/analytics/:site_id?', redirectToTraffic );
 	page( '/settings/seo/:site_id?', redirectToTraffic );
 	page( '/settings/theme-setup/:site_id?', redirectToGeneral );
+
+	// Site tools for the WordPress.com > Site Tools menu
+	// from the untangle Calypso project.
+	page(
+		'/settings/site-tools/:site_id',
+		siteSelection,
+		navigation,
+		setScroll,
+		siteSettings,
+		wpcomSiteTools,
+		makeLayout,
+		clientRender
+	);
 
 	page( '/settings/:section', legacyRedirects, siteSelection, sites, makeLayout, clientRender );
 }

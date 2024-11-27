@@ -12,7 +12,6 @@
   - [Regular setup](#regular-setup)
   - [Apple Silicon emulated x86_64](#apple-silicon-emulated-x86_64)
   - [Apple Silicon arm64](#apple-silicon-arm64)
-  - [Help](#help)
 
 <!-- /TOC -->
 
@@ -21,6 +20,9 @@
 Follow the [Quick Start](../README.md) guide to install required software.
 
 ## Apple Silicon (emulated x86_64)
+
+> Note: Steps for Apple Silicon is constantly changing and may not be accurate.
+> Since January 2021 when these steps were written Apple Silicon support has improved significantly across the board and these steps may no longer be necessary.
 
 1. install i386 Homebrew:
 
@@ -63,34 +65,11 @@ arch -x86_64 npm install yarn
 7. install all dependencies from repo root:
 
 ```
-arch -x86_64 yarn install --frozen-lockfile
-```
-
-8. verify that mocha can run under `test/e2e/` directory:
-
-```
-./test/e2e/node_modules/.bin/mocha
+arch -x86_64 yarn install --immutable
 ```
 
 At any point, run `arch` to verify whether shell is running with Rosetta 2 emulation.
 
 ## Apple Silicon (arm64)
 
-Similar to instructions in macOS Intel architecture, install the arm64 variant of the required software, then follow these steps:
-
-1. set the following environment variables:
-
-```
-PUPPETEER_SKIP_DOWNLOAD=true
-CHROMEDRIVER_SKIP_DOWNLOAD=true
-```
-
-2. install dependencies:
-
-```
-yarn install
-```
-
-## Help
-
-See the [Troubleshooting](troubleshooting.md) section.
+Steps in the [Setup](../README.md#quick-start) should be enough to get the user up and running.

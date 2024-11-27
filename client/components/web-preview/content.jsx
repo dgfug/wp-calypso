@@ -1,34 +1,38 @@
-import { isWithinBreakpoint } from '@automattic/viewport';
-import classNames from 'classnames';
+import page from '@automattic/calypso-router';
+import { isWithinBreakpoint, subscribeIsWithinBreakpoint } from '@automattic/viewport';
+import clsx from 'clsx';
 import debugModule from 'debug';
-import { localize } from 'i18n-calypso';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
-import { connect } from 'react-redux';
 import { v4 as uuid } from 'uuid';
 import SeoPreviewPane from 'calypso/components/seo-preview-pane';
 import SpinnerLine from 'calypso/components/spinner-line';
 import { addQueryArgs } from 'calypso/lib/route';
 import { hasTouch } from 'calypso/lib/touch-detect';
-import { recordTracksEvent } from 'calypso/state/analytics/actions';
-import isPrivateSite from 'calypso/state/selectors/is-private-site';
-import isSiteAutomatedTransfer from 'calypso/state/selectors/is-site-automated-transfer';
-import { getSelectedSite } from 'calypso/state/ui/selectors';
-import getSelectedSiteId from 'calypso/state/ui/selectors/get-selected-site-id';
+import DomainUpsellCallout from '../domains/domain-upsell-callout';
 import Toolbar from './toolbar';
 
+import './style.scss';
+
+const loadingTimeout = 3000;
 const debug = debugModule( 'calypso:web-preview' );
 const noop = () => {};
 
-export class WebPreviewContent extends Component {
+export default class WebPreviewContent extends Component {
 	previewId = uuid();
+
+	loadingTimeoutTimer = null;
 
 	state = {
 		iframeUrl: null,
 		device: this.props.defaultViewportDevice || 'computer',
+		viewport: null,
+		iframeStyle: {},
+		iframeScaleRatio: 1,
 		loaded: false,
 		isLoadingSubpage: false,
+		isMobile: isWithinBreakpoint( '<660px' ),
+		showIFrameOverlay: false,
 	};
 
 	setIframeInstance = ( ref ) => {
@@ -43,16 +47,27 @@ export class WebPreviewContent extends Component {
 		if ( this.props.previewMarkup ) {
 			this.setIframeMarkup( this.props.previewMarkup );
 		}
+		if ( this.props.fixedViewportWidth ) {
+			this.handleResize();
+			window.addEventListener( 'resize', this.handleResize );
+		}
 
 		this.props.onDeviceUpdate( this.state.device );
+
+		this.unsubscribeMobileBreakpoint = subscribeIsWithinBreakpoint( '<660px', ( isMobile ) => {
+			this.setState( { isMobile } );
+		} );
 	}
 
 	componentWillUnmount() {
 		window.removeEventListener( 'message', this.handleMessage );
+		window.removeEventListener( 'resize', this.handleResize );
+		this.unsubscribeMobileBreakpoint();
 	}
 
-	componentDidUpdate( prevProps ) {
-		const { previewUrl } = this.props;
+	componentDidUpdate( prevProps, prevState ) {
+		const { previewUrl, inlineCss, scrollToSelector } = this.props;
+		const { loaded } = this.state;
 
 		this.setIframeUrl( previewUrl );
 
@@ -68,6 +83,39 @@ export class WebPreviewContent extends Component {
 		// Focus preview when showing modal
 		if ( this.props.showPreview && ! prevProps.showPreview && this.state.loaded ) {
 			this.focusIfNeeded();
+		}
+
+		// If the fixedViewportWidth changes, re-calculate the iframe styles.
+		if ( this.props.fixedViewportWidth !== prevProps.fixedViewportWidth ) {
+			if ( this.props.fixedViewportWidth && ! prevProps.fixedViewportWidth ) {
+				this.handleResize();
+				window.addEventListener( 'resize', this.handleResize );
+			} else {
+				this.resetResize();
+				window.removeEventListener( 'resize', this.handleResize );
+			}
+		}
+
+		if ( inlineCss && ! prevState.loaded && loaded ) {
+			this.iframe.contentWindow?.postMessage(
+				{
+					channel: `preview-${ this.previewId }`,
+					type: 'inline-css',
+					inline_css: inlineCss,
+				},
+				'*'
+			);
+		}
+
+		if ( scrollToSelector && loaded && ! prevState.loaded ) {
+			this.iframe.contentWindow?.postMessage(
+				{
+					channel: `preview-${ this.previewId }`,
+					type: 'scroll-to-selector',
+					scroll_to_selector: scrollToSelector,
+				},
+				'*'
+			);
 		}
 	}
 
@@ -109,7 +157,36 @@ export class WebPreviewContent extends Component {
 			case 'loading':
 				this.setState( { isLoadingSubpage: true } );
 				return;
+			case 'page-dimensions-on-load':
+			case 'page-dimensions-on-resize':
+				if ( this.props.autoHeight || this.props.fixedViewportWidth ) {
+					this.setState( { viewport: data.payload } );
+				}
+				return;
 		}
+	};
+
+	handleResize = () => {
+		const { fixedViewportWidth: vpw } = this.props;
+		let iframeScaleRatio = 1;
+		let iframeStyle = {};
+
+		if ( ! this.iframe.parentElement?.clientWidth ) {
+			this.resetResize();
+			return;
+		}
+
+		iframeScaleRatio = this.iframe.parentElement.clientWidth / vpw;
+		iframeStyle = {
+			width: `${ vpw }px`,
+			transform: `scale( ${ iframeScaleRatio } )`,
+		};
+
+		this.setState( { iframeStyle, iframeScaleRatio } );
+	};
+
+	resetResize = () => {
+		this.setState( { iframeStyle: {}, iframeScaleRatio: 1 } );
 	};
 
 	redirectToAuth() {
@@ -226,14 +303,29 @@ export class WebPreviewContent extends Component {
 			debug( 'preview loaded for url:', this.state.iframeUrl );
 		}
 		if ( this.checkForIframeLoadFailure( caller ) ) {
-			if ( this.props.showClose ) {
-				window.open( this.state.iframeUrl, '_blank' );
-				this.props.onClose();
-			} else {
-				window.location.replace( this.state.iframeUrl );
+			debug( `preview not loaded yet, waiting ${ loadingTimeout }ms` );
+			clearTimeout( this.loadingTimeoutTimer );
+
+			// To prevent iframe firing the onload event before the embedded page sends the
+			// partially-loaded message, we add a waiting period here.
+			if ( ! this.props.disableTimeoutRedirect ) {
+				this.loadingTimeoutTimer = setTimeout( () => {
+					debug( 'preview loading timeout' );
+
+					if ( this.props.showClose ) {
+						window.open( this.state.iframeUrl, '_blank' );
+						this.props.onClose();
+					} else {
+						window.location.replace( this.state.iframeUrl );
+					}
+				}, loadingTimeout );
 			}
 		} else {
 			this.setState( { loaded: true, isLoadingSubpage: false } );
+			if ( this.loadingTimeoutTimer ) {
+				debug( 'preview loaded before timeout' );
+				clearTimeout( this.loadingTimeoutTimer );
+			}
 		}
 
 		this.focusIfNeeded();
@@ -260,9 +352,16 @@ export class WebPreviewContent extends Component {
 	}
 
 	render() {
-		const { translate, toolbarComponent: ToolbarComponent } = this.props;
+		const {
+			translate,
+			toolbarComponent: ToolbarComponent,
+			fetchpriority,
+			autoHeight,
+			disableTabbing,
+		} = this.props;
+		const isLoaded = this.state.loaded && ( ! autoHeight || this.state.viewport !== null );
 
-		const className = classNames( this.props.className, 'web-preview__inner', {
+		const className = clsx( this.props.className, 'web-preview__inner', {
 			'is-touch': hasTouch(),
 			'is-with-sidebar': this.props.hasSidebar,
 			'is-visible': this.props.showPreview,
@@ -270,11 +369,12 @@ export class WebPreviewContent extends Component {
 			'is-tablet': this.state.device === 'tablet',
 			'is-phone': this.state.device === 'phone',
 			'is-seo': this.state.device === 'seo',
-			'is-loaded': this.state.loaded,
+			'is-fixed-viewport-width': !! this.props.fixedViewportWidth,
+			'is-loaded': isLoaded,
 		} );
 
 		const showLoadingMessage =
-			! this.state.loaded &&
+			! isLoaded &&
 			this.props.loadingMessage &&
 			( this.props.showPreview || ! this.props.isModalWindow ) &&
 			this.state.device !== 'seo';
@@ -287,14 +387,25 @@ export class WebPreviewContent extends Component {
 					{ ...this.props }
 					showExternal={ this.props.previewUrl ? this.props.showExternal : false }
 					showEditHeaderLink={ this.props.showEditHeaderLink }
-					showDeviceSwitcher={ this.props.showDeviceSwitcher && isWithinBreakpoint( '>660px' ) }
+					showDeviceSwitcher={ this.props.showDeviceSwitcher && ! this.state.isMobile }
 					showUrl={ this.props.showUrl && isWithinBreakpoint( '>960px' ) }
 					selectSeoPreview={ this.selectSEO }
 					isLoading={ this.state.isLoadingSubpage }
+					isSticky={ this.props.isStickyToolbar }
 				/>
+				{ this.props.showExternal && this.props.isModalWindow && ! this.props.isPrivateAtomic && (
+					<DomainUpsellCallout trackEvent="site_preview_domain_upsell_callout" />
+				) }
 				{ this.props.belowToolbar }
-				{ ( ! this.state.loaded || this.state.isLoadingSubpage ) && <SpinnerLine /> }
-				<div className="web-preview__placeholder">
+				{ ( ! isLoaded || this.state.isLoadingSubpage ) && <SpinnerLine /> }
+				<div
+					className="web-preview__placeholder"
+					style={
+						this.state.viewport
+							? { minHeight: this.state.viewport.height * this.state.iframeScaleRatio }
+							: null
+					}
+				>
 					{ showLoadingMessage && (
 						<div className="web-preview__loading-message-wrapper">
 							<span className="web-preview__loading-message">{ this.props.loadingMessage }</span>
@@ -302,16 +413,26 @@ export class WebPreviewContent extends Component {
 					) }
 					{ 'seo' !== this.state.device && (
 						<div
-							className={ classNames( 'web-preview__frame-wrapper', {
+							className={ clsx( 'web-preview__frame-wrapper', {
 								'is-resizable': ! this.props.isModalWindow,
 							} ) }
 						>
 							<iframe
 								ref={ this.setIframeInstance }
 								className="web-preview__frame"
+								style={ {
+									...this.state.iframeStyle,
+									height: this.state.viewport?.height,
+									pointerEvents: 'all',
+								} }
 								src="about:blank"
 								onLoad={ () => this.setLoaded( 'iframe-onload' ) }
 								title={ this.props.iframeTitle || translate( 'Preview' ) }
+								fetchpriority={ fetchpriority ? fetchpriority : undefined }
+								scrolling={ autoHeight ? 'no' : undefined }
+								tabIndex={ disableTabbing ? -1 : 0 }
+								/* See https://help.hotjar.com/hc/en-us/articles/115011624347-Can-I-Track-iframes-Inside-Heatmaps-and-Recordings- */
+								data-hj-allow-iframe
 							/>
 						</div>
 					) }
@@ -330,6 +451,8 @@ export class WebPreviewContent extends Component {
 WebPreviewContent.propTypes = {
 	// Additional elements to display below the toolbar
 	belowToolbar: PropTypes.element,
+	// Prevents tabbing into the iframe.
+	disableTabbing: PropTypes.bool,
 	// Display the preview
 	showPreview: PropTypes.bool,
 	// Show external link button
@@ -379,12 +502,24 @@ WebPreviewContent.propTypes = {
 	isModalWindow: PropTypes.bool,
 	// The site/post description passed to the SeoPreviewPane
 	frontPageMetaDescription: PropTypes.string,
-	// Whether the inline help popup is open
-	isInlineHelpPopoverVisible: PropTypes.bool,
 	// A post object used to override the selected post in the SEO preview
 	overridePost: PropTypes.object,
 	// A customized Toolbar element
 	toolbarComponent: PropTypes.elementType,
+	// iframe's fetchpriority.
+	fetchpriority: PropTypes.string,
+	// Set height based on page content. This requires the page to post it's dimensions as message.
+	autoHeight: PropTypes.bool,
+	// The toolbar should sticky or not
+	isStickyToolbar: PropTypes.bool,
+	// Fixes the viewport width of the iframe if provided.
+	fixedViewportWidth: PropTypes.number,
+	// Injects CSS in the iframe after the content is loaded.
+	inlineCss: PropTypes.string,
+	// Uses the CSS selector to scroll to it
+	scrollToSelector: PropTypes.string,
+	// disable the redirection due to the timeout
+	disableTimeoutRedirect: PropTypes.bool,
 };
 
 WebPreviewContent.defaultProps = {
@@ -407,14 +542,8 @@ WebPreviewContent.defaultProps = {
 	isModalWindow: false,
 	overridePost: null,
 	toolbarComponent: Toolbar,
+	autoHeight: false,
+	inlineCss: null,
+	scrollToSelector: null,
+	disableTimeoutRedirect: false,
 };
-
-const mapState = ( state ) => {
-	const siteId = getSelectedSiteId( state );
-	return {
-		isPrivateAtomic: isSiteAutomatedTransfer( state, siteId ) && isPrivateSite( state, siteId ),
-		url: getSelectedSite( state )?.URL,
-	};
-};
-
-export default connect( mapState, { recordTracksEvent } )( localize( WebPreviewContent ) );

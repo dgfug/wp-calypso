@@ -1,8 +1,16 @@
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import debugFactory from 'debug';
-import { useRef, useEffect, useCallback, useState, useContext, createContext } from 'react';
-import * as React from 'react';
+import {
+	useRef,
+	useEffect,
+	useCallback,
+	useState,
+	useContext,
+	createContext,
+	ComponentType,
+	PropsWithChildren,
+} from 'react';
 import type {
 	Stripe,
 	StripeError,
@@ -70,10 +78,10 @@ export interface UseStripeJs {
 	stripeLoadingError: StripeLoadingError;
 }
 
-export type GetStripeConfigurationArgs = { country?: string };
-export type GetStripeSetupIntentId = ( requestArgs: {
-	needs_intent?: boolean;
-} ) => Promise< { setup_intent_id: StripeSetupIntentId | undefined } >;
+export type GetStripeConfigurationArgs = { country?: string; payment_partner?: string };
+export type GetStripeSetupIntentId = () => Promise< {
+	setup_intent_id: StripeSetupIntentId | undefined;
+} >;
 export type GetStripeConfiguration = (
 	requestArgs: GetStripeConfigurationArgs & { needs_intent?: boolean }
 ) => Promise< StripeConfiguration & { setup_intent_id: StripeSetupIntentId | undefined } >;
@@ -100,9 +108,8 @@ export interface StripePaymentRequestHandlerEvent {
  *
  * This object also includes a `messagesByField` property which can be used to
  * find which error was for which input field.
- *
  * @param {string} code - The error code
- * @param {object} messagesByField - An object whose keys are input field names and whose values are arrays of error strings for that field
+ * @param {Object} messagesByField - An object whose keys are input field names and whose values are arrays of error strings for that field
  */
 export class StripeValidationError extends Error {
 	code: string | undefined;
@@ -133,8 +140,7 @@ export class StripeConfigurationError extends Error {}
  * before being used again.
  *
  * The object will include the original stripe error in the stripeError prop.
- *
- * @param {object} stripeError - The original Stripe error object
+ * @param {Object} stripeError - The original Stripe error object
  */
 export class StripeSetupIntentError extends Error {
 	stripeError: Error;
@@ -150,8 +156,7 @@ export class StripeSetupIntentError extends Error {
  * An error related to a Stripe PaymentMethod
  *
  * The object will include the original stripe error in the stripeError prop.
- *
- * @param {object} stripeError - The original Stripe error object
+ * @param {Object} stripeError - The original Stripe error object
  */
 export class StripePaymentMethodError extends Error {
 	stripeError: Error;
@@ -178,10 +183,9 @@ export class StripePaymentMethodError extends Error {
  * depending on the type. For example, validation errors should be type
  * `validation_error` and have a `code` property which might be something like
  * `incomplete_cvc`.
- *
- * @param {object} stripe The stripe object with payment data included
- * @param {object} element The StripeCardNumberElement or StripeCardElement
- * @param {object} paymentDetails The `billing_details` field of the `createPaymentMethod()` request
+ * @param {Object} stripe The stripe object with payment data included
+ * @param {Object} element The StripeCardNumberElement or StripeCardElement
+ * @param {Object} paymentDetails The `billing_details` field of the `createPaymentMethod()` request
  * @returns {Promise} Promise that will be resolved or rejected
  */
 export async function createStripePaymentMethod(
@@ -214,6 +218,19 @@ export async function createStripePaymentMethod(
 }
 
 export async function createStripeSetupIntent(
+	stripe: Stripe,
+	element: StripeCardNumberElement | StripeCardElement,
+	setupIntentId: StripeSetupIntentId,
+	paymentDetails: PaymentDetails
+): Promise< StripeSetupIntent > {
+	// eslint-disable-next-line no-console
+	console.warn(
+		'createStripeSetupIntent is poorly named and deprecated. Please switch to confirmStripeSetupIntentAndAttachCard instead.'
+	);
+	return confirmStripeSetupIntentAndAttachCard( stripe, element, setupIntentId, paymentDetails );
+}
+
+export async function confirmStripeSetupIntentAndAttachCard(
 	stripe: Stripe,
 	element: StripeCardNumberElement | StripeCardElement,
 	setupIntentId: StripeSetupIntentId,
@@ -272,9 +289,8 @@ export async function confirmStripePaymentIntent(
  * Extract validation errors from a Stripe error
  *
  * Returns null if validation errors cannot be found.
- *
- * @param {object} error An error returned by a Stripe function like createPaymentMethod
- * @returns {object | null} An object keyed by input field name whose values are arrays of error strings for that field
+ * @param {Object} error An error returned by a Stripe function like createPaymentMethod
+ * @returns {Object | null} An object keyed by input field name whose values are arrays of error strings for that field
  */
 function getValidationErrorsFromStripeError(
 	error: StripeError
@@ -308,8 +324,7 @@ function getValidationErrorsFromStripeError(
  * This is internal. You probably actually want the useStripe hook.
  *
  * Its parameter is the value returned by useStripeConfiguration
- *
- * @param {object} stripeConfiguration An object containing { public_key, js_url }
+ * @param {Object} stripeConfiguration An object containing { public_key, js_url }
  * @param {Error|undefined} [stripeConfigurationError] Any error that occured trying to load the configuration
  * @param {string} [locale] The locale, like 'en-us'. Stripe will auto-detect if not set.
  * @returns {UseStripeJs} The Stripe data
@@ -416,8 +431,6 @@ function useStripeConfiguration(
 	return { stripeConfiguration, stripeConfigurationError };
 }
 
-const setupIntentRequestArgs = { needs_intent: true };
-
 /**
  * React custom Hook for loading a Stripe setup intent id
  *
@@ -428,7 +441,8 @@ const setupIntentRequestArgs = { needs_intent: true };
  * configuration to reload by calling `reload()`.
  */
 function useFetchSetupIntentId(
-	fetchStripeConfiguration: GetStripeSetupIntentId
+	fetchStripeSetupIntentId: GetStripeSetupIntentId,
+	{ isDisabled }: { isDisabled?: boolean }
 ): {
 	setupIntentId: StripeSetupIntentId | undefined;
 	error: undefined | Error;
@@ -440,9 +454,15 @@ function useFetchSetupIntentId(
 	const reload = useCallback( () => setReloadCount( ( count ) => count + 1 ), [] );
 
 	useEffect( () => {
-		debug( 'loading stripe setup intent id' );
 		let isSubscribed = true;
-		fetchStripeConfiguration( setupIntentRequestArgs )
+		if ( isDisabled ) {
+			debug( 'not loading stripe setup intent id because it is disabled' );
+			return () => {
+				isSubscribed = false;
+			};
+		}
+		debug( 'loading stripe setup intent id' );
+		fetchStripeSetupIntentId()
 			.then( ( configuration ) => {
 				if ( ! isSubscribed ) {
 					return;
@@ -462,7 +482,7 @@ function useFetchSetupIntentId(
 		return () => {
 			isSubscribed = false;
 		};
-	}, [ stripeReloadCount, fetchStripeConfiguration ] );
+	}, [ stripeReloadCount, fetchStripeSetupIntentId, isDisabled ] );
 	return { setupIntentId, error, reload };
 }
 
@@ -478,12 +498,17 @@ function areRequestArgsEqual(
 
 export function StripeSetupIntentIdProvider( {
 	children,
-	fetchStipeSetupIntentId,
-}: {
-	children: JSX.Element;
-	fetchStipeSetupIntentId: GetStripeSetupIntentId;
-} ) {
-	const setupIntentData = useFetchSetupIntentId( fetchStipeSetupIntentId );
+	fetchStripeSetupIntentId,
+	isDisabled,
+}: PropsWithChildren< {
+	fetchStripeSetupIntentId: GetStripeSetupIntentId;
+	isDisabled?: boolean;
+} > ) {
+	// eslint-disable-next-line no-console
+	console.warn(
+		'StripeSetupIntentIdProvider creates too many setup intents and is deprecated. Please create the setup intent on the fly when submitting the form. See https://github.com/Automattic/wp-calypso/pull/79881'
+	);
+	const setupIntentData = useFetchSetupIntentId( fetchStripeSetupIntentId, { isDisabled } );
 
 	return (
 		<StripeSetupIntentContext.Provider value={ setupIntentData }>
@@ -495,14 +520,16 @@ export function StripeSetupIntentIdProvider( {
 export function StripeHookProvider( {
 	children,
 	fetchStripeConfiguration,
-	configurationArgs = null,
-	locale = undefined,
-}: {
-	children: JSX.Element;
+	locale,
+	country,
+}: PropsWithChildren< {
 	fetchStripeConfiguration: GetStripeConfiguration;
-	configurationArgs?: undefined | null | GetStripeConfigurationArgs;
-	locale?: undefined | string;
-} ): JSX.Element {
+	locale?: string;
+	country?: string;
+} > ) {
+	const configurationArgs = {
+		country,
+	};
 	const { stripeConfiguration, stripeConfigurationError } = useStripeConfiguration(
 		fetchStripeConfiguration,
 		configurationArgs
@@ -540,7 +567,6 @@ export function StripeHookProvider( {
  * - stripeConfiguration: the object containing the data returned by the wpcom stripe configuration endpoint
  * - isStripeLoading: a boolean that is true if stripe is currently being loaded
  * - stripeLoadingError: an optional object that will be set if there is an error loading stripe
- *
  * @returns {StripeData} See above
  */
 export function useStripe(): StripeData {
@@ -556,9 +582,13 @@ export function useStripe(): StripeData {
  *
  * First you must wrap a parent component in `StripeSetupIntentIdProvider`.
  * Then you can call this hook in any sub-component to get access to the setup
- * intent ID which can be passed to `createStripeSetupIntent`.
+ * intent ID which can be passed to `confirmStripeSetupIntentAndAttachCard`.
  */
 export function useStripeSetupIntentId(): StripeSetupIntentIdData {
+	// eslint-disable-next-line no-console
+	console.warn(
+		'useStripeSetupIntentId creates too many setup intents and is deprecated. Please create the setup intent on the fly when submitting the form. See https://github.com/Automattic/wp-calypso/pull/79881'
+	);
 	const stripeData = useContext( StripeSetupIntentContext );
 	if ( ! stripeData ) {
 		throw new Error(
@@ -573,12 +603,9 @@ export function useStripeSetupIntentId(): StripeSetupIntentIdData {
  *
  * Adds several props to the wrapped component. See docs of useStripe for
  * details of the properties it provides.
- *
- * @param {object} WrappedComponent The component to wrap
- * @returns {object} WrappedComponent
  */
-export function withStripeProps< P >( WrappedComponent: React.ComponentType< P > ): React.FC< P > {
-	return ( props: P ): JSX.Element => {
+export function withStripeProps< P >( WrappedComponent: ComponentType< P > ) {
+	return ( props: P ) => {
 		const stripeData = useStripe();
 		const newProps = { ...props, ...stripeData };
 		return <WrappedComponent { ...newProps } />;
@@ -589,7 +616,6 @@ export function withStripeProps< P >( WrappedComponent: React.ComponentType< P >
  * Transforms a locale like en-us to a Stripe supported locale
  *
  * See https://stripe.com/docs/js/appendix/supported_locales
- *
  * @param {string} locale A locale string like 'en-us'
  * @returns {string} A stripe-supported locale string like 'en'
  */
@@ -634,6 +660,57 @@ function getStripeLocaleForLocale( locale: string | null | undefined ): string {
 		return 'auto';
 	}
 	return stripeLocale;
+}
+
+/**
+ * Loads the Stripe JS library directly.
+ *
+ * Unlike `StripeHookProvider` and `useStripe`, this does not keep any state,
+ * so try not to call it too often.
+ *
+ * This can be useful when you need a different stripe object (eg: for a
+ * different country) than the one in the provider, or if you cannot easily use
+ * the provider.
+ *
+ * If `country` is provided, it will be used to determine which Stripe account
+ * to load. If `paymentPartner` is provided, it will be used instead. If
+ * neither is provided, the geolocation will be used.
+ */
+export async function loadStripeLibrary( {
+	country,
+	paymentPartner,
+	locale,
+	fetchStripeConfiguration,
+}: {
+	country?: string;
+	paymentPartner?: string;
+	locale?: string;
+	fetchStripeConfiguration: GetStripeConfiguration;
+} ): Promise< Stripe > {
+	const stripeConfiguration = await fetchStripeConfiguration( {
+		country,
+		payment_partner: paymentPartner,
+	} );
+	if (
+		! stripeConfiguration.js_url ||
+		! stripeConfiguration.public_key ||
+		! stripeConfiguration.processor_id
+	) {
+		throw new StripeConfigurationError(
+			'Error loading payment method configuration. Received invalid data from the server.'
+		);
+	}
+
+	const stripeLocale = getStripeLocaleForLocale( locale );
+	const stripe = await loadStripe( stripeConfiguration.public_key, {
+		locale: stripeLocale as StripeElementLocale,
+	} );
+
+	if ( ! stripe ) {
+		throw new StripeConfigurationError( 'Error loading payment method processing library.' );
+	}
+
+	return stripe;
 }
 
 // See https://usehooks.com/useMemoCompare/

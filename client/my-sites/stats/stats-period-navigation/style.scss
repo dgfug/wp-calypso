@@ -1,30 +1,67 @@
 .stats-period-navigation {
 	display: flex;
+	flex-flow: row wrap;
 	justify-content: space-between;
 	align-items: center;
 	margin: 1.5em 0;
 	padding: 0 20px;
 
 	.stats-period-navigation__children {
-		text-align: center;
 		flex-grow: 1;
 	}
 
 	.stats-section-title {
 		margin: 0;
+		font-size: $font-title-large;
+		line-height: 40px;
+		color: var(--studio-gray-100);
+		text-align: left;
 	}
 
-	.stats-period-navigation__previous,
-	.stats-period-navigation__next {
-		cursor: pointer;
-		color: var( --color-neutral-50 );
+	.stats-date-picker__refresh-status {
+		font-size: $font-body-small;
+		line-height: 16px;
+	}
 
-		&:hover {
-			color: var( --color-accent );
-		}
+	.stats-period-navigation__date-control {
+		display: flex;
+		flex-flow: column nowrap;
+		margin-left: auto;
 
-		&.is-disabled {
-			visibility: hidden;
+		.stats-period-navigation__period-control {
+			display: flex;
+			justify-content: flex-end;
+
+			padding-top: 16px;
+
+			.stats-navigation-arrows {
+				margin-left: 24px;
+				margin-right: 24px;
+			}
 		}
 	}
+
+	.chart__legend {
+		margin-bottom: initial;
+	}
+}
+
+// Styling specific to the new Date Filtering traffic page project
+.stats-period-navigation.stats-period-navigation__is-with-new-date-filtering {
+
+	.stats-navigation-arrows {
+		justify-content: flex-end;
+	}
+
+	.stats-period-navigation__date-range-control {
+		display:flex;
+		flex-direction: row;
+		gap: 20px;
+	  }
+}
+
+.stats-period-navigation.stats-period-navigation__is-with-new-date-control {
+	padding: 0;
+	align-items: flex-start;
+	row-gap: 8px;
 }

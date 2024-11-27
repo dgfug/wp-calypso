@@ -1,24 +1,21 @@
 import config from '@automattic/calypso-config';
 import debugModule from 'debug';
 import { map, pick, throttle } from 'lodash';
+import { setStoredItem } from 'calypso/lib/browser-storage';
 import { isSupportSession } from 'calypso/lib/user/support-user-interop';
-import { APPLY_STORED_STATE } from 'calypso/state/action-types';
-import { serialize, deserialize } from 'calypso/state/utils';
+import { APPLY_STORED_STATE } from './action-types';
+import { MAX_AGE, SERIALIZE_THROTTLE, WAS_STATE_RANDOMLY_CLEARED_KEY } from './constants';
 import {
 	clearPersistedState,
 	getPersistedStateItem,
 	storePersistedStateItem,
 } from './persisted-state';
+import { serialize, deserialize } from './utils';
 
 /**
  * Module variables
  */
 const debug = debugModule( 'calypso:state' );
-
-const DAY_IN_HOURS = 24;
-const HOUR_IN_MS = 3600000;
-export const SERIALIZE_THROTTLE = 5000;
-export const MAX_AGE = 7 * DAY_IN_HOURS * HOUR_IN_MS;
 
 // Store the timestamp at which the module loads as a proxy for the timestamp
 // when the server data (if any) was generated.
@@ -38,11 +35,10 @@ export function shouldPersist() {
  * browser state and loading without it
  *
  * Can be overridden on the command-line with two flags:
- *   - ENABLE_FEATURES=force-sympathy yarn start (always sympathize)
- *   - ENABLE_FEATURES=no-force-sympathy yarn start (always prevent sympathy)
+ * - ENABLE_FEATURES=force-sympathy yarn start (always sympathize)
+ * - ENABLE_FEATURES=no-force-sympathy yarn start (always prevent sympathy)
  *
  * If both of these flags are set, then `force-sympathy` takes precedence.
- *
  * @returns {boolean} Whether to clear persistent state on page load
  */
 function shouldAddSympathy() {
@@ -168,7 +164,6 @@ function getInitialPersistedState( initialReducer, currentUserId ) {
 
 	if ( 'development' === process.env.NODE_ENV ) {
 		window.resetState = () => clearPersistedState().then( () => window.location.reload( true ) );
-
 		if ( shouldAddSympathy() ) {
 			// eslint-disable-next-line no-console
 			console.log(
@@ -177,6 +172,25 @@ function getInitialPersistedState( initialReducer, currentUserId ) {
 			);
 
 			clearPersistedState();
+
+			/**
+			 * Decide whether to save a flag that indicates whether
+			 * the persisted state was randomly cleared
+			 */
+			if ( config.isEnabled( 'force-sympathy' ) ) {
+				/**
+				 * If we're forcing the state-clearing we don't
+				 * have to announce it, because someone intentionally
+				 * forced it and should know why it's cleared.
+				 */
+			} else {
+				/**
+				 * If state-clearing wasn't forced and we still cleared persisted state
+				 * this means it happened randomly. Consequently, save a flag
+				 * so that we can notify the developer once the UI is mounted
+				 */
+				setStoredItem( WAS_STATE_RANDOMLY_CLEARED_KEY, true );
+			}
 			return null;
 		}
 	}
@@ -216,7 +230,7 @@ function getStateFromPersistence( reducer, subkey, currentUserId ) {
 // between server and local persisted data.
 // This function handles both legacy and modularized Redux state.
 // `loadPersistedState` must have completed first.
-export function getStateFromCache( reducer, subkey, currentUserId ) {
+export const getStateFromCache = ( currentUserId ) => ( reducer, subkey ) => {
 	let serverState = null;
 
 	if ( subkey && typeof window !== 'undefined' ) {
@@ -251,7 +265,7 @@ export function getStateFromCache( reducer, subkey, currentUserId ) {
 		reducer,
 		useServerState
 	);
-}
+};
 
 // Deserialize a portion of state.
 // This function handles both legacy and modularized Redux state.

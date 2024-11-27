@@ -1,4 +1,4 @@
-import { get, includes, map, mapKeys, omit, omitBy, some, startsWith } from 'lodash';
+import { get, includes, map, omit, omitBy, some, startsWith } from 'lodash';
 import { DEFAULT_THEME_QUERY } from './constants';
 
 /**
@@ -10,14 +10,24 @@ const REGEXP_SERIALIZED_QUERY = /^(?:(\d+):)?(.*)$/;
 // we normalize to taxonomies.theme_feature to be consistent with results from WPCOM.)
 const SEARCH_TAXONOMIES = [ 'feature' ];
 
+// Used for client-side delisting of taxonomy terms. Note that these taxonomy terms often
+// have functional purposes, which is why they cannot be removed in the endpoint payload.
+//
+// As a rule of thumb, only add terms here if you want to hide them visually in the UI.
+// Otherwise, they should be delisted in the backend.
+const DELISTED_TAXONOMY_TERM_SLUGS = [ 'auto-loading-homepage' ];
+
+// Used for client-side delisting of wp.org themes. Note that these themes are fethced
+// directly from wp.org, which is why they cannot be removed in the endpoint payload.
+const DELISTED_WPORG_THEMES = [ 'shopline', 'store-shopline' ];
+
 /**
  * Utility
  */
 
 /**
  * Whether a given theme object is premium.
- *
- * @param  {object} theme Theme object
+ * @param  {Object} theme Theme object
  * @returns {boolean}      True if the theme is premium
  */
 export function isPremium( theme ) {
@@ -27,9 +37,8 @@ export function isPremium( theme ) {
 
 /**
  * Normalizes a theme obtained via the WordPress.com REST API from a Jetpack site
- *
- * @param  {object} theme  Theme object
- * @returns {object}        Normalized theme object
+ * @param  {Object} theme  Theme object
+ * @returns {Object}        Normalized theme object
  */
 export function normalizeJetpackTheme( theme = {} ) {
 	if ( ! theme.tags ) {
@@ -47,9 +56,8 @@ export function normalizeJetpackTheme( theme = {} ) {
 
 /**
  * Normalizes a theme obtained from the WordPress.com REST API
- *
- * @param  {object} theme  Theme object
- * @returns {object}        Normalized theme object
+ * @param  {Object} theme  Theme object
+ * @returns {Object}        Normalized theme object
  */
 export function normalizeWpcomTheme( theme ) {
 	const attributesMap = {
@@ -58,16 +66,26 @@ export function normalizeWpcomTheme( theme ) {
 		download_uri: 'download',
 	};
 
-	return mapKeys( theme, ( value, key ) => get( attributesMap, key, key ) );
+	if ( ! theme ) {
+		return {};
+	}
+
+	return Object.fromEntries(
+		Object.entries( theme ).map( ( [ key, value ] ) => [ attributesMap[ key ] ?? key, value ] )
+	);
 }
 
 /**
  * Normalizes a theme obtained from the WordPress.org REST API
- *
- * @param  {object} theme  Theme object
- * @returns {object}        Normalized theme object
+ * @param   {Object} theme   Theme object
+ * @param   {Object} tier     Theme tier that wporg themes belong to.
+ * @returns {Object}        Normalized theme object
  */
-export function normalizeWporgTheme( theme ) {
+export function normalizeWporgTheme( theme, tier ) {
+	if ( ! theme ) {
+		return {};
+	}
+
 	const attributesMap = {
 		slug: 'id',
 		preview_url: 'demo_uri',
@@ -75,8 +93,11 @@ export function normalizeWporgTheme( theme ) {
 		download_link: 'download',
 	};
 
-	const normalizedTheme = mapKeys( omit( theme, [ 'sections', 'author' ] ), ( value, key ) =>
-		get( attributesMap, key, key )
+	const normalizedTheme = Object.fromEntries(
+		Object.entries( omit( theme, [ 'sections', 'author' ] ) ).map( ( [ key, value ] ) => [
+			attributesMap[ key ] ?? key,
+			value,
+		] )
 	);
 
 	const description = get( theme, [ 'sections', 'description' ] );
@@ -88,6 +109,8 @@ export function normalizeWporgTheme( theme ) {
 	if ( author ) {
 		normalizedTheme.author = author;
 	}
+
+	normalizedTheme.theme_tier = tier ?? { slug: 'community' };
 
 	if ( ! normalizedTheme.tags ) {
 		return normalizedTheme;
@@ -102,25 +125,10 @@ export function normalizeWporgTheme( theme ) {
 }
 
 /**
- * Given a theme stylesheet string (like 'pub/twentysixteen'), returns the corresponding theme ID ('twentysixteen').
- *
- * @param  {string}  stylesheet Theme stylesheet
- * @returns {?string}            Theme ID
- */
-export function getThemeIdFromStylesheet( stylesheet ) {
-	const [ , slug ] = stylesheet?.split( '/', 2 ) ?? [];
-	if ( ! slug ) {
-		return stylesheet;
-	}
-	return slug;
-}
-
-/**
  * Returns a normalized themes query, excluding any values which match the
  * default theme query.
- *
- * @param  {object} query Themes query
- * @returns {object}       Normalized themes query
+ * @param  {Object} query Themes query
+ * @returns {Object}       Normalized themes query
  */
 export function getNormalizedThemesQuery( query ) {
 	return omitBy( query, ( value, key ) => DEFAULT_THEME_QUERY[ key ] === value );
@@ -128,8 +136,7 @@ export function getNormalizedThemesQuery( query ) {
 
 /**
  * Returns a serialized themes query
- *
- * @param  {object} query  Themes query
+ * @param  {Object} query  Themes query
  * @param  {number} siteId Optional site ID
  * @returns {string}        Serialized themes query
  */
@@ -147,9 +154,8 @@ export function getSerializedThemesQuery( query = {}, siteId ) {
 /**
  * Returns an object with details related to the specified serialized query.
  * The object will include siteId and/or query object, if can be parsed.
- *
  * @param  {string} serializedQuery Serialized themes query
- * @returns {object}                 Deserialized themes query details
+ * @returns {Object}                 Deserialized themes query details
  */
 export function getDeserializedThemesQueryDetails( serializedQuery ) {
 	let siteId;
@@ -168,8 +174,7 @@ export function getDeserializedThemesQueryDetails( serializedQuery ) {
 
 /**
  * Returns a serialized themes query, excluding any page parameter
- *
- * @param  {object} query  Themes query
+ * @param  {Object} query  Themes query
  * @param  {number} siteId Optional site ID
  * @returns {string}        Serialized themes query
  */
@@ -179,9 +184,8 @@ export function getSerializedThemesQueryWithoutPage( query, siteId ) {
 
 /**
  * Returns true if the theme matches the given query, or false otherwise.
- *
- * @param  {object}  query Query object
- * @param  {object}  theme Item to consider
+ * @param  {Object}  query Query object
+ * @param  {Object}  theme Item to consider
  * @returns {boolean}       Whether theme matches query
  */
 export function isThemeMatchingQuery( query, theme ) {
@@ -233,12 +237,47 @@ export function isThemeMatchingQuery( query, theme ) {
 
 /**
  * Returns the slugs of the theme's given taxonomy.
- *
- * @param  {object} theme    The theme object.
+ * @param  {Object} theme    The theme object.
  * @param  {string} taxonomy The taxonomy items to get.
  * @returns {Array}           An array of theme taxonomy slugs.
  */
 export function getThemeTaxonomySlugs( theme, taxonomy ) {
 	const items = get( theme, [ 'taxonomies', taxonomy ], [] );
 	return items.map( ( { slug } ) => slug );
+}
+
+/**
+ * Returns true if a taxonomy term slug is delisted.
+ * @param  {string}  slug   The term slug to check for delisting
+ * @returns {boolean}       True if term slug is delisted
+ */
+export function isDelistedTaxonomyTermSlug( slug ) {
+	return DELISTED_TAXONOMY_TERM_SLUGS.includes( slug );
+}
+
+/**
+ * Returns the list of available theme filters, excluding the delisted taxonomy terms.
+ * @param {Object}  filters A list of filters.
+ * @returns {Object}        A nested list of theme filters, keyed by term slug
+ */
+export function filterDelistedTaxonomyTermSlugs( filters ) {
+	const result = {};
+	for ( const taxonomy in filters ) {
+		result[ taxonomy ] = Object.fromEntries(
+			Object.entries( filters[ taxonomy ] || {} ).filter(
+				( [ slug ] ) => ! isDelistedTaxonomyTermSlug( slug )
+			)
+		);
+	}
+
+	return result;
+}
+
+/**
+ * Is wp.org theme delisted?
+ * @param  {Object} theme  Theme object
+ * @returns {boolean}         True if theme is delisted
+ */
+export function isDelisted( theme ) {
+	return DELISTED_WPORG_THEMES.includes( theme.id );
 }

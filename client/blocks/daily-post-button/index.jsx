@@ -1,8 +1,8 @@
+import page from '@automattic/calypso-router';
 import { Button, Gridicon } from '@automattic/components';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { translate } from 'i18n-calypso';
 import { get, defer } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { stringify } from 'qs';
 import { createRef, createElement, Component } from 'react';
@@ -127,7 +127,7 @@ export class DailyPostButton extends Component {
 				header={ <div> { translate( 'Post on' ) } </div> }
 				context={ this.dailyPostButtonRef.current }
 				visible={ this.state.showingMenu }
-				groups={ true }
+				groups
 				onSiteSelect={ this.openEditorWithSite }
 				onClose={ this.closeMenu }
 				position="top"
@@ -139,7 +139,7 @@ export class DailyPostButton extends Component {
 
 	render() {
 		const title = get( this.props, 'post.title' );
-		const buttonClasses = classnames( {
+		const buttonClasses = clsx( {
 			'daily-post-button__button': true,
 			'ignore-click': true,
 			'is-active': this.state.showingMenu,

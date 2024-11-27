@@ -1,13 +1,16 @@
 import PropTypes from 'prop-types';
-import ReaderFeaturedImage from 'calypso/blocks/reader-featured-image';
 import ReaderFeaturedVideo from 'calypso/blocks/reader-featured-video';
+import ReaderFeaturedImages from 'calypso/blocks/reader-post-card/featured-images';
 
 const FeaturedAsset = ( {
+	post,
 	canonicalMedia,
 	postUrl,
-	allowVideoPlaying,
+	allowVideoPlaying = true,
 	onVideoThumbnailClick,
 	isVideoExpanded,
+	isCompactPost,
+	hasExcerpt,
 } ) => {
 	if ( ! canonicalMedia ) {
 		return null;
@@ -21,29 +24,31 @@ const FeaturedAsset = ( {
 				allowPlaying={ allowVideoPlaying }
 				onThumbnailClick={ onVideoThumbnailClick }
 				isExpanded={ isVideoExpanded }
+				isCompactPost={ isCompactPost }
+				hasExcerpt={ hasExcerpt }
 			/>
 		);
 	}
 
 	return (
-		<ReaderFeaturedImage
-			imageUrl={ canonicalMedia.src }
-			href={ postUrl }
-			fetched={ canonicalMedia.fetched }
+		<ReaderFeaturedImages
+			post={ post }
+			postUrl={ postUrl }
+			canonicalMedia={ canonicalMedia }
+			isCompactPost={ isCompactPost }
+			hasExcerpt={ hasExcerpt }
 		/>
 	);
 };
 
 FeaturedAsset.propTypes = {
+	post: PropTypes.object,
 	canonicalMedia: PropTypes.object,
 	postUrl: PropTypes.string,
 	allowVideoPlaying: PropTypes.bool,
 	onVideoThumbnailClick: PropTypes.func,
 	isVideoExpanded: PropTypes.bool,
-};
-
-FeaturedAsset.defaultProps = {
-	allowVideoPlaying: true,
+	hasExcerpt: PropTypes.bool,
 };
 
 export default FeaturedAsset;

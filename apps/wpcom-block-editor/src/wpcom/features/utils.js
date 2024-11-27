@@ -1,18 +1,17 @@
 import { select } from '@wordpress/data';
-import { isEqual, some, debounce } from 'lodash';
+import { isEqual, some } from 'lodash';
 import tracksRecordEvent from './tracking/track-record-event';
 
 /**
  * Determines the type of the block editor.
- *
  * @returns {(string|undefined)} editor's type
  */
 export const getEditorType = () => {
-	if ( document.querySelector( '.edit-post-layout' ) ) {
+	if ( document.querySelector( '#editor .edit-post-layout' ) ) {
 		return 'post';
 	}
 
-	if ( document.querySelector( '#edit-site-editor' ) ) {
+	if ( document.querySelector( '#site-editor' ) ) {
 		return 'site';
 	}
 
@@ -30,23 +29,23 @@ export const getEditorType = () => {
 /**
  * Helper for `getBlockEventContextProperties` function.  Builds the properties to return based on
  * the block provided.
- *
- * @param {object} block block object that provides context.
- * @returns	{object} Properties for tracking event.
+ * @param {Object} block block object that provides context.
+ * @returns	{Object} Properties for tracking event.
  */
 const buildPropsFromContextBlock = ( block ) => {
 	let context = block?.name;
 
 	if ( block?.name === 'core/template-part' ) {
 		const templatePartId = `${ block.attributes.theme }//${ block.attributes.slug }`;
-		const { getActiveBlockVariation } = select( 'core/blocks' );
 
-		if ( typeof getActiveBlockVariation === 'function' ) {
-			const variation = getActiveBlockVariation( block.name, block.attributes );
+		const entity = select( 'core' ).getEntityRecord(
+			'postType',
+			'wp_template_part',
+			templatePartId
+		);
 
-			if ( variation?.name ) {
-				context = `${ context }/${ variation.name }`;
-			}
+		if ( entity?.area && entity?.area !== 'uncategorized' ) {
+			context = `${ context }/${ entity.area }`;
 		}
 
 		return {
@@ -63,9 +62,8 @@ const buildPropsFromContextBlock = ( block ) => {
 /**
  * Determines the entity context props of a block event, given the rootClientId of the
  * block action.
- *
  * @param {string} rootClientId The rootClientId of the block event.
- * @returns {object} The block event's context properties.
+ * @returns {Object} The block event's context properties.
  */
 export const getBlockEventContextProperties = ( rootClientId ) => {
 	const { getBlockParentsByBlockName, getBlock } = select( 'core/block-editor' );
@@ -104,9 +102,8 @@ export const getBlockEventContextProperties = ( rootClientId ) => {
 /**
  * Compares two objects, returning values in newObject that do not correspond
  * to values in oldObject.
- *
- * @param {object|Array} newObject The object that has had an update.
- * @param {object|Array} oldObject The original object to reference.
+ * @param {Object | Array} newObject The object that has had an update.
+ * @param {Object | Array} oldObject The original object to reference.
  * @param {Array}  		 keyMap    Used in recursion.  A list of keys mapping to the changed item.
  * @returns {Array[object]} Array of objects containing a keyMap array and value for the changed items.
  */
@@ -142,9 +139,8 @@ const compareObjects = ( newObject, oldObject, keyMap = [] ) => {
  * This returns items in newContent that are different from those found in oldContent.
  * Additionally, items found in oldContent that are not in newContent are added to the
  * change list with their value as 'reset'.
- *
- * @param {object} newContent The object that has had an update.
- * @param {object} oldContent The original object to reference.
+ * @param {Object} newContent The object that has had an update.
+ * @param {Object} oldContent The original object to reference.
  * @returns {Array[object]} Array of objects containing a keyMap array and value for the changed items.
  */
 const findUpdates = ( newContent, oldContent ) => {
@@ -172,10 +168,9 @@ const findUpdates = ( newContent, oldContent ) => {
 
 /**
  * Builds tracks event props for a change in global styles.
- *
  * @param {Array[string]} keyMap A list of keys mapping to the changed item in the global styles content object.
  * @param {*} 			  value  New value of the updated item.
- * @returns {object} An object containing the event properties for a global styles change.
+ * @returns {Object} An object containing the event properties for a global styles change.
  */
 const buildGlobalStylesEventProps = ( keyMap, value ) => {
 	let blockName;
@@ -222,20 +217,52 @@ const buildGlobalStylesEventProps = ( keyMap, value ) => {
 	};
 };
 
+let lastCalled;
+let originalGSObject;
+let functionTimeoutId;
+const debounceTimer = 500;
 /**
- * Builds and sends tracks events for global styles changes.
- *
+ * Creates the Tracks events for global styles changes. The logic is wrapped
+ * in a setTimeout to allow for custom debouncing when invoked.
  * @param {Object} updated   The updated global styles content object.
- * @param {Object} original	 The original global styles content object.
  * @param {string} eventName Name of the tracks event to send.
  */
-export const buildGlobalStylesContentEvents = debounce( ( updated, original, eventName ) => {
-	// Debouncing is necessary to avoid spamming tracks events with updates when sliding inputs
-	// such as a color picker are in use.
-	return findUpdates( updated, original )?.forEach( ( { keyMap, value } ) => {
-		tracksRecordEvent( eventName, buildGlobalStylesEventProps( keyMap, value ) );
-	} );
-}, 100 );
+const trackEventsWithTimer = ( updated, eventName ) => {
+	functionTimeoutId = setTimeout(
+		() =>
+			findUpdates( updated, originalGSObject )?.forEach( ( { keyMap, value } ) => {
+				tracksRecordEvent( eventName, buildGlobalStylesEventProps( keyMap, value ) );
+			} ),
+		debounceTimer
+	);
+};
+
+/**
+ * Builds and sends tracks events for global styles changes. We set and use
+ * some timing variables to allow for custom debouncing. This is needed
+ * to avoid spamming tracks events when using continuous inputs such as a
+ * slider or color picker.
+ * @param {Object} updated   The updated global styles content object.
+ * @param {Object} original  The original global styles content object.
+ * @param {string} eventName Name of the tracks event to send.
+ */
+export const buildGlobalStylesContentEvents = ( updated, original, eventName ) => {
+	// check timing since last call
+	const hasntBeenCalled = ! lastCalled;
+	const timeCalled = new Date().getTime();
+	const recentlyCalled = timeCalled - lastCalled < debounceTimer;
+	lastCalled = timeCalled;
+
+	if ( hasntBeenCalled || ! recentlyCalled ) {
+		// if not called recently -> set original for later reference
+		originalGSObject = original;
+		trackEventsWithTimer( updated, eventName );
+	} else {
+		// else -> cancel delayed function call - reset it with new updated value
+		clearTimeout( functionTimeoutId );
+		trackEventsWithTimer( updated, eventName );
+	}
+};
 
 export const getFlattenedBlockNames = ( block ) => {
 	const blockNames = [];
@@ -256,7 +283,6 @@ export const getFlattenedBlockNames = ( block ) => {
 
 /**
  * Checks the editor for open saving interfaces and returns the result.
- *
  * @returns {string} Name of saving interface found.
  */
 export const findSavingSource = () => {

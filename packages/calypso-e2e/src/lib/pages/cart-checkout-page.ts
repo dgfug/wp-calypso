@@ -1,7 +1,7 @@
 import { Frame, Page } from 'playwright';
 import { getCalypsoURL } from '../../data-helper';
 import envVariables from '../../env-variables';
-import type { PaymentDetails, RegistrarDetails } from '../../data-helper';
+import type { PaymentDetails, RegistrarDetails } from '../../types/data-helper.types';
 
 const selectors = {
 	// Modal
@@ -15,9 +15,11 @@ const selectors = {
 		`[data-testid="review-order-step--visible"] .checkout-line-item >> text=${ itemName.trim() }`,
 	removeCartItemButton: ( itemName: string ) =>
 		`[data-testid="review-order-step--visible"] button[aria-label*="Remove ${ itemName.trim() } from cart"]`,
+	cartItems: `[data-testid="review-order-step--visible"] .checkout-line-item`,
 
 	// Order Summary
 	editOrderButton: 'button[aria-label="Edit your order"]',
+	editPaymentStep: 'button[aria-label="Edit the payment method"]',
 	removeCouponButton: ( coupon: string ) =>
 		`button[aria-label="Remove Coupon: ${ coupon } from cart"]`,
 	saveOrderButton: 'button[aria-label="Save your order"]',
@@ -27,7 +29,7 @@ const selectors = {
 	lastNameInput: `input[aria-describedby="validation-field-last-name"]`,
 	phoneInput: `input[name="phone"]`,
 	phoneSelect: 'select.phone-input__country-select',
-	countrySelect: 'select[aria-describedby="validation-field-country-code"]',
+	countrySelect: 'select[aria-describedby="country-selector-description"]',
 	addressInput: 'input[aria-describedby="validation-field-address-1"]',
 	cityInput: 'input[aria-describedby="validation-field-city"]',
 	stateSelect: 'select[aria-describedby="validation-field-state"]',
@@ -41,8 +43,11 @@ const selectors = {
 	submitBillingInformationButton:
 		'[data-testid="contact-form--visible"] button.checkout-button.is-status-primary',
 
+	// Payment method cards
+	existingCreditCard: ( cardHolderName: string ) =>
+		`label[for*="existingCard"]:has-text("${ cardHolderName }")`,
+
 	// Payment field
-	paymentMethod: '[data-testid="payment-method-step--visible"]',
 	cardholderName: `input[id="cardholder-name"]`,
 	cardNumberFrame: 'iframe[title="Secure card number input frame"]',
 	cardNumberInput: 'input[data-elements-stable-field-name="cardNumber"]',
@@ -52,21 +57,26 @@ const selectors = {
 	cardCVVInput: 'input[data-elements-stable-field-name="cardCvc"]',
 
 	// Checkout elements
-	couponCodeInputButton: `button:text("Add a coupon code"):visible`,
+	couponCodeInputButton: `button:text("Have a coupon?"):visible`,
 	couponCodeInput: `input[id="order-review-coupon"]`,
 	couponCodeApplyButton: `button:text("Apply")`,
 	disabledButton: 'button[disabled]:has-text("Processing")',
-	paymentButton: `button.checkout-button`,
+	paymentButton: `.checkout-submit-button button`,
 	totalAmount:
 		envVariables.VIEWPORT_NAME === 'mobile'
 			? '.wp-checkout__total-price'
 			: '.wp-checkout-order-summary__total-price',
-	purchaseButton: `button.checkout-button:has-text("Pay")`,
-	closeCheckout: 'button[data-tip-target="close"]',
+	purchaseButton: `.checkout-submit-button button:has-text("Pay")`,
+	thirdPartyDeveloperCheckboxLabel:
+		'You agree that an account may be created on a third party developer’s site related to the products you have purchased.',
+
+	// Cancel purchase
+	closeLeaveButton: 'button:text("Leave items")',
+	closeEmptyCartButton: 'button:text("Empty cart")',
 };
 
 /**
- * Page representing the cart checkout page for purchases made in Upgrades.
+ * Page representing the Secure Checkout page.
  */
 export class CartCheckoutPage {
 	private page: Page;
@@ -86,14 +96,18 @@ export class CartCheckoutPage {
 	 * @param {string} blogName Blogname for which checkout is to be loaded.
 	 */
 	async visit( blogName: string ): Promise< void > {
-		await this.page.goto( getCalypsoURL( `checkout/${ blogName }` ), { waitUntil: 'networkidle' } );
+		await this.page.goto( getCalypsoURL( `checkout/${ blogName }` ), {
+			waitUntil: 'networkidle',
+			timeout: 20 * 1000,
+		} );
 	}
 
 	/**
 	 * Validates that the card payment input fields are visible.
 	 */
 	async validatePaymentForm(): Promise< void > {
-		await this.page.waitForSelector( selectors.cardholderName );
+		const cardholderNameLocator = this.page.locator( selectors.cardholderName );
+		await cardholderNameLocator.waitFor( { state: 'visible', timeout: 20 * 1000 } );
 	}
 	/**
 	 * Validates that an item is in the cart with the expected text. Throws if it isn't.
@@ -113,6 +127,18 @@ export class CartCheckoutPage {
 	async removeCartItem( cartItemName: string ): Promise< void > {
 		await this.page.click( selectors.removeCartItemButton( cartItemName ) );
 		await this.page.click( selectors.modalContinueButton );
+	}
+
+	/**
+	 * Validates that the cart contains the expected number of items.
+	 */
+	async validateCartItemsCount( totalItems: number ): Promise< void > {
+		await this.page.waitForSelector( selectors.cartItems );
+		const cartItemsLocator = this.page.locator( selectors.cartItems );
+		const itemsCount = await cartItemsLocator.count();
+		if ( itemsCount !== totalItems ) {
+			throw new Error( `Expected ${ totalItems } items in cart, but found ${ itemsCount }` );
+		}
 	}
 
 	/**
@@ -177,14 +203,16 @@ export class CartCheckoutPage {
 	 * If optional parameter `rawString` is specified, the string as obtained is returned.
 	 *
 	 * @param param0 Object parameter.
-	 * @param {boolean} param0.rawString If true, the raw string is returned.
+	 * @param {boolean} param0.rawString If true, the string as displayed is returned.
 	 * @returns {Promise<number|string>} Total value of items in cart.
 	 */
 	async getCheckoutTotalAmount( { rawString = false }: { rawString?: boolean } = {} ): Promise<
 		number | string
 	> {
-		const elementHandle = await this.page.waitForSelector( selectors.totalAmount );
-		const stringAmount = await elementHandle.innerText();
+		const totalAmountLocator = this.page.locator( selectors.totalAmount );
+		await totalAmountLocator.waitFor( { timeout: 20 * 1000 } );
+
+		const stringAmount = await totalAmountLocator.innerText();
 		if ( rawString ) {
 			// Returns the raw string.
 			return stringAmount;
@@ -227,11 +255,48 @@ export class CartCheckoutPage {
 	}
 
 	/**
+	 * Selects a saved card payment method.
+	 *
+	 * @param {string} cardHolderName Name of the card holder associated with the payment method.
+	 */
+	async selectSavedCard( cardHolderName: string ): Promise< void > {
+		// If the account has a saved card, the payment method step may
+		// automatically collapse with the first saved card automatically
+		// selected. So in order to select a different card, we need to click
+		// the "Edit" button on the payment method step. There are cases where
+		// the step will not be collapsed, however, so this will only trigger
+		// if the edit button is visible.
+		const cardSelector = this.page
+			.locator( selectors.existingCreditCard( cardHolderName ) )
+			.first();
+		const editPaymentButton = this.page.locator( selectors.editPaymentStep );
+
+		await cardSelector.or( editPaymentButton ).first().waitFor( { state: 'visible' } );
+
+		if ( await editPaymentButton.isVisible() ) {
+			await editPaymentButton.click();
+		}
+
+		await cardSelector.click();
+	}
+
+	/**
 	 * Enter payment details.
+	 *
+	 * Note that this method will always choose to create
+	 * a new card entry even if the intended payment
+	 * details have already been saved.
 	 *
 	 * @param {PaymentDetails} paymentDetails Object implementing the PaymentDetails interface.
 	 */
 	async enterPaymentDetails( paymentDetails: PaymentDetails ): Promise< void > {
+		// Click on the Credit or debit card input in order
+		// to expand the fields.
+		const cardInputLocator = this.page.locator( `span:has-text("Credit or debit card")` );
+		await cardInputLocator.click();
+
+		// Begin filling in the card details from
+		// top to bottom.
 		await this.page.fill( selectors.cardholderName, paymentDetails.cardHolder );
 
 		const cardNumberFrameHandle = await this.page.waitForSelector( selectors.cardNumberFrame );
@@ -246,7 +311,7 @@ export class CartCheckoutPage {
 
 		const cvvFrame = ( await (
 			await this.page.waitForSelector( selectors.cardCVVFrame )
-		 ).contentFrame() ) as Frame;
+		).contentFrame() ) as Frame;
 		const cvvInput = await cvvFrame.waitForSelector( selectors.cardCVVInput );
 		await cvvInput.fill( paymentDetails.cvv );
 	}
@@ -256,8 +321,20 @@ export class CartCheckoutPage {
 	 */
 	async purchase( { timeout }: { timeout?: number } = {} ): Promise< void > {
 		await Promise.all( [
-			this.page.waitForNavigation( { timeout: timeout } ),
+			this.page.waitForResponse( /.*me\/transactions.*/, { timeout: timeout } ),
 			this.page.click( selectors.purchaseButton ),
+		] );
+	}
+
+	/**
+	 * Close checkout and leave/empty items from cart.
+	 *
+	 * @param {boolean} leaveItems Leave items in cart or not.
+	 */
+	async closeCheckout( leaveItems: boolean ): Promise< void > {
+		await this.page.getByRole( 'button', { name: 'Close Checkout' } ).click();
+		await Promise.all( [
+			this.page.click( leaveItems ? selectors.closeLeaveButton : selectors.closeEmptyCartButton ),
 		] );
 	}
 }

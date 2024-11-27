@@ -1,4 +1,4 @@
-import { isFreePlanProduct, isFlexiblePlanProduct } from '@automattic/calypso-products';
+import { PLAN_100_YEARS } from '@automattic/calypso-products';
 import { isMobile } from '@automattic/viewport';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
@@ -8,10 +8,9 @@ import SectionNav from 'calypso/components/section-nav';
 import NavItem from 'calypso/components/section-nav/item';
 import NavTabs from 'calypso/components/section-nav/tabs';
 import { sectionify } from 'calypso/lib/route';
-import { isEligibleForProPlan } from 'calypso/my-sites/plans-comparison';
 import isSiteOnFreePlan from 'calypso/state/selectors/is-site-on-free-plan';
 import isAtomicSite from 'calypso/state/selectors/is-site-wpcom-atomic';
-import { getCurrentPlan } from 'calypso/state/sites/plans/selectors';
+import { isTrialSite } from 'calypso/state/sites/plans/selectors';
 import { getSite, isJetpackSite } from 'calypso/state/sites/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 
@@ -19,56 +18,70 @@ class PlansNavigation extends Component {
 	static propTypes = {
 		isJetpack: PropTypes.bool,
 		path: PropTypes.string.isRequired,
-		shouldShowMyPlan: PropTypes.bool,
+		shouldShowNavigation: PropTypes.bool,
 		site: PropTypes.object,
+		isTrial: PropTypes.bool,
 	};
 
+	static planPaths = [
+		'/plans',
+		'/plans/monthly',
+		'/plans/yearly',
+		'/plans/2yearly',
+		'/plans/3yearly',
+	];
+
 	getSectionTitle( path ) {
-		switch ( path ) {
-			case '/plans/my-plan':
-				return 'My Plan';
+		const { translate } = this.props;
 
-			case '/plans':
-			case '/plans/monthly':
-			case '/plans/yearly':
-				return 'Plans';
-
-			default:
-				return path.split( '?' )[ 0 ].replace( /\//g, ' ' );
+		if ( path === '/plans/my-plan' ) {
+			return translate( 'My Plan' );
 		}
+
+		if ( PlansNavigation.planPaths.includes( path ) ) {
+			return translate( 'Plans' );
+		}
+
+		return path.split( '?' )[ 0 ].replace( /\//g, ' ' );
+	}
+
+	isSiteOn100YearPlan() {
+		const { site } = this.props;
+		return site?.plan?.product_slug === PLAN_100_YEARS;
 	}
 
 	render() {
-		const { site, shouldShowMyPlan, shouldShowPlans, translate, eligibleForProPlan } = this.props;
+		const { site, shouldShowNavigation, translate, isTrial } = this.props;
 		const path = sectionify( this.props.path );
 		const sectionTitle = this.getSectionTitle( path );
-		const hasPinnedItems = isMobile() && site;
+		const hasPinnedItems = Boolean( site ) && isMobile();
+		const myPlanItemTitle = isTrial ? translate( 'Free trial' ) : translate( 'My Plan' );
+
+		if ( ! site || ! shouldShowNavigation ) {
+			return;
+		}
 
 		return (
-			site && (
+			<div className="navigation">
 				<SectionNav hasPinnedItems={ hasPinnedItems } selectedText={ sectionTitle }>
-					<NavTabs label="Section" selectedText={ sectionTitle }>
-						{ shouldShowMyPlan && (
-							<NavItem
-								path={ `/plans/my-plan/${ site.slug }` }
-								selected={ path === '/plans/my-plan' }
-							>
-								{ translate( 'My Plan' ) }
-							</NavItem>
-						) }
-						{ shouldShowPlans && (
+					<NavTabs label={ translate( 'Section' ) } selectedText={ sectionTitle }>
+						<NavItem
+							path={ `/plans/my-plan/${ site.slug }` }
+							selected={ path === '/plans/my-plan' }
+						>
+							{ myPlanItemTitle }
+						</NavItem>
+						{ ! this.isSiteOn100YearPlan() && (
 							<NavItem
 								path={ `/plans/${ site.slug }` }
-								selected={
-									path === '/plans' || path === '/plans/monthly' || path === '/plans/yearly'
-								}
+								selected={ PlansNavigation.planPaths.includes( path ) }
 							>
-								{ eligibleForProPlan ? translate( 'New Plans' ) : translate( 'Plans' ) }
+								{ translate( 'Plans' ) }
 							</NavItem>
 						) }
 					</NavTabs>
 				</SectionNav>
-			)
+			</div>
 		);
 	}
 }
@@ -79,22 +92,11 @@ export default connect( ( state ) => {
 	const isJetpack = isJetpackSite( state, siteId );
 	const isOnFreePlan = isSiteOnFreePlan( state, siteId );
 	const isAtomic = isAtomicSite( state, siteId );
-	const eligibleForProPlan = isEligibleForProPlan( state, siteId );
-	const currentPlan = getCurrentPlan( state, siteId );
-	let shouldShowMyPlan = ! isOnFreePlan || ( isJetpack && ! isAtomic );
-	let shouldShowPlans = true;
 
-	if ( eligibleForProPlan && currentPlan ) {
-		const isFreeOrFlexible =
-			isFreePlanProduct( currentPlan ) || isFlexiblePlanProduct( currentPlan );
-		shouldShowMyPlan = isFreeOrFlexible ? false : true;
-		shouldShowPlans = isFreeOrFlexible ? true : false;
-	}
 	return {
 		isJetpack,
-		shouldShowMyPlan,
-		shouldShowPlans,
+		shouldShowNavigation: ! isOnFreePlan || ( isJetpack && ! isAtomic ),
 		site,
-		eligibleForProPlan,
+		isTrial: isTrialSite( state, siteId ),
 	};
 } )( localize( PlansNavigation ) );

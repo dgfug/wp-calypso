@@ -2,7 +2,6 @@ import {
 	FormStatus,
 	TransactionStatus,
 	useTransactionStatus,
-	useLineItems,
 	useFormStatus,
 	Button,
 } from '@automattic/composite-checkout';
@@ -18,6 +17,7 @@ const ButtonPayPalIcon = styled( PaypalLogo )`
 export function createPayPalMethod(): PaymentMethod {
 	return {
 		id: 'paypal',
+		paymentProcessorId: 'paypal',
 		label: <PaypalLabel />,
 		submitButton: <PaypalSubmitButton />,
 		inactiveContent: <PaypalSummary />,
@@ -25,10 +25,10 @@ export function createPayPalMethod(): PaymentMethod {
 	};
 }
 
-function PaypalLabel(): JSX.Element {
+function PaypalLabel() {
 	return (
 		<Fragment>
-			<span>{ 'PayPal' }</span>
+			<span>PayPal</span>
 		</Fragment>
 	);
 }
@@ -39,10 +39,9 @@ function PaypalSubmitButton( {
 }: {
 	disabled?: boolean;
 	onClick?: ProcessPayment;
-} ): JSX.Element {
+} ) {
 	const { formStatus } = useFormStatus();
 	const { transactionStatus } = useTransactionStatus();
-	const [ items ] = useLineItems();
 
 	const handleButtonPress = () => {
 		if ( ! onClick ) {
@@ -50,9 +49,7 @@ function PaypalSubmitButton( {
 				'Missing onClick prop; PaypalSubmitButton must be used as a payment button in CheckoutSubmitButton'
 			);
 		}
-		onClick( 'paypal', {
-			items,
-		} );
+		onClick( 'paypal' );
 	};
 	return (
 		<Button
@@ -73,7 +70,7 @@ function PayPalButtonContents( {
 }: {
 	formStatus: FormStatus;
 	transactionStatus: TransactionStatus;
-} ): JSX.Element {
+} ) {
 	const { __ } = useI18n();
 	if ( transactionStatus === TransactionStatus.REDIRECTING ) {
 		return <span>{ __( 'Redirecting to PayPal…' ) }</span>;
@@ -87,11 +84,11 @@ function PayPalButtonContents( {
 	return <span>{ __( 'Please wait…' ) }</span>;
 }
 
-function PaypalSummary(): JSX.Element {
-	return <>{ 'PayPal' }</>;
+function PaypalSummary() {
+	return <>PayPal</>;
 }
 
-function PaypalLogo( { className }: { className?: string } ): JSX.Element {
+function PaypalLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }

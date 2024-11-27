@@ -1,12 +1,20 @@
-import { getPlanClass } from '@automattic/calypso-products';
+import {
+	WPCOM_FEATURES_ANTISPAM,
+	WPCOM_FEATURES_BACKUPS,
+	WPCOM_FEATURES_PRIORITY_SUPPORT,
+	WPCOM_FEATURES_REAL_TIME_BACKUPS,
+	WPCOM_FEATURES_SCAN,
+	WPCOM_FEATURES_SEO_PREVIEW_TOOLS,
+	WPCOM_FEATURES_VIDEO_HOSTING,
+	WPCOM_FEATURES_VIDEOPRESS_UNLIMITED_STORAGE,
+} from '@automattic/calypso-products';
+import page from '@automattic/calypso-router';
 import { Button, Card, Gridicon } from '@automattic/components';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { PureComponent } from 'react';
 import { connect } from 'react-redux';
 import QueryRewindState from 'calypso/components/data/query-rewind-state';
-import HappychatButton from 'calypso/components/happychat/button';
 import { recordGoogleEvent, recordTracksEvent } from 'calypso/state/analytics/actions';
 import { disconnect } from 'calypso/state/jetpack/connection/actions';
 import {
@@ -16,7 +24,8 @@ import {
 	removeNotice,
 } from 'calypso/state/notices/actions';
 import getRewindState from 'calypso/state/selectors/get-rewind-state';
-import { getSiteSlug, getSiteTitle, getSitePlanSlug } from 'calypso/state/sites/selectors';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
+import { getSiteSlug, getSiteTitle } from 'calypso/state/sites/selectors';
 import { setAllSitesSelected } from 'calypso/state/ui/actions';
 
 import './style.scss';
@@ -33,7 +42,14 @@ class DisconnectJetpack extends PureComponent {
 		siteId: PropTypes.number,
 		stayConnectedHref: PropTypes.string,
 		// Connected props
-		plan: PropTypes.string,
+		hasAntiSpam: PropTypes.bool,
+		hasDailyBackups: PropTypes.bool,
+		hasPrioritySupport: PropTypes.bool,
+		hasRealTimeBackups: PropTypes.bool,
+		hasScan: PropTypes.bool,
+		hasSeoPreviewTools: PropTypes.bool,
+		hasVideoHosting: PropTypes.bool,
+		hasVideoPressUnlimitedStorage: PropTypes.bool,
 		siteSlug: PropTypes.string,
 		siteTitle: PropTypes.string,
 		setAllSitesSelected: PropTypes.func,
@@ -65,77 +81,74 @@ class DisconnectJetpack extends PureComponent {
 	}
 
 	planFeatures() {
-		const { plan, translate } = this.props;
+		const { translate } = this.props;
 		const features = [];
 
-		if ( plan === 'is-free-plan' ) {
-			features.push(
-				translate(
-					'{{icon/}} Site stats, related content, and sharing tools',
-					this.getIcon( 'stats-alt' )
-				)
-			);
-			features.push(
-				translate(
-					'{{icon/}} Brute force attack protection and downtime monitoring',
-					this.getIcon( 'lock' )
-				)
-			);
-			features.push(
-				translate( '{{icon/}} Unlimited, high-speed image hosting', this.getIcon( 'image' ) )
-			);
-		} else if ( plan === 'is-personal-plan' ) {
-			features.push(
-				translate(
-					'{{icon/}} Daily automated backups (unlimited storage)',
-					this.getIcon( 'history' )
-				)
-			);
-			features.push(
-				translate( '{{icon/}} Priority WordPress and security support', this.getIcon( 'chat' ) )
-			);
-			features.push( translate( '{{icon/}} Spam filtering', this.getIcon( 'spam' ) ) );
-		} else if ( [ 'is-premium-plan', 'is-daily-security-plan' ].includes( plan ) ) {
-			features.push(
-				translate(
-					'{{icon/}} Daily automated backups (unlimited storage)',
-					this.getIcon( 'history' )
-				)
-			);
-			features.push(
-				translate( '{{icon/}} Daily automated malware scanning', this.getIcon( 'spam' ) )
-			);
-			features.push(
-				translate( '{{icon/}} Priority WordPress and security support', this.getIcon( 'chat' ) )
-			);
-			features.push(
-				translate( '{{icon/}} 13GB of high-speed video hosting', this.getIcon( 'video' ) )
-			);
-		} else if (
-			[ 'is-business-plan', 'is-realtime-security-plan', 'is-complete-plan' ].includes( plan )
-		) {
+		if ( this.props.hasRealTimeBackups ) {
 			features.push(
 				translate(
 					'{{icon/}} Real-time automated backups (unlimited storage)',
 					this.getIcon( 'history' )
 				)
 			);
+		} else if ( this.props.hasDailyBackups ) {
+			features.push(
+				translate(
+					'{{icon/}} Daily automated backups (unlimited storage)',
+					this.getIcon( 'history' )
+				)
+			);
+		}
+
+		if ( this.props.hasScan ) {
 			features.push(
 				translate( '{{icon/}} Real-time automated malware scanning', this.getIcon( 'spam' ) )
 			);
+		}
+
+		if ( this.props.hasPrioritySupport ) {
 			features.push(
 				translate( '{{icon/}} Priority WordPress and security support', this.getIcon( 'chat' ) )
 			);
+		}
+
+		if ( this.props.hasVideoPressUnlimitedStorage ) {
 			features.push(
 				translate( '{{icon/}} Unlimited high-speed video hosting', this.getIcon( 'video' ) )
 			);
+		} else if ( this.props.hasVideoHosting ) {
+			features.push( translate( '{{icon/}} High-speed video hosting', this.getIcon( 'video' ) ) );
+		}
+
+		if ( this.props.hasSeoPreviewTools ) {
 			features.push( translate( '{{icon/}} SEO preview tools', this.getIcon( 'globe' ) ) );
 		}
 
-		return features.map( ( freature, index ) => {
+		if ( this.props.hasAntiSpam ) {
+			features.push( translate( '{{icon/}} Spam filtering', this.getIcon( 'spam' ) ) );
+		}
+
+		features.push(
+			translate(
+				'{{icon/}} Jetpack Stats, related content, and sharing tools',
+				this.getIcon( 'stats-alt' )
+			)
+		);
+		features.push(
+			translate(
+				'{{icon/}} Brute force attack protection and downtime monitoring',
+				this.getIcon( 'lock' )
+			)
+		);
+		features.push(
+			translate( '{{icon/}} Unlimited, high-speed image hosting', this.getIcon( 'image' ) )
+		);
+
+		// Show the top 5 features they'll miss out on.
+		return features.slice( 0, 5 ).map( ( feature, index ) => {
 			return (
 				<div key={ 'disconnect-jetpack__feature-' + index } className="disconnect-jetpack__feature">
-					{ freature }
+					{ feature }
 				</div>
 			);
 		} );
@@ -190,10 +203,6 @@ class DisconnectJetpack extends PureComponent {
 	handleTryRewind = () => {
 		this.props.recordTracksEvent( 'calypso_disconnect_jetpack_try_rewind' );
 		page( `/activity-log/${ this.props.siteSlug }` );
-	};
-
-	trackTryRewindHelp = () => {
-		this.props.recordTracksEvent( 'calypso_disconnect_jetpack_try_rewind_help' );
 	};
 
 	render() {
@@ -271,10 +280,6 @@ class DisconnectJetpack extends PureComponent {
 					</p>
 					<div className="disconnect-jetpack__try-rewind-button-wrap">
 						<Button onClick={ this.handleTryRewind }>{ translate( 'Restore site' ) }</Button>
-						<HappychatButton borderless={ false } onClick={ this.trackTryRewindHelp } primary>
-							<Gridicon icon="chat" size={ 18 } />
-							{ translate( 'Get help' ) }
-						</HappychatButton>
 					</div>
 				</Card>
 			),
@@ -284,11 +289,20 @@ class DisconnectJetpack extends PureComponent {
 
 export default connect(
 	( state, { siteId } ) => {
-		const planSlug = getSitePlanSlug( state, siteId );
-		const planClass = planSlug ? getPlanClass( planSlug ) : 'is-free-plan';
 		const rewindState = getRewindState( state, siteId );
 		return {
-			plan: planClass,
+			hasAntiSpam: siteHasFeature( state, siteId, WPCOM_FEATURES_ANTISPAM ),
+			hasDailyBackups: siteHasFeature( state, siteId, WPCOM_FEATURES_BACKUPS ),
+			hasPrioritySupport: siteHasFeature( state, siteId, WPCOM_FEATURES_PRIORITY_SUPPORT ),
+			hasRealTimeBackups: siteHasFeature( state, siteId, WPCOM_FEATURES_REAL_TIME_BACKUPS ),
+			hasScan: siteHasFeature( state, siteId, WPCOM_FEATURES_SCAN ),
+			hasSeoPreviewTools: siteHasFeature( state, siteId, WPCOM_FEATURES_SEO_PREVIEW_TOOLS ),
+			hasVideoHosting: siteHasFeature( state, siteId, WPCOM_FEATURES_VIDEO_HOSTING ),
+			hasVideoPressUnlimitedStorage: siteHasFeature(
+				state,
+				siteId,
+				WPCOM_FEATURES_VIDEOPRESS_UNLIMITED_STORAGE
+			),
 			siteSlug: getSiteSlug( state, siteId ),
 			siteTitle: getSiteTitle( state, siteId ),
 			rewindState: rewindState.state,

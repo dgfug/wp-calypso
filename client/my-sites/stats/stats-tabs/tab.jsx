@@ -1,5 +1,4 @@
-import { Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
@@ -9,7 +8,7 @@ class StatsTabsTab extends Component {
 
 	static propTypes = {
 		className: PropTypes.string,
-		gridicon: PropTypes.string,
+		icon: PropTypes.object,
 		href: PropTypes.string,
 		label: PropTypes.string,
 		loading: PropTypes.bool,
@@ -38,50 +37,34 @@ class StatsTabsTab extends Component {
 	};
 
 	render() {
-		const {
-			className,
-			compact,
-			children,
-			gridicon,
-			href,
-			label,
-			loading,
-			selected,
-			tabClick,
-			value,
-		} = this.props;
+		const { className, compact, children, icon, href, label, loading, selected, tabClick, value } =
+			this.props;
 
-		const tabClass = classNames( 'stats-tab', className, {
+		const tabClass = clsx( 'stats-tab', className, {
 			'is-selected': selected,
 			'is-loading': loading,
 			'is-low': ! value,
 			'is-compact': compact,
-			'no-icon': ! gridicon,
+			'no-icon': ! icon,
 		} );
 
-		const tabIcon = gridicon ? <Gridicon icon={ gridicon } size={ 18 } /> : null;
+		const tabIcon = icon ? icon : null;
 		const tabLabel = <span className="stats-tabs__label label">{ label }</span>;
 		const tabValue = <span className="stats-tabs__value value">{ this.ensureValue( value ) }</span>;
 		const hasClickAction = href || tabClick;
 
 		return (
 			// eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions
-			<li className={ tabClass } onClick={ this.clickHandler }>
-				{ hasClickAction ? (
-					<a href={ href }>
-						{ tabIcon }
-						{ tabLabel }
-						{ tabValue }
-						{ children }
-					</a>
-				) : (
-					<span className="stats-tabs__span no-link">
-						{ tabIcon }
-						{ tabLabel }
-						{ tabValue }
-						{ children }
-					</span>
-				) }
+			<li
+				className={ clsx( tabClass, { 'tab-disabled': ! hasClickAction } ) }
+				onClick={ this.clickHandler }
+			>
+				<a href={ href }>
+					{ tabIcon }
+					{ tabLabel }
+					{ tabValue }
+					{ children }
+				</a>
 			</li>
 		);
 	}

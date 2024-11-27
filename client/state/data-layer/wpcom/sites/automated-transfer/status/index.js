@@ -1,6 +1,5 @@
 import { delay } from 'lodash';
 import { AUTOMATED_TRANSFER_STATUS_REQUEST } from 'calypso/state/action-types';
-import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import {
 	fetchAutomatedTransferStatus,
 	setAutomatedTransferStatus,
@@ -22,29 +21,21 @@ export const requestStatus = ( action ) =>
 		action
 	);
 
-export const receiveStatus = ( { siteId }, { status, uploaded_plugin_slug, transfer_id } ) => (
-	dispatch
-) => {
-	const pluginId = uploaded_plugin_slug;
+export const receiveStatus =
+	( { siteId }, { status, uploaded_plugin_slug } ) =>
+	( dispatch ) => {
+		const pluginId = uploaded_plugin_slug;
 
-	dispatch( setAutomatedTransferStatus( siteId, status, pluginId ) );
-	if ( status !== transferStates.ERROR && status !== transferStates.COMPLETE ) {
-		delay( dispatch, 3000, fetchAutomatedTransferStatus( siteId ) );
-	}
+		dispatch( setAutomatedTransferStatus( siteId, status, pluginId ) );
+		if ( status !== transferStates.ERROR && status !== transferStates.COMPLETE ) {
+			delay( dispatch, 3000, fetchAutomatedTransferStatus( siteId ) );
+		}
 
-	if ( status === transferStates.COMPLETE ) {
-		dispatch(
-			recordTracksEvent( 'calypso_automated_transfer_complete', {
-				context: 'plugin_upload',
-				transfer_id,
-				uploaded_plugin_slug,
-			} )
-		);
-
-		// Update the now-atomic site to ensure plugin page displays correctly.
-		dispatch( requestSite( siteId ) );
-	}
-};
+		if ( status === transferStates.COMPLETE ) {
+			// Update the now-atomic site to ensure plugin page displays correctly.
+			dispatch( requestSite( siteId ) );
+		}
+	};
 
 export const requestingStatusFailure = ( response ) => {
 	return automatedTransferStatusFetchingFailure( {

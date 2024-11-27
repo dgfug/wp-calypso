@@ -5,9 +5,10 @@ import { connect, useDispatch } from 'react-redux';
 import AsyncLoad from 'calypso/components/async-load';
 import QueryJITM from 'calypso/components/data/query-jitm';
 import TrackComponentView from 'calypso/lib/analytics/track-component-view';
+import { JITM_OPEN_HELP_CENTER } from 'calypso/state/action-types';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
-import { dismissJITM, setupDevTool } from 'calypso/state/jitm/actions';
-import { getTopJITM } from 'calypso/state/jitm/selectors';
+import { dismissJITM, openHelpCenterFromJITM, setupDevTool } from 'calypso/state/jitm/actions';
+import { getTopJITM, isFetchingJITM } from 'calypso/state/jitm/selectors';
 import { isJetpackSite } from 'calypso/state/sites/selectors';
 import { getSelectedSite } from 'calypso/state/ui/selectors';
 import 'calypso/state/data-layer/wpcom/marketing';
@@ -34,6 +35,22 @@ function renderTemplate( template, props ) {
 					placeholder={ null }
 				/>
 			);
+		case 'home-task':
+			return (
+				<AsyncLoad
+					{ ...props }
+					require="calypso/blocks/jitm/templates/home-task"
+					placeholder={ null }
+				/>
+			);
+		case 'spotlight':
+			return (
+				<AsyncLoad
+					{ ...props }
+					require="calypso/blocks/jitm/templates/spotlight"
+					placeholder={ null }
+				/>
+			);
 		case 'invisible':
 			return <>{ props.trackImpression && props.trackImpression() }</>;
 		case 'modal':
@@ -56,9 +73,14 @@ function renderTemplate( template, props ) {
 }
 
 function getEventHandlers( props, dispatch ) {
-	const { jitm, currentSite, messagePath } = props;
+	const { jitm, currentSite, searchQuery, onClick } = props;
 	const tracks = jitm.tracks || {};
-	const eventProps = { id: jitm.id, jitm: true, template: jitm?.template ?? 'default' };
+	const eventProps = {
+		id: jitm.id,
+		jitm: true,
+		template: jitm?.template ?? 'default',
+		...( searchQuery && { search_query: searchQuery } ),
+	};
 	const handlers = {};
 
 	if ( tracks.display ) {
@@ -71,44 +93,71 @@ function getEventHandlers( props, dispatch ) {
 	}
 
 	handlers.onDismiss = () => {
-		tracks.dismiss &&
-			props.recordTracksEvent( tracks.dismiss.name, { ...tracks.dismiss.props, ...eventProps } );
-		dispatch( dismissJITM( currentSite.ID, messagePath, jitm.featureClass ) );
+		if ( tracks.dismiss ) {
+			dispatch(
+				recordTracksEvent( tracks.dismiss.name, { ...tracks.dismiss.props, ...eventProps } )
+			);
+		}
+		dispatch( dismissJITM( currentSite.ID, jitm.id, jitm.featureClass ) );
 	};
 
 	handlers.onClick = () => {
-		tracks.click &&
-			props.recordTracksEvent( tracks.click.name, { ...tracks.click.props, ...eventProps } );
+		if ( tracks.click ) {
+			dispatch( recordTracksEvent( tracks.click.name, { ...tracks.click.props, ...eventProps } ) );
+		}
+		if ( jitm.action ) {
+			switch ( jitm.action.type ) {
+				// Cases for dispatching action thunks
+				case JITM_OPEN_HELP_CENTER:
+					dispatch( openHelpCenterFromJITM( jitm.action.payload ) );
+					break;
+				default:
+					// Dispatch regular actions
+					dispatch( jitm.action );
+			}
+		}
 
-		jitm.action && dispatch( jitm.action );
+		// Invoke the provided onClick function defined in props
+		if ( onClick ) {
+			onClick( jitm );
+		}
 	};
 
 	return handlers;
 }
 
-function useDevTool( { currentSite }, dispatch ) {
+function useDevTool( siteId, dispatch ) {
 	useEffect( () => {
 		// Do not setup the tool in production
-		if ( process.env.NODE_ENV === 'production' || ! currentSite ) {
+		if ( process.env.NODE_ENV === 'production' || ! siteId ) {
 			return;
 		}
 
-		currentSite.ID && setupDevTool( currentSite.ID, dispatch );
-	}, [ currentSite?.ID ] );
+		setupDevTool( siteId, dispatch );
+	}, [ siteId, dispatch ] );
 }
 
 export function JITM( props ) {
-	const { jitm, currentSite, messagePath, isJetpack } = props;
+	const {
+		jitm,
+		isFetching,
+		currentSite,
+		messagePath,
+		searchQuery,
+		isJetpack,
+		jitmPlaceholder,
+		template,
+	} = props;
+
 	const dispatch = useDispatch();
 
-	useDevTool( props, dispatch );
+	useDevTool( currentSite?.ID, dispatch );
 
 	if ( ! currentSite || ! messagePath ) {
 		return null;
 	}
 
 	debug( `siteId: %d, messagePath: %s, message: `, currentSite.ID, messagePath, jitm );
-
 	// 'jetpack' icon is only allowed to Jetpack sites
 	if ( jitm?.content?.icon === 'jetpack' && ! isJetpack ) {
 		jitm.content.icon = '';
@@ -116,9 +165,14 @@ export function JITM( props ) {
 
 	return (
 		<>
-			<QueryJITM siteId={ currentSite.ID } messagePath={ messagePath } />
+			<QueryJITM
+				siteId={ currentSite.ID }
+				messagePath={ messagePath }
+				searchQuery={ searchQuery }
+			/>
+			{ isFetching && jitmPlaceholder }
 			{ jitm &&
-				renderTemplate( jitm.template || props.template, {
+				renderTemplate( jitm.template || template || 'default', {
 					...jitm,
 					...getEventHandlers( props, dispatch ),
 					currentSite,
@@ -130,10 +184,9 @@ export function JITM( props ) {
 JITM.propTypes = {
 	template: PropTypes.string,
 	messagePath: PropTypes.string.isRequired,
-};
-
-JITM.defaultProps = {
-	template: 'default',
+	searchQuery: PropTypes.string,
+	jitmPlaceholder: PropTypes.node,
+	isFetching: PropTypes.bool,
 };
 
 const mapStateToProps = ( state, { messagePath } ) => {
@@ -141,12 +194,9 @@ const mapStateToProps = ( state, { messagePath } ) => {
 	return {
 		currentSite,
 		jitm: getTopJITM( state, messagePath ),
+		isFetching: isFetchingJITM( state, messagePath ),
 		isJetpack: currentSite && isJetpackSite( state, currentSite.ID ),
 	};
 };
 
-const mapDispatchToProps = {
-	recordTracksEvent,
-};
-
-export default connect( mapStateToProps, mapDispatchToProps )( JITM );
+export default connect( mapStateToProps )( JITM );

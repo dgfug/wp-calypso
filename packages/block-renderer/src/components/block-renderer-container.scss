@@ -1,0 +1,23 @@
+.block-renderer {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+
+	.scaled-block-renderer {
+		top: 0;
+		left: 0;
+		transform-origin: top left;
+		text-align: initial;
+		margin: 0;
+		overflow: visible;
+		min-height: auto;
+		transform: scale(var(--scaled-block-renderer-scale, 1));
+
+		iframe {
+			max-width: initial;
+			border: none;
+			// Overwrites the inlined transition: all 0.3s ease 0s; from Gutenberg
+			transition: opacity 0.15s ease-in-out !important;
+		}
+	}
+}

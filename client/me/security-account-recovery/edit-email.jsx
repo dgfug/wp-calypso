@@ -1,9 +1,9 @@
+import { FormInputValidation } from '@automattic/components';
 import emailValidator from 'email-validator';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component, createRef } from 'react';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
 import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import Buttons from './buttons';
@@ -113,23 +113,11 @@ class SecurityAccountRecoveryRecoveryEmailEdit extends Component {
 			return;
 		}
 
-		if ( this.props.primaryEmail && email === this.props.primaryEmail ) {
-			this.setState( {
-				validation: this.props.translate(
-					'You have entered your primary email address. Please enter a different email address.'
-				),
-			} );
+		const isEmailValid = this.validateEmail( email );
+		if ( ! isEmailValid ) {
 			return;
 		}
 
-		if ( ! emailValidator.validate( email ) ) {
-			this.setState( {
-				validation: this.props.translate( 'Please enter a valid email address.' ),
-			} );
-			return;
-		}
-
-		this.setState( { validation: null } );
 		this.props.onSave( email );
 	};
 
@@ -141,8 +129,37 @@ class SecurityAccountRecoveryRecoveryEmailEdit extends Component {
 		this.props.onDelete();
 	};
 
+	validateEmail = ( newEmail ) => {
+		const { primaryEmail, translate } = this.props;
+
+		if ( primaryEmail && newEmail === primaryEmail ) {
+			this.setState( {
+				validation: translate(
+					'You have entered your primary email address. Please enter a different email address.'
+				),
+			} );
+			return false;
+		}
+
+		if ( ! emailValidator.validate( newEmail ) ) {
+			this.setState( {
+				validation: translate( 'Please enter a valid email address.' ),
+			} );
+			return false;
+		}
+
+		this.setState( { validation: null } );
+
+		return true;
+	};
+
 	handleChange = ( e ) => {
 		const { name, value } = e.currentTarget;
+
+		if ( 'email' === name ) {
+			this.validateEmail( value );
+		}
+
 		this.setState( { [ name ]: value } );
 	};
 }

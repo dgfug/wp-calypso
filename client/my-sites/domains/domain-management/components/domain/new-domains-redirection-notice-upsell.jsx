@@ -1,3 +1,4 @@
+import { PLAN_PERSONAL, getPlan } from '@automattic/calypso-products';
 import { localize } from 'i18n-calypso';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -33,23 +34,29 @@ class NewDomainsRedirectionNoticeUpsell extends Component {
 			return null;
 		}
 
+		const checkoutPlan = 'personal';
+
 		return (
 			<UpsellNudge
 				className="new-domains-redirection-notice-upsell__banner"
-				showIcon={ true }
+				showIcon
 				icon="info"
-				href={ `/checkout/${ selectedSiteId }/personal` }
-				title={ '' }
-				description={ translate(
-					'Domains purchased on a free site will get redirected to %(primaryDomain)s. If you upgrade to ' +
-						'the Personal plan, you can use your own domain name instead of having WordPress.com ' +
-						'in your URL.',
-					{
-						args: {
-							primaryDomain: selectedSite.slug,
-						},
-					}
-				) }
+				href={ `/checkout/${ selectedSiteId }/${ checkoutPlan }` }
+				title=""
+				description={
+					/* translators: %(planName)s is the short-hand version of the Personal plan name */
+					translate(
+						'Domains purchased on a free site will get redirected to %(primaryDomain)s. If you upgrade to ' +
+							'the %(planName)s plan, you can use your own domain name instead of having WordPress.com ' +
+							'in your URL.',
+						{
+							args: {
+								primaryDomain: selectedSite.slug,
+								planName: getPlan( PLAN_PERSONAL )?.getTitle() ?? '',
+							},
+						}
+					)
+				}
 				callToAction={ translate( 'Upgrade' ) }
 				primaryButton={ false }
 				tracksImpressionName="calypso_new_domain_will_redirect_notice_upsell_impression"

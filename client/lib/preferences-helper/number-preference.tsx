@@ -1,5 +1,5 @@
 import { FunctionComponent, ChangeEventHandler, useCallback, useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch } from 'calypso/state';
 import { savePreference } from 'calypso/state/preferences/actions';
 
 interface Props {
@@ -36,14 +36,14 @@ const NumberPreference: FunctionComponent< Props > = ( { name, value } ) => {
 						onClick={ savePreferenceChange }
 						disabled={ value === localValue }
 					>
-						{ 'save' }
+						save
 					</button>{ ' ' }
 					<button
 						className="preferences-helper__reset-pref-button"
 						onClick={ resetPreferenceChange }
 						disabled={ value === localValue }
 					>
-						{ 'reset' }
+						reset
 					</button>
 				</>
 			) }

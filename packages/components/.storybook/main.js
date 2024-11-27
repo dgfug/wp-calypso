@@ -1,3 +1,1 @@
-const path = require('path');
-const storybookDefaultConfig = require( '@automattic/calypso-storybook' );
-module.exports = storybookDefaultConfig();
+module.exports = require( '@automattic/calypso-storybook' )();

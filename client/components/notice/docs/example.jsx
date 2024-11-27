@@ -29,7 +29,7 @@ class Notices extends PureComponent {
 						showDismiss={ false }
 						isCompact={ this.state.compactNotices ? true : null }
 					>
-						<NoticeAction href="#">{ 'Update' }</NoticeAction>
+						<NoticeAction href="#">Update</NoticeAction>
 					</Notice>
 				</div>
 				<div>
@@ -48,7 +48,7 @@ class Notices extends PureComponent {
 						icon="heart"
 						isCompact={ this.state.compactNotices ? true : null }
 					>
-						<NoticeAction href="#">{ 'Update' }</NoticeAction>
+						<NoticeAction href="#">Update</NoticeAction>
 					</Notice>
 				</div>
 				<div>
@@ -65,7 +65,7 @@ class Notices extends PureComponent {
 						text="I'm an `is-error` notice."
 						isCompact={ this.state.compactNotices ? true : null }
 					>
-						<NoticeAction href="#">{ 'Update' }</NoticeAction>
+						<NoticeAction href="#">Update</NoticeAction>
 					</Notice>
 				</div>
 				<div>
@@ -75,7 +75,7 @@ class Notices extends PureComponent {
 						text="I'm an `is-warning` notice with custom icon and an action."
 						isCompact={ this.state.compactNotices ? true : null }
 					>
-						<NoticeAction href="#">{ 'Update' }</NoticeAction>
+						<NoticeAction href="#">Update</NoticeAction>
 					</Notice>
 				</div>
 				<div>
@@ -93,15 +93,15 @@ class Notices extends PureComponent {
 						showDismiss={ false }
 						text={ "I'm an `is-success` notice with an arrow link." }
 					>
-						<NoticeAction href="#" external={ true }>
-							{ 'Preview' }
+						<NoticeAction href="#" external>
+							Preview
 						</NoticeAction>
 					</Notice>
 				</div>
 				<div>
 					<Notice
 						status="is-error"
-						showDismiss={ true }
+						showDismiss
 						text="I'm an always dismissable error notice."
 						isCompact={ this.state.compactNotices ? true : null }
 					>
@@ -115,6 +115,14 @@ class Notices extends PureComponent {
 						isLoading
 						text="I'm a notice that's loading…"
 						showDismiss={ false }
+						isCompact={ this.state.compactNotices ? true : null }
+					/>
+				</div>
+				<div>
+					<Notice
+						status="is-transparent-info"
+						showDismiss={ false }
+						text="I'm an `is-transparent-info` notice."
 						isCompact={ this.state.compactNotices ? true : null }
 					/>
 				</div>

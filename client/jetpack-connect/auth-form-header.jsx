@@ -1,4 +1,7 @@
+import config from '@automattic/calypso-config';
+import { safeImageUrl } from '@automattic/calypso-url';
 import { CompactCard } from '@automattic/components';
+import { Icon, globe } from '@wordpress/icons';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
@@ -6,7 +9,8 @@ import { connect } from 'react-redux';
 import Site from 'calypso/blocks/site';
 import FormattedHeader from 'calypso/components/formatted-header';
 import { decodeEntities } from 'calypso/lib/formatting';
-import safeImageUrl from 'calypso/lib/safe-image-url';
+import { getPluginTitle } from 'calypso/lib/login';
+import { login } from 'calypso/lib/paths';
 import versionCompare from 'calypso/lib/version-compare';
 import { getCurrentUser } from 'calypso/state/current-user/selectors';
 import { getAuthorizationData } from 'calypso/state/jetpack-connect/selectors';
@@ -16,12 +20,16 @@ import { authQueryPropTypes } from './utils';
 export class AuthFormHeader extends Component {
 	static propTypes = {
 		authQuery: authQueryPropTypes.isRequired,
-		isWoo: PropTypes.bool,
+		isWooOnboarding: PropTypes.bool,
+		isWooPasswordlessJPC: PropTypes.bool,
+		isWpcomMigration: PropTypes.bool,
 		wooDnaConfig: PropTypes.object,
+		isFromAutomatticForAgenciesPlugin: PropTypes.bool,
 
 		// Connected props
 		translate: PropTypes.func.isRequired,
 		user: PropTypes.object,
+		disableSiteCard: PropTypes.bool,
 	};
 
 	getState() {
@@ -47,7 +55,15 @@ export class AuthFormHeader extends Component {
 	}
 
 	getHeaderText() {
-		const { translate, partnerSlug, isWoo, wooDnaConfig } = this.props;
+		const {
+			translate,
+			partnerSlug,
+			isWooOnboarding,
+			isWooPasswordlessJPC,
+			wooDnaConfig,
+			isWpcomMigration,
+			isFromAutomatticForAgenciesPlugin,
+		} = this.props;
 
 		if ( wooDnaConfig && wooDnaConfig.isWooDnaFlow() ) {
 			return wooDnaConfig.getServiceName();
@@ -81,12 +97,43 @@ export class AuthFormHeader extends Component {
 
 		const currentState = this.getState();
 
-		if ( isWoo ) {
+		if ( isWooOnboarding ) {
 			switch ( currentState ) {
 				case 'logged-out':
 					return translate( 'Create a Jetpack account' );
 				default:
 					return translate( 'Connecting your store' );
+			}
+		}
+
+		if ( isWooPasswordlessJPC ) {
+			switch ( currentState ) {
+				case 'logged-out':
+					return translate( 'Create an account' );
+				default:
+					return translate( 'Connect your account' );
+			}
+		}
+
+		if ( isWpcomMigration ) {
+			switch ( currentState ) {
+				case 'logged-in':
+					return translate( 'Log in to your account' );
+			}
+		}
+
+		if ( isFromAutomatticForAgenciesPlugin ) {
+			switch ( currentState ) {
+				case 'logged-out':
+					/** @todo redirect to landing page when user is not signed up for A4A. */
+					return translate( 'Create an account to set up Automattic for Agencies' );
+				case 'logged-in-success':
+					return translate( "You're all set!" );
+				case 'auth-in-progress':
+					return translate( 'Connecting your site' );
+				case 'logged-in':
+				default:
+					return translate( 'Finish connecting your site' );
 			}
 		}
 
@@ -102,10 +149,17 @@ export class AuthFormHeader extends Component {
 	}
 
 	getSubHeaderText() {
-		const { translate, isWoo, wooDnaConfig } = this.props;
+		const {
+			translate,
+			isWooOnboarding,
+			isWooPasswordlessJPC,
+			wooDnaConfig,
+			isWpcomMigration,
+			isFromAutomatticForAgenciesPlugin,
+		} = this.props;
 		const currentState = this.getState();
 
-		if ( isWoo ) {
+		if ( isWooOnboarding ) {
 			switch ( currentState ) {
 				case 'logged-out':
 					return translate(
@@ -113,6 +167,76 @@ export class AuthFormHeader extends Component {
 					);
 				default:
 					return translate( "Once connected we'll continue setting up your store" );
+			}
+		}
+
+		if ( isWooPasswordlessJPC ) {
+			const pluginName = getPluginTitle( this.props.authQuery?.plugin_name, translate );
+			const reviewDocLink = (
+				<a
+					href="https://woocommerce.com/document/connect-your-store-to-a-wordpress-com-account/"
+					target="_blank"
+					rel="noreferrer"
+				/>
+			);
+			const translateParams = {
+				components: {
+					br: <br />,
+					a: (
+						<a
+							href={ login( {
+								isJetpack: true,
+								redirectTo: window.location.href,
+								from: this.props.authQuery.from,
+								plugin_name: this.props.authQuery.plugin_name,
+							} ) }
+						/>
+					),
+				},
+				args: { pluginName },
+				comment:
+					'Link displayed on the Jetpack Connect signup page for users to log in with a WordPress.com account',
+			};
+
+			if ( config.isEnabled( 'woocommerce/core-profiler-passwordless-auth' ) ) {
+				switch ( currentState ) {
+					case 'logged-out':
+						return translate(
+							'To access all of the features and functionality in %(pluginName)s, you’ll first need to connect your store to a WordPress.com account. Please create one now, or {{a}}log in{{/a}}. For more information, please {{doc}}review our documentation{{/doc}}.',
+							{
+								...translateParams,
+								components: {
+									...translateParams.components,
+									doc: reviewDocLink,
+								},
+							}
+						);
+					default:
+						return translate(
+							'To access all of the features and functionality in %(pluginName)s, you’ll first need to connect your store to a WordPress.com account. For more information, please {{doc}}review our documentation{{/doc}}.',
+							{
+								args: { pluginName },
+								components: {
+									doc: reviewDocLink,
+								},
+							}
+						);
+				}
+			} else {
+				switch ( currentState ) {
+					case 'logged-out':
+						return translate(
+							"We'll make it quick – promise. In order to take advantage of the benefits offered by %(pluginName)s, you'll need to connect your store to your WordPress.com account. {{br/}} Already have one? {{a}}Log in{{/a}}",
+							translateParams
+						);
+					default:
+						return translate(
+							"We'll make it quick – promise. In order to take advantage of the benefits offered by %(pluginName)s, you'll need to connect your store to your WordPress.com account.",
+							{
+								args: { pluginName },
+							}
+						);
+				}
 			}
 		}
 
@@ -124,11 +248,33 @@ export class AuthFormHeader extends Component {
 				default:
 					if ( wooDnaConfig.getFlowName() === 'woodna:woocommerce-payments' ) {
 						return translate(
-							'Approve your connection. Your account will enable you to start using the features and benefits offered by WooCommerce Payments'
+							'Approve your connection. Your account will enable you to start using the features and benefits offered by WooPayments'
+						);
+					} else if ( wooDnaConfig.getFlowName() === 'woodna:blaze-ads-on-woo' ) {
+						const pluginName = wooDnaConfig.getServiceName();
+						/* translators: pluginName is the name of the Woo extension that initiated the connection flow */
+						return translate(
+							'Approve your connection. Your account will enable you to start using the features and benefits offered by %(pluginName)s.',
+							{
+								args: {
+									pluginName,
+								},
+							}
 						);
 					}
 					return translate( 'Approve your connection' );
 			}
+		}
+
+		if ( isWpcomMigration ) {
+			switch ( currentState ) {
+				case 'logged-in':
+					return translate( 'Connect your site with your WordPress.com account' );
+			}
+		}
+
+		if ( isFromAutomatticForAgenciesPlugin ) {
+			return undefined;
 		}
 
 		switch ( currentState ) {
@@ -145,8 +291,17 @@ export class AuthFormHeader extends Component {
 	}
 
 	getSiteCard() {
+		const { isWpcomMigration, isWooPasswordlessJPC } = this.props;
 		const { jpVersion } = this.props.authQuery;
-		if ( ! versionCompare( jpVersion, '4.0.3', '>' ) ) {
+		if (
+			// Always show the site card for Woo Core Profiler
+			! isWooPasswordlessJPC &&
+			! versionCompare( jpVersion, '4.0.3', '>' )
+		) {
+			return null;
+		}
+
+		if ( isWpcomMigration ) {
 			return null;
 		}
 
@@ -168,7 +323,7 @@ export class AuthFormHeader extends Component {
 
 		return (
 			<CompactCard className="jetpack-connect__site">
-				<Site site={ site } />
+				<Site site={ site } defaultIcon={ isWooPasswordlessJPC ? <Icon icon={ globe } /> : null } />
 			</CompactCard>
 		);
 	}
@@ -180,7 +335,7 @@ export class AuthFormHeader extends Component {
 					headerText={ this.getHeaderText() }
 					subHeaderText={ this.getSubHeaderText() }
 				/>
-				{ this.getSiteCard() }
+				{ ! this.props.disableSiteCard && this.getSiteCard() }
 			</div>
 		);
 	}

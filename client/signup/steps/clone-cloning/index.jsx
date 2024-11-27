@@ -1,7 +1,7 @@
+import page from '@automattic/calypso-router';
 import { Card, Button } from '@automattic/components';
 import { localize } from 'i18n-calypso';
 import { get } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -137,8 +137,8 @@ class CloneCloningStep extends Component {
 				stepName={ stepName }
 				headerText={ headerText }
 				fallbackHeaderText={ headerText }
-				subHeaderText={ '' }
-				fallbackSubHeaderText={ '' }
+				subHeaderText=""
+				fallbackSubHeaderText=""
 				positionInFlow={ positionInFlow }
 				stepContent={ this.renderStepContent() }
 			/>

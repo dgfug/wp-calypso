@@ -8,5 +8,11 @@
 		"rootDir": "src"
 	},
 	"include": [ "src" ],
-	"exclude": [ "**/docs/*", "**/test/*" ]
+	"exclude": [ "**/docs/*", "**/test/*" ],
+	"references": [
+		{ "path": "../calypso-analytics" },
+		{ "path": "../calypso-url" },
+		{ "path": "../format-currency" },
+		{ "path": "../i18n-utils" }
+	]
 }

@@ -1,30 +1,24 @@
-import classnames from 'classnames';
 import { useTranslate } from 'i18n-calypso';
-import { FC, useCallback, useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { FC, useMemo } from 'react';
 import licensingActivationPluginBanner from 'calypso/assets/images/jetpack/licensing-activation-plugin-banner.svg';
 import QueryProductsList from 'calypso/components/data/query-products-list';
-import ClipboardButton from 'calypso/components/forms/clipboard-button';
-import FormTextInput from 'calypso/components/forms/form-text-input';
 import LicensingActivation from 'calypso/components/jetpack/licensing-activation';
-import useUserLicenseByReceiptQuery from 'calypso/data/jetpack-licensing/use-user-license-by-receipt-query';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
-import { recordTracksEvent } from 'calypso/state/analytics/actions';
+import { useSelector } from 'calypso/state';
 import {
 	isProductsListFetching as getIsProductListFetching,
 	getProductName,
 } from 'calypso/state/products-list/selectors';
+import JetpackInstructionList from './jetpack-instruction-list';
+import JetpackLicenseKeyClipboard, {
+	JetpackLicenseKeyProps,
+} from './jetpack-license-key-clipboard';
 
-interface Props {
-	productSlug: string | 'no_product';
-	receiptId: number;
-}
-
-const LicensingActivationInstructions: FC< Props > = ( { productSlug, receiptId } ) => {
+const LicensingActivationInstructions: FC< JetpackLicenseKeyProps > = ( {
+	productSlug,
+	receiptId,
+} ) => {
 	const translate = useTranslate();
-	const dispatch = useDispatch();
-
-	const [ isCopied, setCopied ] = useState( false );
 
 	const hasProductInfo = productSlug !== 'no_product';
 
@@ -32,48 +26,45 @@ const LicensingActivationInstructions: FC< Props > = ( { productSlug, receiptId 
 		hasProductInfo ? getProductName( state, productSlug ) : null
 	);
 
-	const isProductListFetching = useSelector( ( state ) => getIsProductListFetching( state ) );
+	const isProductListFetching = useSelector( getIsProductListFetching );
 
-	const {
-		data: dataLicense,
-		isError: isErrorFetchingLicense,
-		isLoading: isLoadingLicense,
-	} = useUserLicenseByReceiptQuery( receiptId );
-
-	const licenseKey =
-		! isErrorFetchingLicense && ! isLoadingLicense && dataLicense
-			? dataLicense[ 0 ].licenseKey
-			: '';
-
-	const onCopy = useCallback( () => {
-		setCopied( true );
-		dispatch(
-			recordTracksEvent( 'calypso_siteless_checkout_manual_activation_license_key_copy', {
-				product_slug: productSlug,
-				license_key: licenseKey,
-			} )
-		);
-	}, [ dispatch, licenseKey, productSlug ] );
-
-	useEffect( () => {
-		if ( isCopied ) {
-			const confirmationTimeout = setTimeout( () => setCopied( false ), 4000 );
-			return () => clearTimeout( confirmationTimeout );
-		}
-	}, [ isCopied ] );
+	const items = useMemo(
+		() => [
+			{
+				id: 1,
+				content: translate( 'From WP Admin, go to {{strong}}Jetpack > My Jetpack{{/strong}}.', {
+					components: { strong: <strong /> },
+				} ),
+			},
+			{
+				id: 2,
+				content: translate(
+					'Click the {{strong}}Activate a license{{/strong}} link at the bottom of the page.',
+					{
+						components: { strong: <strong /> },
+					}
+				),
+			},
+			{
+				id: 3,
+				content: translate( 'Use your license key below to activate your product.' ),
+			},
+		],
+		[ translate ]
+	);
 
 	return (
 		<>
 			<QueryProductsList type="jetpack" />
 			<PageViewTracker
 				options={ { useJetpackGoogleAnalytics: true } }
-				path={ '/checkout/jetpack/thank-you/licensing-manual-activation-license-key/:product' }
+				path="/checkout/jetpack/thank-you/licensing-manual-activation-license-key/:product"
 				properties={ { product_slug: productSlug } }
 				title="Checkout > Jetpack Thank You Licensing Manual Activation License Key"
 			/>
 			<LicensingActivation
 				title={ translate( 'Activate your %(productName)s plan', {
-					args: { productName },
+					args: { productName: productName ?? '' },
 				} ) }
 				footerImage={ licensingActivationPluginBanner }
 				isLoading={ isProductListFetching }
@@ -82,40 +73,11 @@ const LicensingActivationInstructions: FC< Props > = ( { productSlug, receiptId 
 				progressIndicatorValue={ 3 }
 				progressIndicatorTotal={ 3 }
 			>
-				<p>
-					{ translate(
-						'Go to your {{strong}}WP Admin Jetpack Dashboard > My Plan{{/strong}} page after Jetpack is installed, and use this license key to activate your product.',
-						{
-							components: {
-								strong: <strong />,
-							},
-						}
-					) }
-				</p>
-				<div className="licensing-thank-you-manual-activation-license-key__key">
-					<label>
-						<strong>{ translate( 'Your license key' ) }</strong>
-					</label>
-					<div className={ 'licensing-thank-you-manual-activation-license-key__clipboard' }>
-						<FormTextInput
-							className={ classnames( 'licensing-thank-you-manual-activation-license-key__input', {
-								'is-loading': isLoadingLicense,
-							} ) }
-							value={ licenseKey }
-							readOnly
-						/>
-						<ClipboardButton
-							className="licensing-thank-you-manual-activation-license-key__button"
-							text={ licenseKey }
-							onCopy={ onCopy }
-							compact
-							primary
-							disabled={ isErrorFetchingLicense || isLoadingLicense }
-						>
-							{ isCopied ? translate( 'Copied!' ) : translate( 'Copy', { context: 'verb' } ) }
-						</ClipboardButton>
-					</div>
-				</div>
+				<p>{ translate( 'After installing the plugin:' ) }</p>
+
+				<JetpackInstructionList items={ items } />
+
+				<JetpackLicenseKeyClipboard productSlug={ productSlug } receiptId={ receiptId } />
 			</LicensingActivation>
 		</>
 	);

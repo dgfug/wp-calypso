@@ -19,9 +19,8 @@ import {
 // -- LICENSES handlers --
 /**
  * Dispatches a request to fetch user licenses
- *
- * @param {object} action Redux action
- * @returns {object} original action
+ * @param {Object} action Redux action
+ * @returns {Object} original action
  */
 export const requestLicenses = ( action ) =>
 	http(
@@ -44,10 +43,9 @@ export const requestLicenses = ( action ) =>
 
 /**
  * Dispatches returned user licenses data
- *
- * @param {object} action Redux action
+ * @param {Object} action Redux action
  * @param {Object} licenses raw data from user licensing API
- * @returns {Array<object>} Redux actions
+ * @returns {Array<Object>} Redux actions
  */
 export const receiveLicenses = ( action, licenses ) => [
 	licensesRequestSuccessAction(),
@@ -56,10 +54,9 @@ export const receiveLicenses = ( action, licenses ) => [
 
 /**
  * Dispatches returned error from user licenses request
- *
- * @param {object} action Redux action
- * @param {object} rawError raw error from HTTP request
- * @returns {object} Redux action
+ * @param {Object} action Redux action
+ * @param {Object} rawError raw error from HTTP request
+ * @returns {Object} Redux action
  */
 export const receiveLicensesError = ( action, rawError ) =>
 	licensesRequestFailureAction( rawError instanceof Error ? rawError.message : rawError );
@@ -67,9 +64,8 @@ export const receiveLicensesError = ( action, rawError ) =>
 // -- License COUNTS handlers --
 /**
  * Dispatches a request to fetch user licenses counts
- *
- * @param {object} action Redux action
- * @returns {object} original action
+ * @param {Object} action Redux action
+ * @returns {Object} original action
  */
 export const requestCounts = ( action ) =>
 	http(
@@ -83,10 +79,9 @@ export const requestCounts = ( action ) =>
 
 /**
  * Dispatches returned user licenses counts data
- *
- * @param {object} action Redux action
+ * @param {Object} action Redux action
  * @param {Object} counts raw count data from user licensing API
- * @returns {Array<object>} Redux actions
+ * @returns {Array<Object>} Redux actions
  */
 export const receiveCounts = ( action, counts ) => [
 	licensesCountsRequestSuccessAction(),
@@ -95,10 +90,9 @@ export const receiveCounts = ( action, counts ) => [
 
 /**
  * Dispatches returned error user license counts request
- *
- * @param {object} action Redux action
- * @param {object} rawError raw error from HTTP request
- * @returns {object} Redux action
+ * @param {Object} action Redux action
+ * @param {Object} rawError raw error from HTTP request
+ * @returns {Object} Redux action
  */
 export const receiveCountsError = ( action, rawError ) =>
 	licensesCountsRequestFailureAction( rawError instanceof Error ? rawError.message : rawError );

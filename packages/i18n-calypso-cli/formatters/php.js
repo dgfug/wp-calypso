@@ -1,8 +1,7 @@
 /**
  * Determine the correct GlotPress i18n function to use based on the input:
  * __(), _n(), _nx(), _x()
- *
- * @param {object} properties - properties describing translation request
+ * @param {Object} properties - properties describing translation request
  * @returns {string}            returns the function name
  */
 function getGlotPressFunction( properties ) {
@@ -27,8 +26,7 @@ function getGlotPressFunction( properties ) {
 /**
  * Generate each line of equivalent php from a matching `translate()`
  * request found in the client code
- *
- * @param  {object} properties - properties describing translation request
+ * @param  {Object} properties - properties describing translation request
  * @param  {string} textdomain - optional string to be added as a textdomain value
  * @returns {string}            the equivalent php code for each translation request
  */
@@ -67,9 +65,8 @@ function buildPHPString( properties, textdomain ) {
  * Takes read file and generates a string representation of a file with
  * equivalent WordPress-style translate functions. Also prepends with some
  * necessary time and number translations.
- *
  * @param  {Array}  matches              Matches
- * @param  {object} options              Options
+ * @param  {Object} options              Options
  * @param  {string} options.phpArrayName Name of the array in the php resulting php file
  * @param  {string} options.projectName  Project name
  * @param  {string} options.textDomain   Text domain

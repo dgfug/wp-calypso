@@ -1,6 +1,6 @@
 import { getUrlParts } from '@automattic/calypso-url';
 import { Card } from '@automattic/components';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import closest from 'component-closest';
 import { localize } from 'i18n-calypso';
 import { get, forEach, uniqBy } from 'lodash';
@@ -11,12 +11,13 @@ import { connect } from 'react-redux';
 import ReaderAvatar from 'calypso/blocks/reader-avatar';
 import QueryReaderFeed from 'calypso/components/data/query-reader-feed';
 import QueryReaderSite from 'calypso/components/data/query-reader-site';
-import { canBeMarkedAsSeen, isEligibleForUnseen } from 'calypso/reader/get-helpers';
+import { isEligibleForUnseen } from 'calypso/reader/get-helpers';
 import { getFeed } from 'calypso/state/reader/feeds/selectors';
+import { hasReaderFollowOrganization } from 'calypso/state/reader/follows/selectors';
 import { getSite } from 'calypso/state/reader/sites/selectors';
+import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 import isFeedWPForTeams from 'calypso/state/selectors/is-feed-wpforteams';
 import isSiteWPForTeams from 'calypso/state/selectors/is-site-wpforteams';
-import { getReaderTeams } from 'calypso/state/teams/selectors';
 
 /* eslint-disable wpcalypso/jsx-classname-namespace */
 class CrossPost extends PureComponent {
@@ -31,7 +32,8 @@ class CrossPost extends PureComponent {
 		site: PropTypes.object,
 		feed: PropTypes.object,
 		isWPForTeamsItem: PropTypes.bool,
-		teams: PropTypes.array,
+		currentRoute: PropTypes.string,
+		hasOrganization: PropTypes.bool,
 	};
 
 	handleTitleClick = ( event ) => {
@@ -159,16 +161,25 @@ class CrossPost extends PureComponent {
 	};
 
 	render() {
-		const { post, postKey, site, feed, translate, teams, isWPForTeamsItem } = this.props;
+		const {
+			post,
+			postKey,
+			site,
+			feed,
+			translate,
+			currentRoute,
+			hasOrganization,
+			isWPForTeamsItem,
+		} = this.props;
 		const { blogId: siteId, feedId } = postKey;
 		const siteIcon = get( site, 'icon.img' );
 		const feedIcon = get( feed, 'image' );
 
-		let isSeen = true;
-		if ( canBeMarkedAsSeen( { post } ) ) {
-			isSeen = isEligibleForUnseen( { teams, isWPForTeamsItem } ) && !! post.is_seen;
+		let isSeen = false;
+		if ( isEligibleForUnseen( { isWPForTeamsItem, currentRoute, hasOrganization } ) ) {
+			isSeen = post?.is_seen;
 		}
-		const articleClasses = classnames( {
+		const articleClasses = clsx( {
 			reader__card: true,
 			'is-x-post': true,
 			'is-selected': this.props.isSelected,
@@ -191,7 +202,7 @@ class CrossPost extends PureComponent {
 					feedIcon={ feedIcon }
 					author={ post.author }
 					onClick={ this.handleTitleClick }
-					isCompact={ true }
+					isCompact
 				/>
 				<div className="reader__x-post">
 					{ post.title && (
@@ -229,8 +240,9 @@ export default connect( ( state, ownProps ) => {
 		feed = site && site.feed_ID ? getFeed( state, site.feed_ID ) : undefined;
 	}
 	return {
+		currentRoute: getCurrentRoute( state ),
 		isWPForTeamsItem: isSiteWPForTeams( state, blogId ) || isFeedWPForTeams( state, feedId ),
-		teams: getReaderTeams( state ),
+		hasOrganization: hasReaderFollowOrganization( state, feedId, blogId ),
 		feed,
 		site,
 	};

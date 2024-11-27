@@ -1,6 +1,5 @@
-import url from 'url';
 import { CompactCard } from '@automattic/components';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { get } from 'lodash';
 import photon from 'photon';
@@ -50,12 +49,12 @@ class Draft extends Component {
 		}
 
 		if ( this.props.postImages && this.props.postImages.canonical_image ) {
-			image = url.parse( this.props.postImages.canonical_image.uri, true );
+			image = new URL( this.props.postImages.canonical_image.uri );
 			imageUrl = '//' + image.hostname + image.pathname + '?w=680px';
 		}
 
 		if ( post && post.canonical_image ) {
-			image = url.parse( post.canonical_image.uri, true );
+			image = new URL( post.canonical_image.uri );
 
 			if ( image.hostname.indexOf( 'files.wordpress.com' ) > 0 ) {
 				imageUrl = '//' + image.hostname + image.pathname + '?w=680px';
@@ -64,7 +63,7 @@ class Draft extends Component {
 			}
 		}
 
-		const classes = classnames( 'draft', `is-${ post.format }`, {
+		const classes = clsx( 'draft', `is-${ post.format }`, {
 			'has-image': !! image,
 			'is-placeholder': this.props.isPlaceholder,
 			'is-touch': hasTouch(),

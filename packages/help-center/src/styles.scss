@@ -1,0 +1,225 @@
+@import "@wordpress/base-styles/variables";
+@import "@automattic/typography/styles/variables";
+@import "components/variables";
+
+/**
+ * Help Center GENERAL Styles
+ *
+ * This file contains the general styles for the Help Center.
+ *
+ * THIS FILE SHOULD NOT CONTAIN ANY COMPONENT SPECIFIC STYLES.
+ */
+.help-center > div.help-center__container {
+	background-color: #fff;
+	z-index: $help-center-z-index;
+	cursor: default;
+	transition: max-height 0.5s;
+	animation: 0.25s ease-out 0s 1 normal none running slideIn;
+	position: fixed;
+
+	/**
+	 * Generic Stylings
+	 */
+	font-size: $font-body-small;
+	font-family:
+		-apple-system,
+		BlinkMacSystemFont,
+		"Segoe UI",
+		Roboto,
+		Oxygen-Sans,
+		Ubuntu,
+		Cantarell,
+		"Helvetica Neue",
+		sans-serif;
+	font-weight: inherit;
+	color: var(--studio-gray-100);
+
+	button.button-primary,
+	button.button-secondary {
+		font-size: $font-title-small;
+	}
+
+	.button {
+		text-decoration: none;
+		font-size: $font-body-small;
+	}
+
+	& > div {
+		display: flex;
+		flex-direction: column;
+	}
+
+	button,
+	a {
+		&:focus {
+			box-shadow: none;
+			outline: var(--color-link, --studio-blue-30) solid 2px;
+		}
+
+		&:hover {
+			color: var(--color-link-dark, --studio-blue-70);
+			border-color: inherit;
+		}
+		// Remove the default focus outline on the Recent Conversations nav tabs
+		&.section-nav-tab__link:focus {
+			box-shadow: none;
+			outline: none;
+		}
+	}
+
+	.help-center__section-title {
+		font-size: $font-body-small;
+		font-weight: 500;
+		color: var(--studio-gray-100);
+		margin: 1em 0;
+	}
+
+	/**
+	 * Used on loading screens across Help Center
+	 */
+	.help-center__loading {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+
+		.spinner__outer {
+			border-top-color: var(--wp-admin-theme-color);
+		}
+
+		.spinner__inner {
+			border-top-color: var(--wp-admin-theme-color);
+			border-right-color: var(--wp-admin-theme-color);
+		}
+	}
+
+	&.is-minimized {
+		.help-center__container-header {
+			cursor: pointer;
+		}
+
+		.help-center__container-content {
+			display: none;
+		}
+
+		.help-center-header__text {
+			cursor: pointer;
+		}
+	}
+
+	/**
+	 * Desktop
+	 */
+	&.is-desktop {
+		width: 410px;
+		height: 80vh;
+		max-height: 800px;
+		box-shadow: 0 3px 8px 0 rgba(0, 0, 0, 0.12), 0 3px 1px 0 rgba(0, 0, 0, 0.04);
+		border-radius: 2px;
+
+		&.is-minimized {
+			min-height: $head-foot-height;
+			max-height: $head-foot-height;
+			top: unset;
+			right: 50px;
+			bottom: calc(#{$header-height} + 16px);
+		}
+	}
+
+	/**
+	 * Mobile
+	 */
+	&.is-mobile {
+		bottom: 0;
+		left: 0;
+		right: 0;
+		/* If the masterbar is there, don't cover it, if not, go to the top. */
+		top: var(--masterbar-height, 0);
+		max-height: calc(100% - 45px);
+		height: calc(100% - var(--masterbar-height, 0));
+		animation: 0.25s ease-out 0s 1 normal none running fadeIn;
+
+		.help-center__container-footer {
+			margin-bottom: 0;
+		}
+
+		&.is-minimized {
+			min-height: $head-foot-height;
+			max-height: $head-foot-height;
+			top: calc(100vh - #{$head-foot-height});
+
+			@supports (height: 100dvh) {
+				top: calc(100dvh - #{$head-foot-height});
+			}
+		}
+	}
+
+	/**
+	* Animations
+	*/
+	@keyframes fadeIn {
+		0% {
+			opacity: 0;
+		}
+
+		100% {
+			opacity: 1;
+		}
+	}
+
+	@keyframes slideIn {
+		0% {
+			opacity: 0;
+			transform: scale(0);
+		}
+
+		100% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+}
+
+/**
+ * Popover component
+ * Fixes broken popover component on frontend.
+ */
+.popover.help-center {
+	z-index: $help-center-z-index +1;
+
+	.popover__arrow {
+		z-index: 1;
+	}
+
+	.popover__menu {
+		// Odie Chat Menu
+		.help-center__container-header-menu-item {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+
+			&:hover,
+			&:focus {
+				svg {
+					fill: var(--color-text-inverted);
+				}
+			}
+		}
+	}
+
+	// Contact Form URL privacy popover
+	.popover__inner {
+		.help-center-contact-form__site-picker-forum-privacy-popover {
+			display: inline-block;
+			max-width: 200px;
+			padding: 5px;
+		}
+
+		.help-center-contact-form__site-picker-forum-privacy-info {
+			padding: 0;
+			margin: 0;
+			background: none;
+			border: none;
+		}
+	}
+}

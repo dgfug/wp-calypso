@@ -1,7 +1,6 @@
 class SitePostSubscriber {
 	/**
 	 * `SitePostSubscriber` constructor.
-	 *
 	 * @param {string} id - post identifier
 	 * @param {string} sid - site identifier
 	 * @param {WPCOM} wpcom - wpcom instance
@@ -30,17 +29,16 @@ class SitePostSubscriber {
 	 * Get subscriber status for the current user for the Post.
 	 *
 	 *
-	 * *Example:*
-	 *    Get subscriber status for the current user for the Post
-	 *    wpcom
-	 *    .site( 'en.blog.wordpress.com' )
-	 *    .post( 1234 )
-	 *    .subscriber()
-	 *    .mine( function( err, data ) {
-	 *      // subscription data
-	 *    } );
-	 *
-	 * @param {object} [query] - query object parameter
+	 * Example:
+	 * Get subscriber status for the current user for the Post
+	 * wpcom
+	 * .site( 'en.blog.wordpress.com' )
+	 * .post( 1234 )
+	 * .subscriber()
+	 * .mine( function( err, data ) {
+	 * // subscription data
+	 * } );
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */
@@ -51,17 +49,16 @@ class SitePostSubscriber {
 	/**
 	 * Subscribe the current user to the post.
 	 *
-	 * *Example:*
-	 *    // Subscribe the current user to the post
-	 *    wpcom
-	 *    .site( 'en.blog.wordpress.com' )
-	 *    .post( 1234 )
-	 *    .subscriber()
-	 *    .add( function( err, data ) {
-	 *      // current user has been subscribed to post
-	 *    } );
-	 *
-	 * @param {object} [query] - query object parameter
+	 * Example:
+	 * // Subscribe the current user to the post
+	 * wpcom
+	 * .site( 'en.blog.wordpress.com' )
+	 * .post( 1234 )
+	 * .subscriber()
+	 * .add( function( err, data ) {
+	 * // current user has been subscribed to post
+	 * } );
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */
@@ -72,17 +69,16 @@ class SitePostSubscriber {
 	/**
 	 * Unsubscribe current user to the post
 	 *
-	 * *Example:*
-	 *    // Unsubscribe current user to the post
-	 *    wpcom
-	 *    .site( 'en.blog.wordpress.com' )
-	 *    .post( 1234 )
-	 *    .subscriber()
-	 *    .del( function( err, data ) {
-	 *      // current user has been unsubscribed to post
-	 *    } );
-	 *
-	 * @param {object} [query] - query object parameter
+	 * Example:
+	 * // Unsubscribe current user to the post
+	 * wpcom
+	 * .site( 'en.blog.wordpress.com' )
+	 * .post( 1234 )
+	 * .subscriber()
+	 * .del( function( err, data ) {
+	 * // current user has been unsubscribed to post
+	 * } );
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */

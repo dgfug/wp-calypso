@@ -1,0 +1,20 @@
+@use "sass:math";
+@import "@automattic/typography/styles/variables";
+@import "@wordpress/base-styles/mixins";
+@import "@wordpress/base-styles/breakpoints";
+
+$vertical-margin: 32px;
+
+.stats-email-open-top-row {
+	color: var(--studio-gray-100);
+	font-size: $font-body-small;
+	margin-bottom: $vertical-margin;
+}
+
+.stats__email-detail {
+	@include break-small {
+		.main-container {
+			padding: 0;
+		}
+	}
+}

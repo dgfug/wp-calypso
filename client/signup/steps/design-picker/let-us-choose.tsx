@@ -2,6 +2,7 @@ import styled from '@emotion/styled';
 import { Button } from '@wordpress/components';
 import { useTranslate } from 'i18n-calypso';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
+import { preventWidows } from 'calypso/lib/formatting';
 import type { Design } from '@automattic/design-picker';
 
 interface Props {
@@ -30,10 +31,9 @@ const LetUsChooseButton = styled( Button )`
 
 const LetUsChoose = ( { flowName, designs, onSelect }: Props ) => {
 	const translate = useTranslate();
+	const LET_US_CHOOSE_THEME_SLUG = flowName === 'do-it-for-me-store' ? 'tazza' : 'russell';
 
-	const defaultDesign = designs.find( ( design ) =>
-		design.features.includes( 'difm-lite-default' )
-	);
+	const defaultDesign = designs.find( ( design ) => LET_US_CHOOSE_THEME_SLUG === design.slug );
 
 	if ( ! defaultDesign ) {
 		return null;
@@ -50,14 +50,12 @@ const LetUsChoose = ( { flowName, designs, onSelect }: Props ) => {
 		} );
 	}
 
+	const title = translate( 'Unsure? Let us choose, and we’ll create the perfect design!' );
+
 	return (
 		<LetUsChooseContainer>
-			<div>
-				{ translate(
-					"Can't decide? No problem, our experts can choose the perfect design for your site!"
-				) }
-			</div>
-			<LetUsChooseButton isSecondary onClick={ onClick }>
+			<div>{ preventWidows( title ) }</div>
+			<LetUsChooseButton variant="primary" onClick={ onClick }>
 				{ translate( 'Let us choose' ) }
 			</LetUsChooseButton>
 		</LetUsChooseContainer>

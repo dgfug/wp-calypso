@@ -1,34 +1,38 @@
 /**
  * @group gutenberg
- * @group coblocks
  */
 import {
 	envVariables,
-	DataHelper,
 	MediaHelper,
 	ElementHelper,
-	GutenbergEditorPage,
+	EditorPage,
 	TestFile,
 	ImageBlock,
 	TestAccount,
+	getTestAccountByFeature,
+	envToFeatureKey,
 } from '@automattic/calypso-e2e';
 import { Page, Browser } from 'playwright';
 import { TEST_IMAGE_PATH } from '../constants';
 
-let accountName: string;
-if ( envVariables.COBLOCKS_EDGE ) {
-	accountName = 'coBlocksSimpleSiteEdgeUser';
-} else if ( envVariables.GUTENBERG_EDGE ) {
-	accountName = 'gutenbergSimpleSiteEdgeUser';
-} else {
-	accountName = 'gutenbergSimpleSiteUser';
-}
-
 declare const browser: Browser;
 
-describe( DataHelper.createSuiteTitle( 'CoBlocks: Extensions: Replace Image' ), () => {
+const features = envToFeatureKey( envVariables );
+// For this spec, all Atomic testing is always edge.
+// See https://github.com/Automattic/wp-calypso/pull/73052
+if ( envVariables.TEST_ON_ATOMIC ) {
+	features.coblocks = 'edge';
+}
+
+/**
+ * This spec requires the following:
+ * 	- theme: a non-block-based theme (eg. Twenty-Twenty One)
+ */
+describe( 'CoBlocks: Extensions: Replace Image', function () {
+	const accountName = getTestAccountByFeature( features );
+
 	let page: Page;
-	let gutenbergEditorPage: GutenbergEditorPage;
+	let editorPage: EditorPage;
 	let imageBlock: ImageBlock;
 	let imageFile: TestFile;
 	let uploadedImageURL: string;
@@ -37,34 +41,34 @@ describe( DataHelper.createSuiteTitle( 'CoBlocks: Extensions: Replace Image' ), 
 	beforeAll( async () => {
 		page = await browser.newPage();
 		imageFile = await MediaHelper.createTestFile( TEST_IMAGE_PATH );
-		gutenbergEditorPage = new GutenbergEditorPage( page );
+		editorPage = new EditorPage( page );
 
 		const testAccount = new TestAccount( accountName );
 		await testAccount.authenticate( page );
 	} );
 
 	it( 'Go to the new post page', async () => {
-		await gutenbergEditorPage.visit( 'post' );
+		await editorPage.visit( 'post' );
 	} );
 
 	it( `Insert ${ ImageBlock.blockName } block and upload image`, async () => {
-		const blockHandle = await gutenbergEditorPage.addBlock(
+		const blockHandle = await editorPage.addBlockFromSidebar(
 			ImageBlock.blockName,
 			ImageBlock.blockEditorSelector
 		);
-		imageBlock = new ImageBlock( blockHandle );
+		imageBlock = new ImageBlock( page, blockHandle );
 		const uploadedImage = await imageBlock.upload( imageFile.fullpath );
 		uploadedImageURL = ( await uploadedImage.getAttribute( 'src' ) ) as string;
 		uploadedImageURL = uploadedImageURL.split( '?' )[ 0 ];
 	} );
 
 	it( `Replace uploaded image`, async () => {
-		const editorFrame = await gutenbergEditorPage.getEditorFrame();
-		await editorFrame.click( 'button:text("Replace")' );
-		await editorFrame.setInputFiles(
-			'.components-form-file-upload input[type="file"]',
-			imageFile.fullpath
-		);
+		const editorParent = await editorPage.getEditorParent();
+		await editorParent.locator( 'button:text("Replace")' ).click();
+		await editorParent
+			.locator( '.components-form-file-upload input[type="file"]' )
+			.setInputFiles( imageFile.fullpath );
+
 		await imageBlock.waitUntilUploaded();
 
 		const newImage = await imageBlock.getImage();
@@ -75,7 +79,7 @@ describe( DataHelper.createSuiteTitle( 'CoBlocks: Extensions: Replace Image' ), 
 	} );
 
 	it( 'Publish the post', async () => {
-		await gutenbergEditorPage.publish( { visit: true } );
+		await editorPage.publish( { visit: true } );
 	} );
 
 	it( 'Verify the new image was published', async () => {

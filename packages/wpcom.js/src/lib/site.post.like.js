@@ -1,10 +1,9 @@
 /**
  * Like methods
- *
  * @param {string} pid - post id
  * @param {string} sid - site id
  * @param {WPCOM} wpcom - wpcom instance
- * @returns {null} null
+ * @returns {Like|undefined}
  */
 export default function Like( pid, sid, wpcom ) {
 	if ( ! sid ) {
@@ -26,8 +25,7 @@ export default function Like( pid, sid, wpcom ) {
 
 /**
  * Get your Like status for a Post
- *
- * @param {object} [query] - query object parameter
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  */
 Like.prototype.mine = Like.prototype.state = function ( query, fn ) {
@@ -37,8 +35,7 @@ Like.prototype.mine = Like.prototype.state = function ( query, fn ) {
 
 /**
  * Like a post
- *
- * @param {object} [query] - query object parameter
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -49,8 +46,7 @@ Like.prototype.add = function ( query, fn ) {
 
 /**
  * Remove your Like from a Post
- *
- * @param {object} [query] - query object parameter
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  */
 Like.prototype.del = Like.prototype.delete = function ( query, fn ) {

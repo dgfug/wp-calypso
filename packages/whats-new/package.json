@@ -4,7 +4,8 @@
 	"description": "A WordPress Guide component that highlights recently-added WordPress.com features.",
 	"main": "dist/cjs/index.js",
 	"module": "dist/esm/index.js",
-	"calypso:src": "src/index.js",
+	"calypso:src": "src/index.tsx",
+	"types": "dist/types",
 	"sideEffects": [
 		"*.css",
 		"*.scss"
@@ -29,26 +30,33 @@
 		"src"
 	],
 	"scripts": {
-		"clean": "rm -rf dist",
-		"build": "transpile && copy-assets",
-		"prepack": "yarn run clean && yarn run build"
+		"clean": "tsc --build ./tsconfig.json ./tsconfig-cjs.json --clean && rm -rf dist",
+		"build": "tsc --build ./tsconfig.json ./tsconfig-cjs.json && run -T copy-assets",
+		"prepack": "yarn run clean && yarn run build",
+		"watch": "tsc --build ./tsconfig.json --watch"
 	},
 	"dependencies": {
 		"@automattic/calypso-analytics": "workspace:^",
 		"@automattic/calypso-color-schemes": "workspace:^",
+		"@automattic/components": "workspace:^",
 		"@automattic/i18n-utils": "workspace:^",
 		"@automattic/typography": "workspace:^",
-		"@wordpress/components": "^19.2.0",
-		"@wordpress/react-i18n": "^3.0.4",
+		"@tanstack/react-query": "^5.15.5",
+		"@wordpress/components": "^28.8.0",
+		"@wordpress/element": "^6.8.0",
+		"@wordpress/i18n": "^5.8.0",
+		"@wordpress/keycodes": "^4.8.0",
+		"@wordpress/react-i18n": "^4.8.0",
+		"clsx": "^2.1.1",
+		"typescript": "^5.3.3",
 		"wpcom": "workspace:^",
 		"wpcom-proxy-request": "workspace:^"
 	},
 	"peerDependencies": {
-		"@wordpress/data": "^6.1.5",
-		"react": "^17.0.2",
-		"react-dom": "^17.0.2",
-		"reakit-utils": "^0.15.1",
-		"redux": "^4.1.2"
+		"@wordpress/data": "^10.8.0",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"redux": "^5.0.1"
 	},
 	"devDependencies": {
 		"@automattic/calypso-typescript-config": "workspace:^"

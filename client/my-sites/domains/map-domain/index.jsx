@@ -1,7 +1,7 @@
+import page from '@automattic/calypso-router';
 import { withShoppingCart } from '@automattic/shopping-cart';
 import { localize } from 'i18n-calypso';
 import { get, isEmpty } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -18,6 +18,7 @@ import { DOMAINS_WITH_PLANS_ONLY } from 'calypso/state/current-user/constants';
 import { currentUserHasFlag } from 'calypso/state/current-user/selectors';
 import { successNotice } from 'calypso/state/notices/actions';
 import { getProductsList } from 'calypso/state/products-list/selectors';
+import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 import isSiteOnPaidPlan from 'calypso/state/selectors/is-site-on-paid-plan';
 import isSiteUpgradeable from 'calypso/state/selectors/is-site-upgradeable';
 import {
@@ -38,6 +39,7 @@ export class MapDomain extends Component {
 		selectedSiteId: PropTypes.number,
 		selectedSiteSlug: PropTypes.string,
 		translate: PropTypes.func.isRequired,
+		backUrl: PropTypes.string,
 	};
 
 	isMounted = false;
@@ -50,7 +52,12 @@ export class MapDomain extends Component {
 	};
 
 	goBack = () => {
-		const { selectedSite, selectedSiteSlug } = this.props;
+		const { currentRoute, selectedSite, selectedSiteSlug, backUrl } = this.props;
+
+		if ( backUrl ) {
+			page( backUrl );
+			return;
+		}
 
 		if ( ! selectedSite ) {
 			page( '/domains/add' );
@@ -58,26 +65,28 @@ export class MapDomain extends Component {
 		}
 
 		if ( selectedSite.is_vip ) {
-			page( domainManagementList( selectedSiteSlug ) );
+			page( domainManagementList( selectedSiteSlug, currentRoute ) );
 			return;
 		}
 
 		page( '/domains/add/' + selectedSiteSlug );
 	};
 
-	addDomainToCart = ( suggestion ) => {
+	addDomainToCart = async ( suggestion ) => {
 		const { selectedSiteSlug } = this.props;
 
-		this.props.shoppingCartManager
-			.addProductsToCart( [
+		try {
+			await this.props.shoppingCartManager.addProductsToCart( [
 				domainRegistration( {
 					productSlug: suggestion.product_slug,
 					domain: suggestion.domain_name,
 				} ),
-			] )
-			.then( () => {
-				this.isMounted && page( '/checkout/' + selectedSiteSlug );
-			} );
+			] );
+		} catch {
+			// Nothing needs to be done here. CartMessages will display the error to the user.
+			return;
+		}
+		this.isMounted && page( '/checkout/' + selectedSiteSlug );
 	};
 
 	handleRegisterDomain = ( suggestion ) => {
@@ -94,7 +103,7 @@ export class MapDomain extends Component {
 	};
 
 	handleMapDomain = ( domain ) => {
-		const { selectedSite, selectedSiteSlug, translate } = this.props;
+		const { currentRoute, selectedSite, selectedSiteSlug, translate } = this.props;
 
 		this.setState( {
 			errorMessage: null,
@@ -109,7 +118,7 @@ export class MapDomain extends Component {
 				.post( `/sites/${ selectedSite.ID }/vip-domain-mapping`, { domain } )
 				.then(
 					() => {
-						page( domainManagementList( selectedSiteSlug ) );
+						page( domainManagementList( selectedSiteSlug, currentRoute ) );
 					},
 					( error ) => {
 						this.setState( { errorMessage: error.message } );
@@ -196,13 +205,8 @@ export class MapDomain extends Component {
 			return this.trademarkClaimsNotice();
 		}
 
-		const {
-			domainsWithPlansOnly,
-			initialQuery,
-			productsList,
-			selectedSite,
-			translate,
-		} = this.props;
+		const { domainsWithPlansOnly, initialQuery, productsList, selectedSite, translate } =
+			this.props;
 
 		const { errorMessage } = this.state;
 
@@ -233,6 +237,7 @@ export default connect(
 	( state ) => {
 		const selectedSiteId = getSelectedSiteId( state );
 		return {
+			currentRoute: getCurrentRoute( state ),
 			selectedSite: getSelectedSite( state ),
 			selectedSiteId,
 			selectedSiteSlug: getSelectedSiteSlug( state ),

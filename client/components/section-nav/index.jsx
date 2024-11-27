@@ -1,5 +1,5 @@
 import { Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { includes } from 'lodash';
 import PropTypes from 'prop-types';
 import { Children, cloneElement, Component } from 'react';
@@ -18,6 +18,9 @@ class SectionNav extends Component {
 		onMobileNavPanelOpen: PropTypes.func,
 		className: PropTypes.string,
 		allowDropdown: PropTypes.bool,
+		variation: PropTypes.string,
+		children: PropTypes.node,
+		enforceTabsView: PropTypes.bool,
 	};
 
 	static defaultProps = {
@@ -63,7 +66,7 @@ class SectionNav extends Component {
 		let className;
 
 		if ( ! children ) {
-			className = classNames( 'section-nav', 'is-empty', this.props.className );
+			className = clsx( 'section-nav', 'is-empty', this.props.className );
 
 			return (
 				<div className={ className }>
@@ -74,9 +77,12 @@ class SectionNav extends Component {
 			);
 		}
 
-		className = classNames( 'section-nav', this.props.className, {
+		className = clsx( 'section-nav', this.props.className, {
 			'is-open': this.state.mobileOpen,
+			'section-nav-updated': this.props.applyUpdatedStyles,
 			'has-pinned-items': this.hasPinnedSearch || this.props.hasPinnedItems,
+			minimal: 'minimal' === this.props.variation,
+			'enforce-tabs-view': this.props.enforceTabsView,
 		} );
 
 		return (
@@ -113,9 +119,16 @@ class SectionNav extends Component {
 				extraProps.selectedCount = this.props.selectedCount;
 			}
 
+			// Propagate 'enforceTabsView' to NavItem component
+			if ( child.type === NavTabs && this.props.enforceTabsView ) {
+				extraProps.enforceTabsView = this.props.enforceTabsView;
+			}
+
 			if ( child.type === Search ) {
 				if ( child.props.pinned ) {
 					this.hasPinnedSearch = true;
+
+					extraProps.onSearchOpen = this.generateOnSearchOpen( child.props.onSearchOpen );
 				}
 
 				extraProps.onSearch = this.generateOnSearch( child.props.onSearch );
@@ -148,6 +161,13 @@ class SectionNav extends Component {
 	generateOnSearch( existingOnSearch ) {
 		return ( ...args ) => {
 			existingOnSearch( ...args );
+			this.closeMobilePanel();
+		};
+	}
+
+	generateOnSearchOpen( existingOnSearchOpen ) {
+		return ( ...args ) => {
+			existingOnSearchOpen( ...args );
 			this.closeMobilePanel();
 		};
 	}

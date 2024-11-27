@@ -1,5 +1,5 @@
 import { ToggleControl } from '@wordpress/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { Children, Component } from 'react';
 import InfoPopover from 'calypso/components/info-popover';
 
@@ -27,12 +27,12 @@ class PluginAction extends Component {
 			/* eslint-disable jsx-a11y/click-events-have-key-events */
 			/* eslint-disable jsx-a11y/no-static-element-interactions */
 			<span
-				className={ classNames( 'plugin-action__label', { hide: this.props.hideLabel } ) }
+				className={ clsx( 'plugin-action__label', { hide: this.props.hideLabel } ) }
 				ref={ this.disabledInfoLabelRef }
 				onClick={ this.handleAction }
 			>
-				{ this.props.label }
-				{ this.renderDisabledInfo() }
+				<span className="plugin-action__label-text">{ this.props.label }</span>
+				<span className="plugin-action__label-disabled-info">{ this.renderDisabledInfo() }</span>
 			</span>
 			/* eslint-enable jsx-a11y/click-events-have-key-events */
 			/* eslint-enable jsx-a11y/no-static-element-interactions */
@@ -102,7 +102,7 @@ class PluginAction extends Component {
 		};
 
 		return (
-			<div className={ classNames( 'plugin-action', additionalClasses, this.props.className ) }>
+			<div className={ clsx( 'plugin-action', additionalClasses, this.props.className ) }>
 				{ this.renderInner() }
 			</div>
 		);

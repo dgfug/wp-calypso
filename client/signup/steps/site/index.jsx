@@ -1,17 +1,18 @@
 import config from '@automattic/calypso-config';
+import { FormLabel } from '@automattic/components';
+import { getLanguage } from '@automattic/i18n-utils';
 import debugFactory from 'debug';
 import { localize } from 'i18n-calypso';
 import { includes, isEmpty, map } from 'lodash';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import FormButton from 'calypso/components/forms/form-button';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import LoggedOutForm from 'calypso/components/logged-out-form';
 import LoggedOutFormFooter from 'calypso/components/logged-out-form/footer';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import formState from 'calypso/lib/form-state';
-import { getLanguage, getLocaleSlug } from 'calypso/lib/i18n-utils';
+import { getLocaleSlug } from 'calypso/lib/i18n-utils';
 import { login } from 'calypso/lib/paths';
 import wpcom from 'calypso/lib/wp';
 import StepWrapper from 'calypso/signup/step-wrapper';
@@ -35,23 +36,19 @@ let timesValidationFailed = 0;
 class Site extends Component {
 	static displayName = 'Site';
 
-	state = {
-		form: null,
-		submitting: false,
-	};
+	constructor( props ) {
+		super( props );
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillMount() {
 		let initialState;
 
-		if ( this.props.step && this.props.step.form ) {
-			initialState = this.props.step.form;
+		if ( props.step && props.step.form ) {
+			initialState = props.step.form;
 
-			if ( ! isEmpty( this.props.step.errors ) ) {
+			if ( ! isEmpty( props.step.errors ) ) {
 				initialState = formState.setFieldErrors(
 					formState.setFieldsValidating( initialState ),
 					{
-						site: this.props.step.errors[ 0 ].message,
+						site: props.step.errors[ 0 ].message,
 					},
 					true
 				);
@@ -69,7 +66,10 @@ class Site extends Component {
 			initialState: initialState,
 		} );
 
-		this.setState( { form: this.formStateController.getInitialState() } );
+		this.state = {
+			form: this.formStateController.getInitialState(),
+			submitting: false,
+		};
 	}
 
 	componentWillUnmount() {
@@ -235,8 +235,8 @@ class Site extends Component {
 			<ValidationFieldset errorMessages={ this.getErrorMessagesWithLogin( 'site' ) }>
 				<FormLabel htmlFor="site">{ this.props.translate( 'Choose a site address' ) }</FormLabel>
 				<FormTextInput
-					autoFocus={ true } // eslint-disable-line jsx-a11y/no-autofocus
-					autoCapitalize={ 'off' }
+					autoFocus // eslint-disable-line jsx-a11y/no-autofocus
+					autoCapitalize="off"
 					className="site__site-url"
 					disabled={ fieldDisabled }
 					name="site"

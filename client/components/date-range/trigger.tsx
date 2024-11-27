@@ -49,6 +49,8 @@ const DateRangeTrigger: FunctionComponent< Props > = ( {
 		} );
 	}
 
+	const clearDateSelectionText = translate( 'Clear date selection' );
+
 	return (
 		<ButtonGroup className="date-range__trigger">
 			<Button
@@ -56,10 +58,13 @@ const DateRangeTrigger: FunctionComponent< Props > = ( {
 				ref={ buttonRef }
 				onClick={ onTriggerClick }
 				compact={ isCompact }
-				aria-haspopup={ true }
+				aria-haspopup
+				aria-label={ translate( 'Select date range' ) }
 			>
 				<Gridicon className="date-range__trigger-btn-icon" icon="calendar" aria-hidden="true" />
-				<span className="date-range__trigger-btn-text">{ dateRangeText }</span>
+				<span className="date-range__trigger-btn-text" aria-label={ translate( 'Date range' ) }>
+					{ dateRangeText }
+				</span>
 				{ ! showClearBtn && <Gridicon aria-hidden="true" icon="chevron-down" /> }
 			</Button>
 			{ showClearBtn && (
@@ -68,7 +73,8 @@ const DateRangeTrigger: FunctionComponent< Props > = ( {
 					compact={ isCompact }
 					onClick={ onClearClick }
 					disabled={ ! canReset }
-					title="Clear date selection"
+					aria-label={ clearDateSelectionText }
+					title={ clearDateSelectionText }
 				>
 					<ScreenReaderText>{ translate( 'Clear date selection' ) }</ScreenReaderText>
 					<Gridicon aria-hidden="true" icon="cross" />

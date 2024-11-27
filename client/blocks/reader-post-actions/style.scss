@@ -1,35 +1,50 @@
 .reader-post-actions {
+	align-items: center;
 	box-sizing: border-box;
 	display: flex;
 	font-family: $sans;
 	flex-direction: row;
 	height: auto;
-	justify-content: flex-end;
+	justify-content: flex-start;
 	list-style-type: none;
 	margin: 10px 0 0;
+
+	@include breakpoint-deprecated( "<660px" ) {
+		justify-content: space-around;
+	}
+}
+
+.reader-post-actions:not(.has-views) .reader-post-actions__item {
+	&.reader-post-actions__visit {
+		flex: 1;
+	}
 }
 
 .reader-post-actions .reader-post-actions__item {
-	margin-right: 13px;
+	margin-right: 24px;
 
 	&.reader-post-actions__visit {
-		flex: 1;
-
 		.reader-visit-link {
 			align-items: center;
 			box-sizing: border-box;
-			display: inline-flex;
-			padding: 4px 4px 4px 0;
-			position: relative;
+			display: flex;
+			gap: 4px;
+		}
+		@include breakpoint-deprecated( "<660px" ) {
+			display: none;
 		}
 	}
 
-	&:last-child {
-		margin-right: 0;
+	&.reader-post-actions__views {
+		flex: 1;
+		@include breakpoint-deprecated( "<660px" ) {
+			display: none;
+		}
 	}
 
 	& > button {
-		line-height: inherit;
+		margin: 0;
+		padding: 0;
 
 		&:focus {
 			outline: thin dotted;
@@ -37,8 +52,28 @@
 
 		.accessible-focus &:focus {
 			border-radius: 2px;
-			border-color: var( --color-primary );
-			box-shadow: 0 0 0 2px var( --color-primary-light );
+			border-color: var(--color-primary);
+			box-shadow: 0 0 0 2px var(--color-primary-light);
+		}
+	}
+
+	.follow-button__label {
+		display: none;
+	}
+
+	@include breakpoint-deprecated( "<660px" ) {
+		margin-right: 18px;
+		height: auto;
+		&:first-of-type {
+			margin-left: 18px;
+		}
+
+		.reader-share__button,
+		.like-button,
+		.comment-button {
+			display: flex;
+			flex-direction: column;
+			height: auto;
 		}
 	}
 }

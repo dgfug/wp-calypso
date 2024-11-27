@@ -1,4 +1,4 @@
-@import '@automattic/onboarding/styles/mixins';
+@import "@automattic/onboarding/styles/mixins";
 // domain search
 
 .domain-search__content {
@@ -10,7 +10,50 @@
 		&.is-link {
 			@include onboarding-medium-text;
 			text-decoration: none;
-			color: var( --studio-gray-50 );
+			color: var(--studio-gray-50);
+		}
+	}
+	.domain-search-results {
+		.domain-suggestion__content {
+			gap: 8px;
+		}
+		.featured-domain-suggestion {
+			flex-direction: column-reverse;
+			.domain-registration-suggestion__match-reasons {
+				order: 1;
+				flex-grow: 1;
+			}
+			.domain-suggestion__price-container {
+				order: 2;
+			}
+			.domain-suggestion__action-container {
+				order: 3;
+			}
+			.domain-product-price {
+				padding-right: 0;
+				align-items: flex-end;
+			}
+		}
+		.domain-suggestion:not(.featured-domain-suggestion) {
+			flex-direction: column;
+		}
+		.domain-product-price {
+			flex-grow: 1;
+		}
+		.domain-registration-suggestion__badges {
+			margin-left: 0;
+			margin-bottom: 4px;
+
+			.badge {
+				border-radius: 4px;
+				font-size: 0.75rem;
+				font-weight: 500;
+				white-space: nowrap;
+			}
+
+			@include break-wide {
+				flex: 1;
+			}
 		}
 	}
 }
@@ -21,11 +64,11 @@
 }
 
 .domain-search-page-wrapper h3 {
-	color: var( --color-neutral-70 );
+	color: var(--color-neutral-70);
 	font-size: $font-body;
 	word-wrap: break-word;
 
-	@include breakpoint-deprecated( '>660px' ) {
-		font-size: 17px; /* stylelint-disable-line */
+	@include breakpoint-deprecated( ">660px" ) {
+		font-size: 17px; /* stylelint-disable-line declaration-property-unit-allowed-list */
 	}
 }

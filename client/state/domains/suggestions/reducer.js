@@ -12,10 +12,9 @@ import { getSerializedDomainsSuggestionsQuery } from './utils';
 
 /**
  * Tracks domains suggestions, indexed by a serialized query.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) => {
 	switch ( action.type ) {
@@ -33,10 +32,9 @@ export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) =
 
 /**
  * Tracks domains suggestions request state, indexed by a serialized query.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export function requesting( state = {}, action ) {
 	switch ( action.type ) {
@@ -56,10 +54,9 @@ export function requesting( state = {}, action ) {
 
 /**
  * Tracks domains suggestions error state, indexed by a serialized query.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export function errors( state = {}, action ) {
 	const serializedQuery =

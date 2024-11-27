@@ -1,4 +1,4 @@
-import { BlockFlow, EditorContext, PublishedPostContext } from '..';
+import { BlockFlow, EditorContext, PublishedPostContext } from '.';
 
 interface ConfigurationData {
 	email: string;
@@ -35,11 +35,12 @@ export class ContactInfoBlockFlow implements BlockFlow {
 	 * @param {EditorContext} context The current context for the editor at the point of test execution
 	 */
 	async configure( context: EditorContext ): Promise< void > {
-		await context.editorIframe.fill( selectors.emailTextarea, this.configurationData.email );
-		await context.editorIframe.fill(
-			selectors.phoneNumberTextarea,
-			this.configurationData.phoneNumber
-		);
+		const editorCanvas = await context.editorPage.getEditorCanvas();
+		const emailLocator = editorCanvas.locator( selectors.emailTextarea );
+		await emailLocator.fill( this.configurationData.email );
+
+		const phoneNumberLocator = editorCanvas.locator( selectors.phoneNumberTextarea );
+		await phoneNumberLocator.fill( this.configurationData.phoneNumber );
 	}
 
 	/**
@@ -50,7 +51,16 @@ export class ContactInfoBlockFlow implements BlockFlow {
 	async validateAfterPublish( context: PublishedPostContext ): Promise< void > {
 		const numericOnlyPhoneNumber = this.configurationData.phoneNumber.replace( /\D/g, '' );
 
-		await context.page.waitForSelector( `[href="mailto:${ this.configurationData.email }"]` );
-		await context.page.waitForSelector( `[href="tel:${ numericOnlyPhoneNumber }"]` );
+		const expectedEmailLinkLocator = context.page.locator(
+			// 'main' needs to be specified due to the debug elements
+			`main [href="mailto:${ this.configurationData.email }"]`
+		);
+		await expectedEmailLinkLocator.waitFor();
+
+		const expectedPhoneLinkLocator = context.page.locator(
+			// 'main' needs to be specified due to the debug elements
+			`main [href="tel:${ numericOnlyPhoneNumber }"]`
+		);
+		await expectedPhoneLinkLocator.waitFor();
 	}
 }

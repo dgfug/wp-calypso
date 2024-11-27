@@ -1,12 +1,14 @@
+import { WPCOM_FEATURES_ATOMIC } from '@automattic/calypso-products';
 import { translate } from 'i18n-calypso';
-import { ReactElement, ComponentType } from 'react';
-import { useSelector } from 'react-redux';
-import QuerySitePlans from 'calypso/components/data/query-site-plans';
+import { ComponentType } from 'react';
+import QuerySiteFeatures from 'calypso/components/data/query-site-features';
 import FormattedHeader from 'calypso/components/formatted-header';
 import WPCOMBusinessAT from 'calypso/components/jetpack/wpcom-business-at';
 import Main from 'calypso/components/main';
-import isSiteOnAtomicPlan from 'calypso/state/selectors/is-site-on-atomic-plan';
-import { getCurrentPlan } from 'calypso/state/sites/plans/selectors';
+import { useSelector } from 'calypso/state';
+import getFeaturesBySiteId from 'calypso/state/selectors/get-site-features';
+import isRequestingSiteFeatures from 'calypso/state/selectors/is-requesting-site-features';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 
 import './style.scss';
@@ -33,19 +35,22 @@ const Placeholder = () => (
  * If the plan is an Atomic plan, we show a component to activate the
  * automated transfer process. If it's not, we show the upsell component.
  */
-const BusinessATSwitch = ( { UpsellComponent }: Props ): ReactElement => {
+const BusinessATSwitch = ( { UpsellComponent }: Props ) => {
 	const siteId = useSelector( getSelectedSiteId ) as number;
 
-	const currentPlan: Record< string, unknown > | null = useSelector( ( state ) =>
-		getCurrentPlan( state, siteId )
+	const featuresNotLoaded: boolean = useSelector(
+		( state ) =>
+			null === getFeaturesBySiteId( state, siteId ) && ! isRequestingSiteFeatures( state, siteId )
 	);
-	const isATPlan = useSelector( ( state ) => isSiteOnAtomicPlan( state, siteId ) );
+	const canTransfer: boolean = useSelector( ( state ) =>
+		siteHasFeature( state, siteId, WPCOM_FEATURES_ATOMIC )
+	);
 
 	// If we're not sure, show a loading screen.
-	if ( ! currentPlan ) {
+	if ( featuresNotLoaded ) {
 		return (
 			<Main className="business-at-switch__loading">
-				<QuerySitePlans siteId={ siteId } />
+				<QuerySiteFeatures siteIds={ [ siteId ] } />
 				<Placeholder />
 			</Main>
 		);
@@ -53,7 +58,7 @@ const BusinessATSwitch = ( { UpsellComponent }: Props ): ReactElement => {
 
 	// We know the site is not AT as it's not Jetpack,
 	// so show the activation for Atomic plans.
-	if ( isATPlan ) {
+	if ( canTransfer ) {
 		return <WPCOMBusinessAT />;
 	}
 

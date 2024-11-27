@@ -1,15 +1,15 @@
+import page, { type Callback } from '@automattic/calypso-router';
 import { createHigherOrderComponent } from '@wordpress/compose';
 import debugModule from 'debug';
 import i18n from 'i18n-calypso';
-import page from 'page';
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, ComponentType } from 'react';
 
 /**
  * Module variables
  */
 const debug = debugModule( 'calypso:protect-form' );
 
-type FormId = [  ];
+type FormId = [];
 
 let formsChanged = new Set< FormId >();
 let listenerCount = 0;
@@ -79,13 +79,16 @@ export interface ProtectedFormProps {
 /*
  * HOC that passes markChanged/markSaved props to the wrapped component instance
  */
-export const protectForm = createHigherOrderComponent< ProtectedFormProps, any >( ( Component ) => {
-	return ( props ) => {
-		const { markChanged, markSaved } = useProtectForm();
-
-		return <Component { ...props } markChanged={ markChanged } markSaved={ markSaved } />;
-	};
-}, 'protectForm' );
+export const protectForm = createHigherOrderComponent(
+	< OuterProps, >( InnerComponent: ComponentType< OuterProps & ProtectedFormProps > ) => {
+		return ( props: OuterProps ) => {
+			const { markChanged, markSaved } = useProtectForm();
+			const innerProps = { ...props, markChanged, markSaved };
+			return <InnerComponent { ...innerProps } />;
+		};
+	},
+	'protectForm'
+);
 
 /*
  * Declarative variant that takes a 'isChanged' prop.
@@ -114,7 +117,7 @@ function windowConfirm() {
 	return window.confirm( confirmText );
 }
 
-export const checkFormHandler: PageJS.Callback = ( context, next ) => {
+export const checkFormHandler: Callback = ( context, next ) => {
 	if ( ! formsChanged.size ) {
 		return next();
 	}

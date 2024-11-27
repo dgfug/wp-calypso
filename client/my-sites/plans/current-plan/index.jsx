@@ -1,8 +1,7 @@
 import {
 	getPlan,
 	JETPACK_LEGACY_PLANS,
-	PLAN_JETPACK_COMPLETE,
-	PLAN_JETPACK_COMPLETE_MONTHLY,
+	PLAN_100_YEARS,
 	PLAN_JETPACK_SECURITY_DAILY,
 	PLAN_JETPACK_SECURITY_DAILY_MONTHLY,
 	PLAN_JETPACK_SECURITY_REALTIME,
@@ -14,12 +13,13 @@ import {
 	JETPACK_VIDEOPRESS_PRODUCTS,
 	isFreeJetpackPlan,
 	isFreePlanProduct,
-	isFlexiblePlanProduct,
-	isPro,
+	PLAN_ECOMMERCE_TRIAL_MONTHLY,
+	PLAN_MIGRATION_TRIAL_MONTHLY,
+	PLAN_HOSTING_TRIAL_MONTHLY,
+	JETPACK_COMPLETE_PLANS,
 } from '@automattic/calypso-products';
 import { Dialog } from '@automattic/components';
-import { Global } from '@emotion/react';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component, Fragment } from 'react';
@@ -30,19 +30,20 @@ import QueryConciergeInitial from 'calypso/components/data/query-concierge-initi
 import QueryJetpackPlugins from 'calypso/components/data/query-jetpack-plugins';
 import QuerySiteDomains from 'calypso/components/data/query-site-domains';
 import QuerySitePlans from 'calypso/components/data/query-site-plans';
+import QuerySiteProducts from 'calypso/components/data/query-site-products';
 import QuerySitePurchases from 'calypso/components/data/query-site-purchases';
 import QuerySites from 'calypso/components/data/query-sites';
-import FormattedHeader from 'calypso/components/formatted-header';
 import Main from 'calypso/components/main';
+import NavigationHeader from 'calypso/components/navigation-header';
 import Notice from 'calypso/components/notice';
 import NoticeAction from 'calypso/components/notice/notice-action';
 import TrackComponentView from 'calypso/lib/analytics/track-component-view';
 import { isCloseToExpiration } from 'calypso/lib/purchases';
 import { getPurchaseByProductSlug } from 'calypso/lib/purchases/utils';
 import DomainWarnings from 'calypso/my-sites/domains/components/domain-warnings';
-import { globalOverrides, isEligibleForProPlan } from 'calypso/my-sites/plans-comparison';
 import JetpackChecklist from 'calypso/my-sites/plans/current-plan/jetpack-checklist';
 import PlanRenewalMessage from 'calypso/my-sites/plans/jetpack-plans/plan-renewal-message';
+import ModernizedLayout from 'calypso/my-sites/plans/modernized-layout';
 import PlansNavigation from 'calypso/my-sites/plans/navigation';
 import { getSitePurchases } from 'calypso/state/purchases/selectors';
 import getConciergeScheduleId from 'calypso/state/selectors/get-concierge-schedule-id';
@@ -62,6 +63,7 @@ import PaidPlanThankYou from './current-plan-thank-you/paid-plan-thank-you';
 import ScanProductThankYou from './current-plan-thank-you/scan-thank-you';
 import SearchProductThankYou from './current-plan-thank-you/search-thank-you';
 import PurchasesListing from './purchases-listing';
+import TrialCurrentPlan from './trials/trial-current-plan';
 
 import './style.scss';
 
@@ -143,7 +145,7 @@ class CurrentPlan extends Component {
 			return <JetpackSecurityRealtimeThankYou />;
 		}
 
-		if ( [ PLAN_JETPACK_COMPLETE, PLAN_JETPACK_COMPLETE_MONTHLY ].includes( product ) ) {
+		if ( JETPACK_COMPLETE_PLANS.includes( product ) ) {
 			return <JetpackCompleteThankYou />;
 		}
 
@@ -152,6 +154,51 @@ class CurrentPlan extends Component {
 		}
 
 		return <PaidPlanThankYou />;
+	}
+
+	renderMain() {
+		const { selectedSiteId, selectedSite, showJetpackChecklist, translate } = this.props;
+		const isLoading = this.isLoading();
+		const currentPlanSlug = selectedSite?.plan?.product_slug ?? '';
+		const currentPlan = getPlan( currentPlanSlug );
+		const planTitle = currentPlan ? currentPlan.getTitle() : '';
+		const planFeaturesHeader =
+			currentPlanSlug === PLAN_100_YEARS
+				? translate( 'Features included in your 100-Year Plan' )
+				: translate( '{{planName/}} plan features', {
+						components: { planName: <>{ planTitle }</> },
+				  } );
+
+		return (
+			<>
+				<PurchasesListing />
+
+				{ showJetpackChecklist && (
+					<Fragment>
+						<QueryJetpackPlugins siteIds={ [ selectedSiteId ] } />
+						<JetpackChecklist />
+					</Fragment>
+				) }
+
+				<div
+					className={ clsx( 'current-plan__header-text current-plan__text', {
+						'is-placeholder': { isLoading },
+					} ) }
+				>
+					<h1 className="current-plan__header-heading">{ planFeaturesHeader }</h1>
+				</div>
+				<AsyncLoad
+					require="calypso/blocks/product-purchase-features-list"
+					placeholder={ null }
+					plan={ currentPlanSlug }
+					isPlaceholder={ isLoading }
+				/>
+			</>
+		);
+	}
+
+	renderTrialPage() {
+		return <TrialCurrentPlan />;
 	}
 
 	render() {
@@ -163,140 +210,96 @@ class CurrentPlan extends Component {
 			selectedSite,
 			selectedSiteId,
 			shouldShowDomainWarnings,
-			showJetpackChecklist,
 			showThankYou,
 			translate,
-			eligibleForProPlan,
+			isJetpackNotAtomic,
 		} = this.props;
 
-		const currentPlanSlug = selectedSite.plan.product_slug;
-		const isLoading = this.isLoading();
-		const planTitle = getPlan( currentPlanSlug ).getTitle();
-
-		const planFeaturesHeader = translate( '{{planName/}} plan features', {
-			components: { planName: <>{ planTitle }</> },
-		} );
-
+		const currentPlanSlug = selectedSite?.plan?.product_slug ?? '';
+		const isEcommerceTrial = currentPlanSlug === PLAN_ECOMMERCE_TRIAL_MONTHLY;
+		const isBusinessTrial =
+			currentPlanSlug === PLAN_MIGRATION_TRIAL_MONTHLY ||
+			currentPlanSlug === PLAN_HOSTING_TRIAL_MONTHLY;
+		const isTrial = isEcommerceTrial || isBusinessTrial;
 		const shouldQuerySiteDomains = selectedSiteId && shouldShowDomainWarnings;
 		const showDomainWarnings = hasDomainsLoaded && shouldShowDomainWarnings;
 
 		let showExpiryNotice = false;
 		let purchase = null;
-		let showLegacyPlanNotice = false;
 
 		if ( JETPACK_LEGACY_PLANS.includes( currentPlanSlug ) ) {
 			purchase = getPurchaseByProductSlug( purchases, currentPlanSlug );
 			showExpiryNotice = purchase && isCloseToExpiration( purchase );
 		}
 
-		if (
-			eligibleForProPlan &&
-			! isFlexiblePlanProduct( selectedSite.plan ) &&
-			! isPro( selectedSite.plan )
-		) {
-			showLegacyPlanNotice = true;
-		}
+		const planDescription = isJetpackNotAtomic
+			? translate( 'Learn about the features included in your Jetpack plan.' )
+			: translate( 'Learn about the features included in your WordPress.com plan.' );
 
 		return (
-			<Main className="current-plan" wideLayout>
-				{ eligibleForProPlan && <Global styles={ globalOverrides } /> }
+			<div>
+				<ModernizedLayout />
 				<DocumentHead title={ translate( 'My Plan' ) } />
-				<FormattedHeader
-					brandFont
-					className="current-plan__page-heading"
-					headerText={ translate( 'Plans' ) }
-					subHeaderText={ translate(
-						'Learn about the features included in your WordPress.com plan.'
-					) }
-					align="left"
-				/>
-				<div className="current-plan__content">
-					{ selectedSiteId && (
-						// key={ selectedSiteId } ensures data is refetched for changing selectedSiteId
-						<QueryConciergeInitial key={ selectedSiteId } siteId={ selectedSiteId } />
-					) }
-					<QuerySites siteId={ selectedSiteId } />
-					<QuerySitePlans siteId={ selectedSiteId } />
-					<QuerySitePurchases siteId={ selectedSiteId } />
-					{ shouldQuerySiteDomains && <QuerySiteDomains siteId={ selectedSiteId } /> }
-
-					{ showThankYou && ! this.state.hideThankYouModal && (
-						<Dialog
-							baseClassName="current-plan__dialog dialog__content dialog__backdrop"
-							isVisible={ showThankYou }
-							onClose={ this.hideThankYouModalOnClose }
-						>
-							{ this.renderThankYou() }
-						</Dialog>
-					) }
-
-					<PlansNavigation path={ path } />
-
-					{ showDomainWarnings && (
-						<DomainWarnings
-							domains={ domains }
-							position="current-plan"
-							selectedSite={ selectedSite }
-							allowedRules={ [
-								'newDomainsWithPrimary',
-								'newDomains',
-								'unverifiedDomainsCanManage',
-								'pendingGSuiteTosAcceptanceDomains',
-								'unverifiedDomainsCannotManage',
-								'wrongNSMappedDomains',
-								'newTransfersWrongNS',
-							] }
-						/>
-					) }
-
-					{ showExpiryNotice && (
-						<Notice status="is-info" text={ <PlanRenewalMessage /> } showDismiss={ false }>
-							<NoticeAction href={ `/plans/${ selectedSite.slug || '' }` }>
-								{ translate( 'View plans' ) }
-							</NoticeAction>
-						</Notice>
-					) }
-
-					{ showLegacyPlanNotice && (
-						<Notice
-							status="is-info"
-							text={
-								'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer ut felis et orci fringilla pretium. Consectura elit et orci fel.'
-							}
-							icon="info-outline"
-							showDismiss={ false }
-						></Notice>
-					) }
-
-					<PurchasesListing />
-
-					{ showJetpackChecklist && (
-						<Fragment>
-							<QueryJetpackPlugins siteIds={ [ selectedSiteId ] } />
-							<JetpackChecklist />
-						</Fragment>
-					) }
-
-					{ ! eligibleForProPlan && (
-						<>
-							<div
-								className={ classNames( 'current-plan__header-text current-plan__text', {
-									'is-placeholder': { isLoading },
-								} ) }
+				{ selectedSiteId && (
+					<QueryConciergeInitial key={ selectedSiteId } siteId={ selectedSiteId } />
+				) }
+				<QuerySites siteId={ selectedSiteId } />
+				<QuerySitePlans siteId={ selectedSiteId } />
+				<QuerySitePurchases siteId={ selectedSiteId } />
+				<QuerySiteProducts siteId={ selectedSiteId } />
+				{ shouldQuerySiteDomains && <QuerySiteDomains siteId={ selectedSiteId } /> }
+				<div>
+					<NavigationHeader
+						className="plans__section-header"
+						navigationItems={ [] }
+						title={ translate( 'Plans' ) }
+						subtitle={ planDescription }
+					/>
+					<div className="current-plan current-plan__content">
+						{ showThankYou && ! this.state.hideThankYouModal && (
+							<Dialog
+								baseClassName="current-plan__dialog dialog__content dialog__backdrop"
+								isVisible={ showThankYou }
+								onClose={ this.hideThankYouModalOnClose }
 							>
-								<h1 className="current-plan__header-heading">{ planFeaturesHeader }</h1>
-							</div>
-							<AsyncLoad
-								require="calypso/blocks/product-purchase-features-list"
-								placeholder={ null }
-								plan={ currentPlanSlug }
-								isPlaceholder={ isLoading }
-							/>
-						</>
-					) }
-					<TrackComponentView eventName={ 'calypso_plans_my_plan_view' } />
+								{ this.renderThankYou() }
+							</Dialog>
+						) }
+
+						<PlansNavigation path={ path } />
+
+						<Main fullWidthLayout>
+							{ showDomainWarnings && (
+								<DomainWarnings
+									domains={ domains }
+									position="current-plan"
+									selectedSite={ selectedSite }
+									allowedRules={ [
+										'newDomainsWithPrimary',
+										'newDomains',
+										'unverifiedDomainsCanManage',
+										'unverifiedDomainsCannotManage',
+										'wrongNSMappedDomains',
+										'newTransfersWrongNS',
+									] }
+								/>
+							) }
+
+							{ showExpiryNotice && (
+								<Notice status="is-info" text={ <PlanRenewalMessage /> } showDismiss={ false }>
+									<NoticeAction href={ `/plans/${ selectedSite.slug || '' }` }>
+										{ translate( 'View plans' ) }
+									</NoticeAction>
+								</Notice>
+							) }
+
+							{ isTrial ? this.renderTrialPage() : this.renderMain() }
+
+							<TrackComponentView eventName="calypso_plans_my_plan_view" />
+						</Main>
+					</div>
 				</div>
-			</Main>
+			</div>
 		);
 	}
 }
@@ -313,7 +316,6 @@ export default connect( ( state, { requestThankYou } ) => {
 	const isJetpackNotAtomic = false === isAutomatedTransfer && isJetpack;
 
 	const currentPlan = getCurrentPlan( state, selectedSiteId );
-	const eligibleForProPlan = isEligibleForProPlan( state, selectedSiteId );
 
 	return {
 		currentPlan,
@@ -328,6 +330,6 @@ export default connect( ( state, { requestThankYou } ) => {
 		showJetpackChecklist: isJetpackNotAtomic,
 		showThankYou: requestThankYou && isJetpackNotAtomic,
 		scheduleId: getConciergeScheduleId( state ),
-		eligibleForProPlan,
+		isJetpackNotAtomic,
 	};
 } )( localize( CurrentPlan ) );

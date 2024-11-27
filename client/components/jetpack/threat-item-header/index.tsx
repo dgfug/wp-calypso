@@ -1,9 +1,9 @@
 import { Gridicon } from '@automattic/components';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { translate } from 'i18n-calypso';
 import * as React from 'react';
-import ThreatItemSubheader from 'calypso/components/jetpack/threat-item-subheader';
 import { getThreatType } from 'calypso/components/jetpack/threat-item/utils';
+import ThreatItemSubheader from 'calypso/components/jetpack/threat-item-subheader';
 import ThreatSeverityBadge from 'calypso/components/jetpack/threat-severity-badge';
 import type { Threat } from 'calypso/components/jetpack/threat-item/types';
 
@@ -26,11 +26,18 @@ const severityClassNames = ( severity: number ) => {
 // This should be temporary since this data should be coming from the api
 // and not something that we should change to accommodate the results.
 const getThreatMessage = ( threat: Threat ) => {
-	const { filename, extension = { slug: 'unknown', version: 'n/a' } } = threat;
+	const { filename, extension = { slug: 'unknown', version: 'n/a' }, version } = threat;
 	const basename = filename ? filename.replace( /.*\//, '' ) : '';
 
 	switch ( getThreatType( threat ) ) {
 		case 'core':
+			return version
+				? translate( 'Vulnerable WordPress version: %s', {
+						args: [ version ],
+				  } )
+				: translate( 'Vulnerable WordPress version.' );
+
+		case 'core_file':
 			return translate( 'Infected core file: %s', {
 				args: [ basename ],
 			} );
@@ -67,7 +74,7 @@ const getThreatMessage = ( threat: Threat ) => {
 					count: Object.keys( threat.rows ).length,
 					args: {
 						threatCount: Object.keys( threat.rows ).length,
-						threatTable: threat.table,
+						threatTable: threat.table as string,
 					},
 				}
 			);
@@ -81,22 +88,26 @@ const getThreatMessage = ( threat: Threat ) => {
 const ThreatItemHeader: React.FC< Props > = ( { threat } ) => {
 	return (
 		<>
-			<ThreatSeverityBadge severity={ threat.severity } />
 			<div className="threat-item-header__card-container">
-				<div className="threat-item-header__card-top">{ getThreatMessage( threat ) }</div>
-				<span
-					className={ classnames(
-						'threat-item-header__card-bottom',
-						severityClassNames( threat.severity )
-					) }
-				>
-					<ThreatItemSubheader threat={ threat } />
-				</span>
+				<ThreatSeverityBadge severity={ threat.severity } />
+				<div className="threat-item-header__titles">
+					<div className="threat-item-header__card-top">{ getThreatMessage( threat ) }</div>
+					<div
+						className={ clsx(
+							'threat-item-header__card-bottom',
+							severityClassNames( threat.severity )
+						) }
+					>
+						<ThreatItemSubheader threat={ threat } />
+					</div>
+				</div>
 			</div>
-			{ threat.fixable && (
-				/* eslint-disable wpcalypso/jsx-classname-namespace */
-				<Gridicon className="threat-item-header__autofix_badge" icon="checkmark" size={ 18 } />
-			) }
+			<div className="threat-item-header__autofix-container">
+				{ threat.fixable && (
+					/* eslint-disable wpcalypso/jsx-classname-namespace */
+					<Gridicon className="threat-item-header__autofix_badge" icon="checkmark" size={ 18 } />
+				) }
+			</div>
 		</>
 	);
 };

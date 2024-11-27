@@ -1,32 +1,42 @@
+import { localizeUrl } from '@automattic/i18n-utils';
 import { useShoppingCart } from '@automattic/shopping-cart';
+import { JETPACK_CONTACT_SUPPORT, JETPACK_SUPPORT } from '@automattic/urls';
 import { useDisplayCartMessages } from '@automattic/wpcom-checkout';
 import { useTranslate } from 'i18n-calypso';
 import { useCallback, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { JETPACK_SUPPORT } from 'calypso/lib/url/support';
 import useCartKey from 'calypso/my-sites/checkout/use-cart-key';
+import { useDispatch, useSelector } from 'calypso/state';
 import { errorNotice, successNotice, removeNotice } from 'calypso/state/notices/actions';
 import { getSelectedSiteSlug } from 'calypso/state/ui/selectors';
 import type { ResponseCartMessage } from '@automattic/shopping-cart';
 import type { CalypsoDispatch } from 'calypso/state/types';
 import type { TranslateResult } from 'i18n-calypso';
 
-function CartMessage( { message }: { message: ResponseCartMessage } ): JSX.Element {
+function CartMessage( { message }: { message: ResponseCartMessage } ) {
 	const selectedSiteSlug = useSelector( getSelectedSiteSlug );
 	const translate = useTranslate();
 
-	const getPrettyMessage = useMemo( () => getMessagePrettifier( translate, selectedSiteSlug ), [
-		translate,
-		selectedSiteSlug,
-	] );
+	const getPrettyMessage = useMemo(
+		() => getMessagePrettifier( translate, selectedSiteSlug ),
+		[ translate, selectedSiteSlug ]
+	);
 	return <>{ getPrettyMessage( message ) }</>;
 }
 
-export default function CartMessages(): null {
+export default function CartMessages( {
+	shouldShowPersistentErrors,
+}: {
+	/**
+	 * Persistent errors like "Purchases are disabled for this site" are returned
+	 * during cart fetch (regular cart errors are transient and only are returned
+	 * when changing the cart). We want to display these errors only in certain
+	 * contexts where they will make sense (like checkout), not in every place
+	 * that happens to render this component (like the plans page).
+	 */
+	shouldShowPersistentErrors?: boolean;
+} ): null {
 	const cartKey = useCartKey();
-	const { responseCart: cart, isLoading: isLoadingCart, clearMessages } = useShoppingCart(
-		cartKey
-	);
+	const { responseCart: cart, isLoading: isLoadingCart } = useShoppingCart( cartKey );
 	const reduxDispatch = useDispatch();
 
 	const showErrorMessages = useCallback(
@@ -45,10 +55,10 @@ export default function CartMessages(): null {
 
 	useDisplayCartMessages( {
 		cart,
-		clearMessages,
 		isLoadingCart,
 		showErrorMessages,
 		showSuccessMessages,
+		shouldShowPersistentErrors: shouldShowPersistentErrors ?? false,
 	} );
 
 	return null;
@@ -87,10 +97,9 @@ function getBlockedPurchaseErrorMessage( {
 			components: {
 				a: (
 					<a
-						href={
-							'https://wordpress.com/error-report/' +
-							( selectedSiteSlug ? '?url=payment@' + selectedSiteSlug : '' )
-						}
+						href={ `https://wordpress.com/account-assistance-form/${
+							selectedSiteSlug ? '?url=payment@' + selectedSiteSlug : ''
+						}` }
 						target="_blank"
 						rel="noopener noreferrer"
 					/>
@@ -111,13 +120,41 @@ function getInvalidMultisitePurchaseErrorMessage( {
 		<>
 			{ message }&nbsp;
 			<a
-				href={ JETPACK_SUPPORT + 'backup/#does-jetpack-backup-support-multisite' }
+				href={ localizeUrl( JETPACK_SUPPORT ) + 'backup/#does-jetpack-backup-support-multisite' }
 				target="_blank"
 				rel="noopener noreferrer"
 			>
 				{ translate( 'More info' ) }
 			</a>
 		</>
+	);
+}
+
+function getJetpackLegacyUpgradeErrorMessage( {
+	translate,
+	message,
+	selectedSiteSlug,
+}: {
+	translate: ReturnType< typeof useTranslate >;
+	message: string;
+	selectedSiteSlug: string | null | undefined;
+} ) {
+	return (
+		<div style={ { maxWidth: '500px' } }>
+			{ message }&nbsp;
+			<a
+				href={
+					localizeUrl( JETPACK_CONTACT_SUPPORT ) +
+					'&assistant=false&subject=' +
+					encodeURIComponent( 'Help with Jetpack Legacy Upgrade' ) +
+					( selectedSiteSlug ? '&url=' + selectedSiteSlug : '' )
+				}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				{ translate( 'Contact Support' ) }
+			</a>
+		</div>
 	);
 }
 
@@ -136,6 +173,13 @@ function getMessagePrettifier(
 
 			case 'invalid-product-multisite':
 				return getInvalidMultisitePurchaseErrorMessage( { translate, message: message.message } );
+
+			case 'invalid-jetpack-legacy-upgrade':
+				return getJetpackLegacyUpgradeErrorMessage( {
+					translate,
+					message: message.message,
+					selectedSiteSlug,
+				} );
 
 			default:
 				return message.message;

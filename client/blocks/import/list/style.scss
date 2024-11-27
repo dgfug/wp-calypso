@@ -1,0 +1,126 @@
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
+
+/**
+ * Right to Left support
+ */
+html[dir="rtl"] {
+	.import__onboarding-page {
+		.list__importer-action .action-card__button-container {
+			button,
+			a {
+				text-align: left;
+
+				svg {
+					transform: rotate(180deg);
+				}
+			}
+		}
+
+		.importer__service-icon {
+			float: right;
+		}
+	}
+}
+
+.is-section-stepper > .wpcom-site > .import-list {
+	padding: 2rem 0;
+
+	@include break-small {
+		padding: 3.75rem 0 0 0;
+	}
+}
+
+.import__onboarding-page {
+	.import-layout {
+		flex-direction: column;
+	}
+
+	.import__navigation {
+		.button.is-borderless {
+			color: var(--color-text);
+			font-weight: 600;
+		}
+		.button.is-borderless svg {
+			top: 5px;
+			width: 20px;
+			height: 20px;
+			margin-right: 2px;
+		}
+	}
+
+	.list__wrapper {
+		padding-bottom: 2rem;
+
+		h3 {
+			font-size: 1.125em; /* stylelint-disable-line declaration-property-unit-allowed-list */
+			color: var(--studio-gray-90);
+			margin-bottom: 1em;
+		}
+
+		img {
+			display: none;
+
+			@include break-small {
+				display: block;
+			}
+		}
+
+		.list__importers-primary,
+		.list__importers-secondary {
+			margin: 0 auto 1.5rem auto;
+			min-width: 100%;
+
+			@include break-small {
+				min-width: 433px;
+			}
+		}
+	}
+}
+
+.list__importers {
+	max-width: 430px;
+
+	.select-dropdown > div {
+		width: 100%;
+	}
+
+	.select-dropdown__header-text {
+		font-weight: 400;
+	}
+
+	.select-dropdown__header {
+		border-radius: 4px;
+	}
+
+	.form-label {
+		font-weight: 500;
+	}
+}
+
+.list__importers-item-card {
+	display: flex;
+	width: 100%;
+	padding: 1.5em;
+	border: solid 1px var(--studio-gray-5);
+	border-radius: 4px;
+	margin-bottom: 0.5rem;
+	align-items: center;
+
+	h2 {
+		flex-grow: 1;
+		color: var(--studio-gray-100);
+		/* stylelint-disable-next-line scales/font-sizes */
+		font-size: 1.125rem;
+		font-weight: 500;
+		text-align: left;
+	}
+
+	.importer__service-icon {
+		width: 32px;
+		min-width: 32px !important;
+		height: 32px;
+		margin-inline-end: 0.5em !important;
+		border-radius: 4px;
+	}
+}

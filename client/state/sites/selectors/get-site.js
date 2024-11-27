@@ -10,12 +10,14 @@ let getSiteCache = new WeakMap();
 
 /**
  * Returns a normalized site object by its ID or site slug.
- *
- * @param  {object}  state  Global state tree
- * @param  {number|string}  siteIdOrSlug Site ID or site slug
- * @returns {import('calypso/state/ui/selectors/site-data').SiteData|null|undefined}        Site object
+ * @param  {Object}  state  Global state tree
+ * @param  {number|string|null|undefined}  siteIdOrSlug Site ID or site slug
+ * @returns {import('@automattic/data-stores').SiteDetails|null|undefined}        Site object
  */
 export default function getSite( state, siteIdOrSlug ) {
+	if ( ! siteIdOrSlug ) {
+		return null;
+	}
 	const rawSite = getRawSite( state, siteIdOrSlug ) || getSiteBySlug( state, siteIdOrSlug );
 	if ( ! rawSite ) {
 		return null;

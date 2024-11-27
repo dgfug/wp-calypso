@@ -10,21 +10,40 @@ export async function saveCreditCard( {
 	stripeConfiguration,
 	useForAllSubscriptions,
 	eventSource,
+	postalCode,
+	countryCode,
+	state,
+	city,
+	organization,
+	address,
 }: {
 	token: string;
 	stripeConfiguration: StripeConfiguration;
 	useForAllSubscriptions: boolean;
 	eventSource?: string;
+	postalCode?: string;
+	countryCode: string;
+	state?: string;
+	city?: string;
+	organization?: string;
+	address?: string;
 } ): Promise< StoredCardEndpointResponse > {
 	const additionalData = getParamsForApi( {
 		cardToken: token,
 		stripeConfiguration,
 		useForAllSubscriptions,
 		eventSource,
+		postalCode,
+		countryCode,
+		state,
+		city,
+		organization,
+		address,
 	} );
 	const response = await wp.req.post(
 		{
 			path: '/me/stored-cards',
+			apiVersion: '1.1',
 		},
 		{
 			payment_key: token,
@@ -46,12 +65,24 @@ export async function updateCreditCard( {
 	stripeConfiguration,
 	useForAllSubscriptions,
 	eventSource,
+	postalCode,
+	state,
+	city,
+	organization,
+	address,
+	countryCode,
 }: {
 	purchase: Purchase;
 	token: string;
 	stripeConfiguration: StripeConfiguration;
 	useForAllSubscriptions: boolean;
 	eventSource?: string;
+	postalCode?: string;
+	state?: string;
+	city?: string;
+	organization?: string;
+	address?: string;
+	countryCode: string;
 } ): Promise< StoredCardEndpointResponse > {
 	const {
 		purchaseId,
@@ -59,19 +90,43 @@ export async function updateCreditCard( {
 		paygate_token,
 		use_for_existing,
 		event_source,
+		postal_code,
+		country_code,
+		tax_subdivision_code,
+		tax_city,
+		tax_organization,
+		tax_address,
 	} = getParamsForApi( {
 		cardToken: token,
 		stripeConfiguration,
 		purchase,
 		useForAllSubscriptions,
 		eventSource,
+		postalCode,
+		countryCode,
+		state,
+		city,
+		organization,
+		address,
 	} );
-	const response = await wp.req.post( '/upgrades/' + purchaseId + '/update-credit-card', {
-		payment_partner,
-		paygate_token,
-		use_for_existing,
-		event_source,
-	} );
+	const response = await wp.req.post(
+		{
+			path: '/upgrades/' + purchaseId + '/update-credit-card',
+			apiVersion: '1.1',
+		},
+		{
+			payment_partner,
+			paygate_token,
+			use_for_existing,
+			event_source,
+			postal_code,
+			country_code,
+			tax_subdivision_code,
+			tax_city,
+			tax_organization,
+			tax_address,
+		}
+	);
 	if ( response.error ) {
 		recordTracksEvent( 'calypso_purchases_save_new_payment_method_error' );
 		throw new Error( response );
@@ -86,12 +141,24 @@ function getParamsForApi( {
 	purchase,
 	useForAllSubscriptions,
 	eventSource,
+	postalCode,
+	countryCode,
+	state,
+	city,
+	organization,
+	address,
 }: {
 	cardToken: string;
 	stripeConfiguration: StripeConfiguration;
 	purchase?: Purchase | undefined;
 	useForAllSubscriptions?: boolean;
 	eventSource?: string;
+	postalCode: string | undefined;
+	countryCode: string;
+	state?: string;
+	city?: string;
+	organization?: string;
+	address?: string;
 } ) {
 	return {
 		payment_partner: stripeConfiguration ? stripeConfiguration.processor_id : '',
@@ -100,5 +167,11 @@ function getParamsForApi( {
 		...( useForAllSubscriptions === false ? { use_for_existing: false } : {} ), // if undefined, we do not add this property
 		...( purchase ? { purchaseId: purchase.id } : {} ),
 		...( eventSource ? { event_source: eventSource } : {} ),
+		postal_code: postalCode ?? '',
+		country_code: countryCode,
+		tax_subdivision_code: state,
+		tax_city: city,
+		tax_organization: organization,
+		tax_address: address,
 	};
 }

@@ -1,4 +1,4 @@
-import page from 'page';
+import page from '@automattic/calypso-router';
 import { makeLayout, render as clientRender } from 'calypso/controller';
 import { navigation, siteSelection, sites } from 'calypso/my-sites/controller';
 import peopleController from './controller';
@@ -22,6 +22,16 @@ export default function () {
 		clientRender
 	);
 
+	page(
+		'/people/:filter(viewers)/:site_id/:user_id',
+		peopleController.enforceSiteEnding,
+		siteSelection,
+		navigation,
+		peopleController.viewerTeamMember,
+		makeLayout,
+		clientRender
+	);
+
 	page( '/people/invites', siteSelection, sites, makeLayout, clientRender );
 
 	page(
@@ -40,6 +50,46 @@ export default function () {
 		siteSelection,
 		navigation,
 		peopleController.peopleInviteDetails,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/people/pending-invites/:site_id',
+		peopleController.enforceSiteEnding,
+		siteSelection,
+		navigation,
+		peopleController.peoplePendingInvites,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/people/:filter(subscribers)/:site_id',
+		peopleController.enforceSiteEnding,
+		siteSelection,
+		navigation,
+		peopleController.subscribers,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/people/:filter(subscribers)/:site_id/:typeId',
+		peopleController.enforceSiteEnding,
+		siteSelection,
+		navigation,
+		peopleController.subscriberDetails,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/people/add-subscribers/:site_id',
+		peopleController.enforceSiteEnding,
+		siteSelection,
+		navigation,
+		peopleController.peopleAddSubscribers,
 		makeLayout,
 		clientRender
 	);

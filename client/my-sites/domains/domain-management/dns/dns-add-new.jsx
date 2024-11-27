@@ -1,12 +1,12 @@
+import page from '@automattic/calypso-router';
+import { FormLabel } from '@automattic/components';
 import { localize } from 'i18n-calypso';
 import { includes, find, flatMap } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import * as React from 'react';
 import { connect } from 'react-redux';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormSelect from 'calypso/components/forms/form-select';
 import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import formState from 'calypso/lib/form-state';
@@ -14,12 +14,20 @@ import { domainManagementDns } from 'calypso/my-sites/domains/paths';
 import { addDns, updateDns } from 'calypso/state/domains/dns/actions';
 import { validateAllFields, getNormalizedData } from 'calypso/state/domains/dns/utils';
 import { errorNotice, successNotice } from 'calypso/state/notices/actions';
+import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 import { getSelectedSite } from 'calypso/state/ui/selectors';
 import ARecord from './a-record';
+import AliasRecord from './alias-record';
 import CnameRecord from './cname-record';
 import MxRecord from './mx-record';
+import NsRecord from './ns-record';
 import SrvRecord from './srv-record';
 import TxtRecord from './txt-record';
+
+const initialState = {
+	fields: null,
+	type: 'A',
+};
 
 class DnsAddNew extends React.Component {
 	static propTypes = {
@@ -32,12 +40,7 @@ class DnsAddNew extends React.Component {
 
 	constructor( props ) {
 		super( props );
-		const { translate } = props;
-
-		this.state = {
-			fields: null,
-			type: 'A',
-		};
+		const { translate, selectedDomain, selectedDomainName } = props;
 
 		this.dnsRecords = [
 			{
@@ -48,6 +51,19 @@ class DnsAddNew extends React.Component {
 				),
 				initialFields: {
 					name: '',
+					ttl: 3600,
+					data: '',
+				},
+			},
+			{
+				component: AliasRecord,
+				types: [ 'ALIAS' ],
+				description: translate(
+					'An ALIAS record is a non-standard DNS record that is used to direct your domain to the target domain. The IP address of the target is resolved on the DNS server.'
+				),
+				initialFields: {
+					name: '@',
+					ttl: 3600,
 					data: '',
 				},
 			},
@@ -59,6 +75,7 @@ class DnsAddNew extends React.Component {
 				),
 				initialFields: {
 					name: '',
+					ttl: 3600,
 					data: '',
 				},
 			},
@@ -70,6 +87,7 @@ class DnsAddNew extends React.Component {
 				),
 				initialFields: {
 					name: '',
+					ttl: 3600,
 					data: '',
 					aux: 10,
 				},
@@ -82,6 +100,7 @@ class DnsAddNew extends React.Component {
 				),
 				initialFields: {
 					name: '',
+					ttl: 3600,
 					data: '',
 				},
 			},
@@ -93,21 +112,48 @@ class DnsAddNew extends React.Component {
 				),
 				initialFields: {
 					name: '',
+					ttl: 3600,
 					service: '',
 					aux: 10,
 					weight: 10,
 					target: '',
 					port: '',
-					protocol: 'tcp',
+					protocol: '_tcp',
+				},
+			},
+			{
+				component: NsRecord,
+				types: [ 'NS' ],
+				description: translate(
+					'NS (name server) records are used to delegate the authoritative DNS servers for a subdomain.'
+				),
+				initialFields: {
+					name: '',
+					ttl: 86400,
+					data: '',
 				},
 			},
 		];
+
+		this.formStateController = formState.Controller( {
+			initialFields: this.getFieldsForType( initialState.type ),
+			onNewState: this.setFormState,
+			validatorFunction: ( fieldValues, onComplete ) => {
+				onComplete( null, validateAllFields( fieldValues, selectedDomainName, selectedDomain ) );
+			},
+		} );
+
+		this.state = {
+			...initialState,
+			fields: this.formStateController.getInitialState(),
+		};
 	}
 
 	getFieldsForType( type ) {
-		const dnsRecord = find( this.dnsRecords, ( record ) => {
-			return includes( record.types, type );
-		} );
+		const dnsRecord =
+			find( this.dnsRecords, ( record ) => {
+				return includes( record.types, type );
+			} ) ?? this.dnsRecords[ 0 ];
 
 		return {
 			...dnsRecord.initialFields,
@@ -115,20 +161,9 @@ class DnsAddNew extends React.Component {
 		};
 	}
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillMount() {
-		this.formStateController = formState.Controller( {
-			initialFields: this.getFieldsForType( this.state.type ),
-			onNewState: this.setFormState,
-			validatorFunction: ( fieldValues, onComplete ) => {
-				onComplete( null, validateAllFields( fieldValues, this.props.selectedDomainName ) );
-			},
-		} );
-
+	componentDidMount() {
 		if ( this.props.recordToEdit ) {
 			this.loadRecord();
-		} else {
-			this.setFormState( this.formStateController.getInitialState() );
 		}
 	}
 
@@ -153,8 +188,18 @@ class DnsAddNew extends React.Component {
 			return '';
 		}
 
+		// SRV records can have a target of '.', which means that service is unavailable
+		if ( 'SRV' === recordToEdit.type && 'target' === field && '.' === recordToEdit[ field ] ) {
+			return '.';
+		}
+
 		if ( [ 'data', 'target' ].includes( field ) && 'TXT' !== recordToEdit.type ) {
 			return recordToEdit[ field ].replace( /\.$/, '' );
+		}
+
+		// Make sure we can handle protocols with and without a leading underscore
+		if ( 'SRV' === recordToEdit.type && 'protocol' === field ) {
+			return recordToEdit[ field ].replace( /^_*/, '_' );
 		}
 
 		return recordToEdit[ field ];
@@ -172,7 +217,7 @@ class DnsAddNew extends React.Component {
 
 	onAddOrUpdateDnsRecord = ( event ) => {
 		event.preventDefault();
-		const { recordToEdit, selectedDomainName, translate } = this.props;
+		const { recordToEdit, selectedDomain, selectedDomainName, translate } = this.props;
 
 		this.formStateController.handleSubmit( ( hasErrors ) => {
 			if ( hasErrors ) {
@@ -181,7 +226,8 @@ class DnsAddNew extends React.Component {
 
 			const normalizedData = getNormalizedData(
 				formState.getAllFieldValues( this.state.fields ),
-				selectedDomainName
+				selectedDomainName,
+				selectedDomain
 			);
 
 			if ( recordToEdit ) {
@@ -201,10 +247,10 @@ class DnsAddNew extends React.Component {
 	};
 
 	handleSuccess = ( message ) => {
-		const { selectedSite, selectedDomainName } = this.props;
+		const { currentRoute, selectedSite, selectedDomainName } = this.props;
 
-		page( domainManagementDns( selectedSite.slug, selectedDomainName ) );
-		this.props.successNotice( message, { duration: 5000 } );
+		page( domainManagementDns( selectedSite.slug, selectedDomainName, currentRoute ) );
+		this.props.successNotice( message, { duration: 3000 } );
 	};
 
 	handleError = ( error, message ) => {
@@ -214,10 +260,12 @@ class DnsAddNew extends React.Component {
 	onChange = ( event ) => {
 		const { name, value } = event.target;
 		const skipNormalization = name === 'data' && this.state.type === 'TXT';
+		// Strip zero width spaces from the value
+		const filteredValue = value.replace( /\u200B/g, '' );
 
 		this.formStateController.handleFieldChange( {
 			name,
-			value: skipNormalization ? value : value.trim().toLowerCase(),
+			value: skipNormalization ? filteredValue : filteredValue.trim().toLowerCase(),
 		} );
 	};
 
@@ -234,14 +282,24 @@ class DnsAddNew extends React.Component {
 			return true;
 		}
 
+		// Specific to NS records, avoid invalid state by checking if the target Host field is at *.wordpress.com
+		if (
+			this.state.fields.type.value === 'NS' &&
+			fieldName === 'data' &&
+			/\.wordpress\.com$/i.test( this.state.fields.data.value ) // matches on ns1.wordpress.com, ns2.wordpress.com, *.wordpress.com, etc.
+		) {
+			return false;
+		}
+
 		return ! formState.isFieldInvalid( this.state.fields, fieldName );
 	};
 
 	renderFields( selectedRecordType ) {
 		return (
 			<selectedRecordType.component
+				selectedDomain={ this.props.selectedDomain }
 				selectedDomainName={ this.props.selectedDomainName }
-				show={ true }
+				show
 				fieldValues={ formState.getAllFieldValues( this.state.fields ) }
 				isValid={ this.isValid }
 				onChange={ this.onChange }
@@ -295,7 +353,8 @@ class DnsAddNew extends React.Component {
 export default connect(
 	( state ) => {
 		const selectedSite = getSelectedSite( state );
-		return { selectedSite };
+		const currentRoute = getCurrentRoute( state );
+		return { selectedSite, currentRoute };
 	},
 	{
 		addDns,

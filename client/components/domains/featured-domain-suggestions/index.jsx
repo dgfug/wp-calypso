@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { pick } from 'lodash';
 import PropTypes from 'prop-types';
@@ -19,6 +19,11 @@ export class FeaturedDomainSuggestions extends Component {
 		showPlaceholders: PropTypes.bool,
 		pendingCheckSuggestion: PropTypes.object,
 		unavailableDomains: PropTypes.array,
+		domainAndPlanUpsellFlow: PropTypes.bool,
+		products: PropTypes.object,
+		isCartPendingUpdateDomain: PropTypes.object,
+		temporaryCart: PropTypes.array,
+		domainRemovalQueue: PropTypes.array,
 	};
 
 	getChildProps() {
@@ -33,6 +38,9 @@ export class FeaturedDomainSuggestions extends Component {
 			'selectedSite',
 			'pendingCheckSuggestion',
 			'unavailableDomains',
+			'domainAndPlanUpsellFlow',
+			'temporaryCart',
+			'domainRemovalQueue',
 		];
 		return pick( this.props, childKeys );
 	}
@@ -77,7 +85,7 @@ export class FeaturedDomainSuggestions extends Component {
 	}
 
 	getClassNames() {
-		return classNames( 'featured-domain-suggestions', this.getTextSizeClass(), {
+		return clsx( 'featured-domain-suggestions', this.getTextSizeClass(), {
 			'featured-domain-suggestions__is-domain-management': ! this.props.showStrikedOutPrice,
 			'featured-domain-suggestions--has-match-reasons': this.hasMatchReasons(),
 		} );
@@ -115,6 +123,8 @@ export class FeaturedDomainSuggestions extends Component {
 						fetchAlgo={ this.getFetchAlgorithm( suggestion ) }
 						buttonStyles={ { primary: true } }
 						isReskinned={ this.props.isReskinned }
+						products={ this.props.products ?? undefined }
+						isCartPendingUpdateDomain={ this.props.isCartPendingUpdateDomain }
 						{ ...childProps }
 					/>
 				) ) }

@@ -1,4 +1,6 @@
-import page from 'page';
+import { isEnabled } from '@automattic/calypso-config';
+import page from '@automattic/calypso-router';
+import { getLanguageSlugs } from '@automattic/i18n-utils';
 import { createElement } from 'react';
 import { NoJetpackSitesMessage } from 'calypso/components/jetpack/no-jetpack-sites-message';
 import { makeLayout, render as clientRender, setSectionMiddleware } from 'calypso/controller';
@@ -15,8 +17,8 @@ import getPrimarySiteId from 'calypso/state/selectors/get-primary-site-id';
 import { requestSite } from 'calypso/state/sites/actions';
 import { getSiteId, getSiteSlug } from 'calypso/state/sites/selectors';
 import { setSelectedSiteId, setAllSitesSelected } from 'calypso/state/ui/actions';
+import type { Context as PageJSContext } from '@automattic/calypso-router';
 import type { UserData } from 'calypso/lib/user/user';
-import type { Context as PageJSContext } from 'page';
 
 /**
  * Parse site slug from path.
@@ -91,7 +93,6 @@ const siteSelectionWithoutFragment = ( context: PageJSContext, next: () => void 
 
 /**
  * Select site when path contains a site slug.
- *
  * @param {string} siteFragment Parsed site slug
  * @param {PageJSContext} context Route context
  * @param {Function} next Next middleware function
@@ -164,34 +165,39 @@ function recordNoVisibleJetpackSitesPageView(
 
 /**
  * Show dedicated screen if user has no Jetpack site, or no visible Jetpack site
- *
- * @param {string} siteFragment Parsed site slug
+ * @param {string|undefined} siteFragment Parsed site slug
  * @param {PageJSContext} context Route context
  * @returns {boolean} True if user has neither Jetpack sites nor visible Jetpack sites
  */
-export function noSite(
-	siteFragment: string | undefined,
-	context: PageJSContext
-): boolean | undefined {
+export function noSite( siteFragment: string | undefined, context: PageJSContext ): boolean {
 	const { getState } = context.store;
 	const currentUser = getCurrentUser( getState() ) as UserData;
 
-	if ( 0 === currentUser?.jetpack_site_count ) {
+	const hasNoJetpackSites = isEnabled( 'jetpack/manage-simple-sites' )
+		? 0 === currentUser?.site_count
+		: 0 === currentUser?.jetpack_site_count && 0 === currentUser?.atomic_site_count;
+
+	if ( hasNoJetpackSites ) {
 		renderNoJetpackSites( context, currentUser.primarySiteSlug );
 		recordNoJetpackSitesPageView( context, siteFragment );
 		return true;
 	}
 
-	if ( 0 === currentUser?.jetpack_visible_site_count ) {
+	const hasNoVisibleSites = isEnabled( 'jetpack/manage-simple-sites' )
+		? 0 === currentUser?.visible_site_count
+		: 0 === currentUser?.jetpack_visible_site_count && 0 === currentUser?.atomic_visible_site_count;
+
+	if ( hasNoVisibleSites ) {
 		renderNoVisibleSites( context );
 		recordNoVisibleJetpackSitesPageView( context, siteFragment );
 		return true;
 	}
+
+	return false;
 }
 
 /**
  * Parse site slug from path and call the proper middleware.
- *
  * @param {PageJSContext} context Route context
  * @param {Function} next Next middleware function
  */
@@ -206,7 +212,11 @@ export async function cloudSiteSelection(
 	}
 
 	if ( siteFragment ) {
-		if ( context.path.startsWith( '/pricing' ) ) {
+		const languages = getLanguageSlugs().join( '|' );
+		// Regex defines url starts with /:locale/pricing or /pricing
+		const pricingMatchingPath = new RegExp( `^(/(?:${ languages }))?/pricing` );
+
+		if ( pricingMatchingPath.test( context.path ) ) {
 			const { id } = await fetchSite( context, siteFragment );
 			if ( ! id ) {
 				await siteSelectionWithoutFragment( context, next );

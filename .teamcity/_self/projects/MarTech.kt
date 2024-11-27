@@ -29,6 +29,9 @@ object ToSAcceptanceTracking: BuildType ({
 
 	artifactRules = """
 		tos_screenshots => tos_screenshots
+		logs.tgz => logs.tgz
+		recording => recording
+		trace => trace
 	""".trimIndent()
 
 	vcs {
@@ -39,8 +42,7 @@ object ToSAcceptanceTracking: BuildType ({
 	params {
 		param("env.NODE_CONFIG_ENV", "test")
 		param("env.PLAYWRIGHT_BROWSERS_PATH", "0")
-		param("env.TEAMCITY_VERSION", "2021")
-		param("env.HEADLESS", "false")
+		param("env.HEADLESS", "true")
 		param("env.LOCALE", "en")
 	}
 
@@ -50,6 +52,10 @@ object ToSAcceptanceTracking: BuildType ({
 			scriptContent = """
 				# Install deps
 				yarn workspaces focus wp-e2e-tests @automattic/calypso-e2e
+
+				# Decrypt secrets
+				# Must do before build so the secrets are in the dist output
+				E2E_SECRETS_KEY="%E2E_SECRETS_ENCRYPTION_KEY_CURRENT%" yarn workspace @automattic/calypso-e2e decrypt-secrets
 
 				# Build packages
 				yarn workspace @automattic/calypso-e2e build
@@ -68,11 +74,8 @@ object ToSAcceptanceTracking: BuildType ({
 				cd test/e2e
 				mkdir temp
 
-				# Decrypt config
-				openssl aes-256-cbc -md sha1 -d -in ./config/encrypted.enc -out ./config/local-test.json -k "%E2E_CONFIG_ENCRYPTION_KEY%"
-
 				# Run suite.
-				xvfb-run yarn jest --reporters=jest-teamcity --reporters=default --maxWorkers=%E2E_WORKERS% --group=legal
+				xvfb-run yarn jest --reporters=jest-teamcity --reporters=default --maxWorkers=%JEST_E2E_WORKERS% --workerIdleMemoryLimit=1GB --group=legal
 			"""
 			dockerImage = "%docker_image_e2e%"
 		}
@@ -84,6 +87,15 @@ object ToSAcceptanceTracking: BuildType ({
 
 				mkdir -p tos_screenshots
 				find test/e2e -type f -path '*tos*.png' -print0 | xargs -r -0 mv -t tos_screenshots
+
+				mkdir -p recording
+				find test/e2e/results -type f \( -iname \*.webm \) -print0 | xargs -r -0 mv -t recording
+
+				mkdir -p logs
+				find test/e2e/ -name '*.log' -print0 | xargs -r -0 tar cvfz logs.tgz
+
+				mkdir -p trace
+				find test/e2e/results -name '*.zip' -print0 | xargs -r -0 mv -t trace
 			""".trimIndent()
 			dockerImage = "%docker_image_e2e%"
 		}

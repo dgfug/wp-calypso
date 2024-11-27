@@ -1,4 +1,4 @@
-export type ThreatAction = 'fix' | 'ignore';
+export type ThreatAction = 'fix' | 'ignore' | 'unignore';
 
 export type Extension = {
 	slug: string;
@@ -35,6 +35,8 @@ export interface BaseThreat {
 	diff?: string;
 	context?: Record< string, unknown >;
 	severity: number;
+	source?: string;
+	version?: string;
 }
 
 export interface FixableThreat extends BaseThreat {
@@ -46,3 +48,28 @@ export interface IgnorableThreat extends BaseThreat {
 }
 
 export type Threat = IgnorableThreat | FixableThreat;
+
+export type ThreatPayload =
+	| 'backdoor'
+	| 'ccskimmers'
+	| 'cryptominer'
+	| 'dropper'
+	| 'generic'
+	| 'hacktool'
+	| 'hardening'
+	| 'malware'
+	| 'malvertising'
+	| 'phishing'
+	| 'redirect'
+	| 'seospam'
+	| 'suspicious'
+	| 'uploader'
+	| 'webshell';
+
+export type SignatureComponents = {
+	signatureId: string | undefined;
+	language: string;
+	payload: ThreatPayload | string;
+	family: string;
+	variant: string;
+};

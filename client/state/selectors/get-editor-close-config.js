@@ -5,13 +5,12 @@ import { getSiteSlug } from 'calypso/state/sites/selectors';
 
 /**
  * Gets the URL for the close button for the block editor, dependent previous referral state
- *
- * @param {object} state  Global state tree
+ * @param {Object} state  Global state tree
  * @param {number|string|undefined|null} siteId Site ID
  * @param {string} postType The type of the current post being edited
- * @returns {{url: string; label: string}} The URL that should be used when the block editor close button is clicked
+ * @returns {{url: string; label: import('i18n-calypso').TranslateResult}} The URL that should be used when the block editor close button is clicked
  * @property {string} url The URL that should be used when the block editor close button is clicked
- * @property {string} label The label that should be used for the block editor back button
+ * @property {import('i18n-calypso').TranslateResult} label The label that should be used for the block editor back button
  */
 
 export default function getEditorCloseConfig( state, siteId, postType ) {
@@ -20,6 +19,22 @@ export default function getEditorCloseConfig( state, siteId, postType ) {
 	const lastNonEditorRoute = getLastNonEditorRoute( state );
 
 	const doesRouteMatch = ( matcher ) => lastNonEditorRoute.match( matcher );
+
+	const currentSiteId = state?.ui?.selectedSiteId;
+	const currentSite = state?.sites?.items[ currentSiteId ];
+
+	// Redirect user to Launchpad screen if launchpad is enabled and site is not launched.
+	if (
+		currentSite?.options?.launchpad_screen === 'full' &&
+		! currentSite?.options?.launchpad_checklist_tasks_statuses?.site_launched
+	) {
+		const siteSlug = getSiteSlug( state, currentSiteId );
+		const flow = currentSite?.options?.site_intent;
+		return {
+			url: `/setup/${ flow }/launchpad?siteSlug=${ siteSlug }`,
+			label: translate( 'Next steps' ),
+		};
+	}
 
 	// Back to the themes list.
 	if ( doesRouteMatch( /^\/themes\/?/ ) ) {

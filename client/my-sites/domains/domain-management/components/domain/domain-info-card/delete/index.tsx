@@ -1,12 +1,15 @@
 import { useTranslate } from 'i18n-calypso';
 import { connect } from 'react-redux';
-import { type as domainType } from 'calypso/lib/domains/constants';
+import { transferStatus, type as domainType } from 'calypso/lib/domains/constants';
+import { isCancelable, isRemovable } from 'calypso/lib/purchases';
 import RemovePurchase from 'calypso/me/purchases/remove-purchase';
+import { getCancelPurchaseUrlFor } from 'calypso/my-sites/purchases/paths';
 import {
 	getByPurchaseId,
 	hasLoadedSitePurchasesFromServer,
 	isFetchingSitePurchases,
 } from 'calypso/state/purchases/selectors';
+import { IAppState } from 'calypso/state/types';
 import DomainInfoCard from '..';
 import type { DomainDeleteInfoCardProps, DomainInfoCardProps } from '../types';
 
@@ -15,15 +18,27 @@ const DomainDeleteInfoCard = ( {
 	selectedSite,
 	purchase,
 	isLoadingPurchase,
-}: DomainDeleteInfoCardProps ): JSX.Element | null => {
+}: DomainDeleteInfoCardProps ) => {
 	const translate = useTranslate();
 
-	if ( isLoadingPurchase || ! purchase || ! domain.currentUserIsOwner ) return null;
+	if (
+		isLoadingPurchase ||
+		! purchase ||
+		! domain.currentUserIsOwner ||
+		domain.pendingRegistration ||
+		domain.isMoveToNewSitePending ||
+		domain.transferStatus === transferStatus.PENDING_ASYNC
+	) {
+		return null;
+	}
 
 	const removePurchaseClassName = 'domain-delete-info-card is-compact button';
 
 	const title =
 		domain.type === domainType.TRANSFER ? translate( 'Cancel transfer' ) : translate( 'Delete' );
+
+	const buttonLabel =
+		domain.type === domainType.TRANSFER ? translate( 'Cancel' ) : translate( 'Delete' );
 
 	const getDescription = () => {
 		switch ( domain.type ) {
@@ -40,29 +55,43 @@ const DomainDeleteInfoCard = ( {
 
 	const removePurchaseRenderedComponent = (
 		<RemovePurchase
-			hasLoadedSites={ true }
-			hasLoadedUserPurchasesFromServer={ true }
+			hasLoadedSites
+			hasLoadedUserPurchasesFromServer
 			site={ selectedSite }
 			purchase={ purchase }
 			className={ removePurchaseClassName }
 		>
-			{ translate( 'Delete' ) }
+			{ buttonLabel }
 		</RemovePurchase>
 	);
 
-	if ( ! removePurchaseRenderedComponent ) return null;
+	if ( isRemovable( purchase ) ) {
+		return (
+			<DomainInfoCard
+				type="custom"
+				title={ title }
+				description={ getDescription() }
+				cta={ removePurchaseRenderedComponent }
+			/>
+		);
+	}
 
+	if ( ! isCancelable( purchase ) ) {
+		return null;
+	}
+	const link = getCancelPurchaseUrlFor( selectedSite.slug, purchase.id );
 	return (
 		<DomainInfoCard
-			type="custom"
+			type="href"
+			ctaText={ translate( 'Delete' ) }
 			title={ title }
 			description={ getDescription() }
-			cta={ removePurchaseRenderedComponent }
+			href={ link }
 		/>
 	);
 };
 
-export default connect( ( state, ownProps: DomainInfoCardProps ) => {
+export default connect( ( state: IAppState, ownProps: DomainInfoCardProps ) => {
 	const { subscriptionId } = ownProps.domain;
 	return {
 		purchase: getByPurchaseId( state, Number( subscriptionId ) ),

@@ -1,11 +1,11 @@
-@import '@automattic/onboarding/styles/mixins';
-@import '@automattic/typography/styles/variables';
-@import '@wordpress/base-styles/breakpoints';
-@import '@wordpress/base-styles/colors';
-@import '@wordpress/base-styles/colors.native';
+@import "@automattic/onboarding/styles/mixins";
+@import "@automattic/typography/styles/variables";
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/colors";
+@import "@wordpress/base-styles/colors.native";
 
 .dns__form {
-	border-top: 1px solid var( --color-neutral-0 );
+	border-top: 1px solid var(--color-neutral-0);
 	overflow: visible;
 	padding-top: 20px;
 
@@ -20,36 +20,19 @@
 }
 
 body.dns__body-white {
-	background: var( --studio-white );
-	&.is-nav-unification .sidebar .sidebar__heading::after,
-	&.is-nav-unification .sidebar .sidebar__menu-link::after {
-		border-right-color: var( --studio-white );
+	background: var(--studio-white);
+	.sidebar .sidebar__heading::after,
+	.sidebar .sidebar__menu-link::after {
+		border-right-color: var(--studio-white);
 	}
 }
 
 .dns-records {
-	.formatted-header {
-		&.is-left-align,
-		&.is-right-align {
-			margin-bottom: 4px;
-
-			h1.formatted-header__title {
-				color: $gray-900;
-				font-size: $font-title-medium;
-
-				@include break-mobile {
-					font-size: $font-title-large;
-				}
-			}
-		}
-	}
-
 	.dns__details {
-		color: var( --studio-gray-50 );
+		color: var(--studio-gray-50);
 		font-size: $font-body-small;
 		margin: 4px 16px;
 		@include break-mobile {
-			margin: 0;
 			max-width: 677px;
 		}
 	}
@@ -74,14 +57,14 @@ body.dns__body-white {
 			}
 
 			@include break-mobile {
-				padding: 16px 0;
+				padding: 16px;
 				border-top: none;
 				border-bottom: 1px solid $gray-5;
 			}
 
 			&.is-header {
 				border-bottom: 1px solid $gray-20;
-				font-weight: 600; /* stylelint-disable-line */
+				font-weight: 600;
 				display: none;
 
 				@include break-mobile {
@@ -176,6 +159,28 @@ body.dns__body-white {
 			}
 		}
 	}
+	.dns-records-notice {
+		flex-basis: 100%;
+		background-color: var(--studio-gray-0);
+		display: flex;
+		align-items: center;
+		padding: 8px;
+		gap: 8px;
+		border-radius: 2px;
+		margin-top: 24px;
+
+		&__icon.gridicon {
+			min-width: 18px;
+			fill: var(--studio-orange-40);
+		}
+
+		&__message {
+			font-weight: 400;
+			font-size: $font-body-small;
+			color: var(--studio-gray-80);
+		}
+	}
+
 }
 
 .dns-records-list__action-menu-item.gridicon {
@@ -185,19 +190,19 @@ body.dns__body-white {
 
 .dns-records-list-item__action-menu-popover {
 	.popover__menu-item {
-		color: var( --studio-gray-90 );
+		color: var(--studio-gray-90);
 
 		svg {
-			fill: var( --studio-gray-90 );
+			fill: var(--studio-gray-90);
 		}
 
 		&:disabled,
 		&:disabled:hover,
 		&.is-selected:disabled,
 		&:focus:disabled {
-			color: var( --studio-gray-20 );
+			color: var(--studio-gray-20);
 			svg {
-				fill: var( --color-neutral-20 );
+				fill: var(--color-neutral-20);
 			}
 		}
 	}
@@ -205,10 +210,10 @@ body.dns__body-white {
 	.popover__menu-item.is-selected,
 	.popover__menu-item:hover,
 	.popover__menu-item:focus {
-		color: var( --studio-white );
-		background-color: var( --color-primary );
+		color: var(--studio-white);
+		background-color: var(--color-primary);
 		svg {
-			fill: var( --studio-white );
+			fill: var(--studio-white);
 		}
 	}
 }
@@ -220,18 +225,21 @@ body.dns__body-white {
 	}
 }
 
-a.dns__breadcrumb-button {
+a.dns__breadcrumb-button,
+button.dns__breadcrumb-button {
 	display: flex;
 	align-items: center;
 
-	&.add-record {
+	&.add-record,
+	&.import-bind-file {
 		@include break-mobile {
 			svg {
 				margin-right: 8px;
 			}
 		}
 	}
-	&.add-record.is-icon-button {
+	&.add-record.is-icon-button,
+	&.import-bind-file.is-icon-button {
 		width: 40px;
 		display: flex;
 		justify-content: center;
@@ -239,13 +247,13 @@ a.dns__breadcrumb-button {
 }
 
 .dns__breadcrumb-button {
-	color: var( --color-neutral-80 );
-	fill: var( --color-neutral-80 );
+	color: var(--color-neutral-80);
+	fill: var(--color-neutral-80);
 	height: 40px;
 
 	.popover__menu-item[disabled] {
 		svg.gridicon {
-			fill: var( --color-neutral-20 );
+			fill: var(--color-neutral-20);
 		}
 	}
 
@@ -255,7 +263,39 @@ a.dns__breadcrumb-button {
 		svg.gridicon {
 			top: 0;
 			margin-top: 0;
-			fill: var( --color-neutral-80 );
+			fill: var(--color-neutral-80);
+		}
+	}
+}
+
+.import-bind-file-confirmation-dialog {
+	.import-bind-file-confirmation-dialog__header,
+	.import-bind-file-confirmation-dialog__row {
+		display: flex;
+		padding: 8px;
+		border-bottom: 1px solid $gray-20;
+	}
+
+	.import-bind-file-confirmation-dialog__header label {
+		font-weight: 600;
+		font-family: $sans;
+		font-size: $font-body-small;
+	}
+
+	.import-bind-file-confirmation-dialog__row {
+		border-bottom: 1px solid $gray-5;
+
+		.components-base-control__field {
+			display: flex;
+		}
+
+		label {
+			font-family: $monospace;
+			font-size: $font-body-extra-small;
+		}
+
+		&.not-selected label {
+			color: $gray-20;
 		}
 	}
 }

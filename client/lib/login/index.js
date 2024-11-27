@@ -1,12 +1,25 @@
 import config from '@automattic/calypso-config';
+import { addLocaleToPath, isDefaultLocale } from '@automattic/i18n-utils';
+import cookie from 'cookie';
+import { getLocaleSlug } from 'i18n-calypso';
 import { get, includes, startsWith } from 'lodash';
 import {
 	isAkismetOAuth2Client,
 	isCrowdsignalOAuth2Client,
+	isGravatarFlowOAuth2Client,
 	isGravatarOAuth2Client,
+	isGravPoweredOAuth2Client,
 	isJetpackCloudOAuth2Client,
+	isA4AOAuth2Client,
 	isWooOAuth2Client,
+	isIntenseDebateOAuth2Client,
+	isStudioAppOAuth2Client,
 } from 'calypso/lib/oauth2-clients';
+import { login } from 'calypso/lib/paths';
+
+function getCookies() {
+	return typeof document === 'undefined' ? {} : cookie.parse( document.cookie );
+}
 
 export function getSocialServiceFromClientId( clientId ) {
 	if ( ! clientId ) {
@@ -30,7 +43,6 @@ export function getSocialServiceFromClientId( clientId ) {
 
 /**
  * Adds/ensures a leading slash to any string intended to be used as an absolute path.
- *
  * @param path The path to encode with a leading slash.
  */
 export function pathWithLeadingSlash( path ) {
@@ -42,19 +54,21 @@ export function pathWithLeadingSlash( path ) {
 	return path ? `/${ path.replace( /^\/+/, '' ) }` : '';
 }
 
-export function getSignupUrl(
-	currentQuery,
-	currentRoute,
-	oauth2Client,
-	locale,
-	pathname,
-	isGutenboarding
-) {
-	let signupUrl = config( 'signup_url' );
+export function getSignupUrl( currentQuery, currentRoute, oauth2Client, locale, pathname ) {
+	const signupUrl = config( 'signup_url' );
 
 	const redirectTo = get( currentQuery, 'redirect_to', '' );
 	const signupFlow = get( currentQuery, 'signup_flow' );
 	const wccomFrom = get( currentQuery, 'wccom-from' );
+	const isFromMigrationPlugin = includes( redirectTo, 'wpcom-migration' );
+
+	/**
+	 *  Include redirects to public.api/connect/?action=verify&service={some service}
+	 *  If the signup is from the Highlander Comments flow, the signup page will be in a popup modal
+	 *  We need to redirect back to public.api/connect/ to do an external login and close modal
+	 *  Ref: PCYsg-Hfw-p2
+	 */
+	const isFromPublicAPIConnectFlow = includes( redirectTo, 'public.api/connect/?action=verify' );
 
 	if (
 		// Match locales like `/log-in/jetpack/es`
@@ -65,28 +79,61 @@ export function getSignupUrl(
 			includes( get( currentQuery, 'redirect_to' ), '/jetpack/connect/authorize' ) &&
 			includes( get( currentQuery, 'redirect_to' ), '_wp_nonce' )
 		) {
+			// If the current query has plugin_name param, but redirect_to doesn't, add it to the redirect_to
+			const pluginName = get( currentQuery, 'plugin_name' );
+			try {
+				const urlObj = new URL( currentQuery.redirect_to );
+				if ( ! urlObj.searchParams.has( 'plugin_name' ) && pluginName ) {
+					urlObj.searchParams.set( 'plugin_name', pluginName );
+					return urlObj.toString();
+				}
+			} catch ( e ) {
+				return '/jetpack/connect';
+			}
+
 			/**
 			 * `log-in/jetpack/:locale` is reached as part of the Jetpack connection flow. In
 			 * this case, the redirect_to will handle signups as part of the flow. Use the
 			 * `redirect_to` parameter directly for signup.
 			 */
-			signupUrl = currentQuery.redirect_to;
-		} else {
-			signupUrl = '/jetpack/connect';
+			return currentQuery.redirect_to;
 		}
+		return '/jetpack/connect';
 	} else if ( '/jetpack-connect' === pathname ) {
-		signupUrl = '/jetpack/connect';
-	} else if ( signupFlow ) {
-		signupUrl += '/' + signupFlow;
+		return '/jetpack/connect';
 	}
 
-	if ( isAkismetOAuth2Client( oauth2Client ) || isGravatarOAuth2Client( oauth2Client ) ) {
+	if ( isAkismetOAuth2Client( oauth2Client ) || isIntenseDebateOAuth2Client( oauth2Client ) ) {
 		const oauth2Flow = 'wpcc';
 		const oauth2Params = new URLSearchParams( {
 			oauth2_client_id: oauth2Client.id,
 			oauth2_redirect: redirectTo,
 		} );
-		signupUrl = `${ signupUrl }/${ oauth2Flow }?${ oauth2Params.toString() }`;
+		return `${ signupUrl }/${ oauth2Flow }?${ oauth2Params.toString() }`;
+	}
+
+	if ( isGravPoweredOAuth2Client( oauth2Client ) ) {
+		const gravatarFrom = get( currentQuery, 'gravatar_from', 'signup' );
+
+		// Gravatar powered clients signup via the magic login page
+		return login( {
+			locale,
+			twoFactorAuthType: 'link',
+			oauth2ClientId: oauth2Client.id,
+			redirectTo: redirectTo,
+			gravatarFrom: isGravatarOAuth2Client( oauth2Client ) && gravatarFrom,
+			gravatarFlow: isGravatarFlowOAuth2Client( oauth2Client ),
+		} );
+	}
+
+	if ( isStudioAppOAuth2Client( oauth2Client ) ) {
+		// Studio app signup via the magic login page
+		return login( {
+			locale,
+			twoFactorAuthType: 'link',
+			oauth2ClientId: oauth2Client.id,
+			redirectTo: redirectTo,
+		} );
 	}
 
 	if ( isCrowdsignalOAuth2Client( oauth2Client ) ) {
@@ -95,7 +142,7 @@ export function getSignupUrl(
 			oauth2_client_id: oauth2Client.id,
 			oauth2_redirect: redirectTo,
 		} );
-		signupUrl = `${ signupUrl }/${ oauth2Flow }?${ oauth2Params.toString() }`;
+		return `${ signupUrl }/${ oauth2Flow }?${ oauth2Params.toString() }`;
 	}
 
 	if ( oauth2Client && isWooOAuth2Client( oauth2Client ) ) {
@@ -106,34 +153,128 @@ export function getSignupUrl(
 		if ( wccomFrom ) {
 			oauth2Params.set( 'wccom-from', wccomFrom );
 		}
-		signupUrl = `${ signupUrl }/wpcc?${ oauth2Params.toString() }`;
+		return `${ signupUrl }/wpcc?${ oauth2Params.toString() }`;
 	}
 
-	if ( isGutenboarding ) {
-		const langFragment = locale && locale !== 'en' ? `/${ locale }` : '';
-		const defaultSignupUrl = `/new/plans${ langFragment }?signup`;
-		signupUrl = get( currentQuery, 'signup_url', defaultSignupUrl );
-
-		// Sanitize the url if it doesn't start with /new
-		if ( ! startsWith( signupUrl, '/new' ) ) {
-			signupUrl = defaultSignupUrl;
-		}
-	}
-
-	if ( oauth2Client && isJetpackCloudOAuth2Client( oauth2Client ) ) {
+	if ( oauth2Client ) {
 		const oauth2Params = new URLSearchParams( {
 			oauth2_client_id: oauth2Client.id,
 			oauth2_redirect: redirectTo,
 		} );
-		signupUrl = `${ signupUrl }/wpcc?${ oauth2Params.toString() }`;
+		return `${ signupUrl }/wpcc?${ oauth2Params.toString() }`;
 	}
 
-	if ( includes( redirectTo, 'action=jetpack-sso' ) && includes( redirectTo, 'sso_nonce=' ) ) {
+	if ( signupFlow ) {
+		if ( redirectTo ) {
+			const params = new URLSearchParams( {
+				redirect_to: redirectTo,
+			} );
+			return `${ signupUrl }/${ signupFlow }?${ params.toString() }`;
+		}
+		return `${ signupUrl }/${ signupFlow }`;
+	}
+
+	if (
+		isFromMigrationPlugin ||
+		isFromPublicAPIConnectFlow ||
+		( includes( redirectTo, 'action=jetpack-sso' ) && includes( redirectTo, 'sso_nonce=' ) ) ||
+		redirectTo
+	) {
 		const params = new URLSearchParams( {
 			redirect_to: redirectTo,
 		} );
-		signupUrl = `/start/account?${ params.toString() }`;
+		return `${ signupUrl }/account?${ params.toString() }`;
+	}
+
+	if ( ! isDefaultLocale( locale ) ) {
+		return addLocaleToPath( signupUrl, locale );
 	}
 
 	return signupUrl;
 }
+
+export const isReactLostPasswordScreenEnabled = () => {
+	const cookies = getCookies();
+	return (
+		config.isEnabled( 'login/react-lost-password-screen' ) ||
+		cookies.enable_react_password_screen === 'yes'
+	);
+};
+
+export const canDoMagicLogin = ( twoFactorAuthType, oauth2Client, isJetpackWooCommerceFlow ) => {
+	if ( ! config.isEnabled( `login/magic-login` ) || twoFactorAuthType ) {
+		return false;
+	}
+
+	// jetpack cloud cannot have users being sent to WordPress.com
+	if ( isJetpackCloudOAuth2Client( oauth2Client ) ) {
+		return false;
+	}
+
+	// Automattic for Agencies cannot have users being sent to WordPress.com
+	if ( isA4AOAuth2Client( oauth2Client ) ) {
+		return false;
+	}
+
+	if ( isJetpackWooCommerceFlow ) {
+		return false;
+	}
+
+	return true;
+};
+
+export const getLoginLinkPageUrl = ( {
+	locale = 'en',
+	currentRoute,
+	signupUrl,
+	oauth2ClientId,
+	...additionalParams
+} ) => {
+	// The email address from the URL (if present) is added to the login
+	// parameters in this.handleMagicLoginLinkClick(). But it's left out
+	// here deliberately, to ensure that if someone copies this link to
+	// paste somewhere else, their email address isn't included in it.
+	const loginParameters = {
+		locale: locale,
+		twoFactorAuthType: 'link',
+		signupUrl: signupUrl,
+		oauth2ClientId,
+		...additionalParams,
+	};
+
+	if ( currentRoute === '/log-in/jetpack' ) {
+		loginParameters.twoFactorAuthType = 'jetpack/link';
+	}
+
+	return login( loginParameters );
+};
+
+export const getPluginTitle = ( pluginName, translate, langSlug = getLocaleSlug() ) => {
+	const allowedPluginNames = {
+		'jetpack-ai': translate( 'Jetpack' ),
+		'woocommerce-payments': translate( 'WooPayments' ),
+		'order-attribution': translate( 'Order Attribution' ),
+	};
+
+	const listFormatter = new Intl.ListFormat( langSlug, {
+		style: 'long',
+		type: 'conjunction',
+	} );
+
+	const defaultTitle = listFormatter.format( Object.values( allowedPluginNames ) );
+
+	if ( ! pluginName ) {
+		// Handle null, undefined, or empty strings
+		return defaultTitle;
+	}
+
+	// Handle multiple plugin names separated by commas
+	const titles = pluginName.split( ',' ).map( ( name ) => allowedPluginNames[ name.trim() ] );
+	const uniqueTitles = Array.from( new Set( titles ) ).filter( ( title ) => title );
+
+	if ( uniqueTitles.length === 0 ) {
+		return defaultTitle;
+	}
+
+	return listFormatter.format( uniqueTitles );
+};

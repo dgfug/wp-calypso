@@ -5,15 +5,12 @@ import { useSelect } from '@wordpress/data';
 import { sprintf } from '@wordpress/i18n';
 import { Icon, check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import * as React from 'react';
 import PlansFeatureList from '../plans-feature-list';
 import { PLANS_STORE } from '../stores';
 import type { CTAVariation, PopularBadgeVariation } from './types';
-import type { DomainSuggestions, Plans } from '@automattic/data-stores';
-
-// TODO: remove when all needed core types are available
-/*#__PURE__*/ import '../types-patch';
+import type { DomainSuggestions, Plans, PlansSelect } from '@automattic/data-stores';
 
 const TickIcon = <Icon icon={ check } size={ 17 } />;
 
@@ -29,7 +26,6 @@ const SPACE_BAR_KEYCODE = 32;
  * There are 6 possible cases of the domain message (the combinations of [hasDomain, isFreeDomain, isFreePlan]
  * Ifs and elses grew unclear. This is a simple state machine that covers all the states. To maintain it,
  * please look for the state you need (e.g: free_domain => paid_plan) and edit that branch.
- *
  * @param isFreePlan boolean determining whether the plan is free
  * @param domain the domain (can be undefined => NO_DOMAIN)
  * @param __ translate function
@@ -52,6 +48,8 @@ export interface Props {
 	disabledLabel?: string;
 	CTAVariation?: CTAVariation;
 	popularBadgeVariation?: PopularBadgeVariation;
+	popularBadgeText?: string;
+	CTAButtonLabel?: string;
 }
 
 // NOTE: there is some duplicate markup between this plan item (used in the
@@ -76,12 +74,15 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 	CTAVariation = 'NORMAL',
 	popularBadgeVariation = 'ON_TOP',
 	isSelected,
+	popularBadgeText,
+	CTAButtonLabel,
 } ) => {
 	const { __, hasTranslation } = useI18n();
 	const locale = useLocale();
 
-	const planProduct = useSelect( ( select ) =>
-		select( PLANS_STORE ).getPlanProduct( slug, billingPeriod )
+	const planProduct = useSelect(
+		( select ) => ( select( PLANS_STORE ) as PlansSelect ).getPlanProduct( slug, billingPeriod ),
+		[ slug, billingPeriod ]
 	);
 
 	const [ isOpenInternalState, setIsOpenInternalState ] = React.useState( false );
@@ -97,7 +98,7 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 
 	const isOpen = allPlansExpanded || isDesktop || isPopular || isOpenInternalState;
 
-	const normalCtaLabelFallback = __( 'Choose', __i18n_text_domain__ );
+	const normalCtaLabelFallback = CTAButtonLabel ?? __( 'Choose', __i18n_text_domain__ );
 	const fullWidthCtaLabelSelected = __( 'Current Selection', __i18n_text_domain__ );
 	// translators: %s is a WordPress.com plan name (eg: Free, Personal)
 	const fullWidthCtaLabelUnselected = __( 'Select %s', __i18n_text_domain__ );
@@ -117,19 +118,20 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 
 	const expandToggleLabelExpanded = __( 'Collapse all plans', __i18n_text_domain__ );
 	const expandToggleLabelCollapsed = __( 'Expand all plans', __i18n_text_domain__ );
+	const displayedPopularBadgeText = popularBadgeText ?? __( 'Popular', __i18n_text_domain__ );
 
 	return (
 		<div
-			className={ classNames( 'plan-item', {
+			className={ clsx( 'plan-item', {
 				'is-popular': isPopular,
 				'is-open': isOpen,
 				'badge-next-to-name': popularBadgeVariation === 'NEXT_TO_NAME',
 			} ) }
 		>
 			{ isPopular && popularBadgeVariation === 'ON_TOP' && (
-				<span className="plan-item__badge">{ __( 'Popular', __i18n_text_domain__ ) }</span>
+				<span className="plan-item__badge">{ displayedPopularBadgeText }</span>
 			) }
-			<div className={ classNames( 'plan-item__viewport', { 'is-popular': isPopular } ) }>
+			<div className={ clsx( 'plan-item__viewport', { 'is-popular': isPopular } ) }>
 				<div className="plan-item__details">
 					<div
 						tabIndex={ 0 }
@@ -141,7 +143,7 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 						className="plan-item__summary"
 					>
 						<div
-							className={ classNames( 'plan-item__heading', {
+							className={ clsx( 'plan-item__heading', {
 								'badge-next-to-name': popularBadgeVariation === 'NEXT_TO_NAME',
 							} ) }
 						>
@@ -155,7 +157,7 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 						{ tagline && <p className="plan-item__tagline">{ tagline }</p> }
 						<div className="plan-item__price">
 							<div
-								className={ classNames( 'plan-item__price-amount', {
+								className={ clsx( 'plan-item__price-amount', {
 									'is-loading': ! planProduct?.price,
 								} ) }
 							>
@@ -179,7 +181,7 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 							vertical spacing as the rest of the plan cards
 						 */ }
 						<div
-							className={ classNames( 'plan-item__price-discount', {
+							className={ clsx( 'plan-item__price-discount', {
 								'plan-item__price-discount--disabled': billingPeriod !== 'ANNUALLY',
 								'plan-item__price-discount--hidden': isFree,
 							} ) }
@@ -199,21 +201,21 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 									onClick={ () => {
 										onSelect( planProduct?.productId );
 									} }
-									isPrimary
+									variant="primary"
 									disabled={ !! disabledLabel }
 								>
 									<span>{ disabledLabel ?? normalCtaLabelFallback }</span>
 								</Button>
 							) : (
 								<Button
-									className={ classNames( 'plan-item__select-button full-width', {
+									className={ clsx( 'plan-item__select-button full-width', {
 										'is-selected': isSelected,
 										'is-popular': isPopular,
 									} ) }
 									onClick={ () => {
 										onSelect( planProduct?.productId );
 									} }
-									isPrimary={ isPopular }
+									variant={ isPopular ? 'primary' : undefined }
 									disabled={ !! disabledLabel }
 								>
 									<span>
@@ -250,7 +252,11 @@ const PlanItem: React.FunctionComponent< Props > = ( {
 			</div>
 
 			{ isPopular && ! isDesktop && (
-				<Button onClick={ onToggleExpandAll } className="plan-item__mobile-expand-all-plans" isLink>
+				<Button
+					onClick={ onToggleExpandAll }
+					className="plan-item__mobile-expand-all-plans"
+					variant="link"
+				>
 					{ allPlansExpanded ? expandToggleLabelExpanded : expandToggleLabelCollapsed }
 				</Button>
 			) }

@@ -5,7 +5,7 @@ import ThemeShowcase from './theme-showcase';
 const ConnectedThemeShowcase = connectOptions( ThemeShowcase );
 
 export default ( props ) => (
-	<Main fullWidthLayout className="themes">
+	<Main fullWidthLayout isLoggedOut className="themes">
 		<ConnectedThemeShowcase
 			{ ...props }
 			origin="wpcom"
@@ -15,7 +15,7 @@ export default ( props ) => (
 			} }
 			source="showcase"
 			showUploadButton={ false }
-			loggedOutComponent={ true }
+			loggedOutComponent
 		/>
 	</Main>
 );

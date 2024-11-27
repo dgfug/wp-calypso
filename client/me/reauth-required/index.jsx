@@ -1,23 +1,21 @@
-import { Card, Dialog } from '@automattic/components';
+import { Button, Card, Dialog, FormInputValidation, FormLabel } from '@automattic/components';
 import { supported } from '@github/webauthn-json';
 import debugFactory from 'debug';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
+import CardHeading from 'calypso/components/card-heading';
 import FormButton from 'calypso/components/forms/form-button';
 import FormCheckbox from 'calypso/components/forms/form-checkbox';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormVerificationCodeInput from 'calypso/components/forms/form-verification-code-input';
 import Notice from 'calypso/components/notice';
+import WarningCard from 'calypso/components/warning-card';
 import { recordGoogleEvent } from 'calypso/state/analytics/actions';
 import { redirectToLogout } from 'calypso/state/current-user/actions';
-import { getCurrentUserId } from 'calypso/state/current-user/selectors';
 import SecurityKeyForm from './security-key-form';
 import TwoFactorActions from './two-factor-actions';
-
 import './style.scss';
 
 const debug = debugFactory( 'calypso:me:reauth-required' );
@@ -25,14 +23,18 @@ const debug = debugFactory( 'calypso:me:reauth-required' );
 // autofocus is used for tracking purposes, not an a11y issue
 /* eslint-disable jsx-a11y/no-autofocus, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/anchor-is-valid */
 class ReauthRequired extends Component {
-	state = {
-		remember2fa: false, // Should the 2fa be remembered for 30 days?
-		code: '', // User's generated 2fa code
-		smsRequestsAllowed: true, // Can the user request another SMS code?
-		twoFactorAuthType: 'authenticator',
-	};
-
 	codeRequestTimer = false;
+
+	constructor( props ) {
+		super( props );
+
+		this.state = {
+			remember2fa: false, // Should the 2fa be remembered for 30 days?
+			code: '', // User's generated 2fa code
+			smsRequestsAllowed: true, // Can the user request another SMS code?
+			twoFactorAuthType: 'authenticator',
+		};
+	}
 
 	componentDidMount() {
 		this.props.twoStepAuthorization.on( 'change', this.update );
@@ -43,7 +45,9 @@ class ReauthRequired extends Component {
 		this.props.twoStepAuthorization.off( 'change', this.update );
 	}
 
-	update = () => this.forceUpdate();
+	update = () => {
+		this.forceUpdate();
+	};
 
 	getClickHandler = ( action, callback ) => () => {
 		this.props.recordGoogleEvent( 'Me', 'Clicked on ' + action );
@@ -129,12 +133,6 @@ class ReauthRequired extends Component {
 		return this.state.code.length && this.state.code.length > 5;
 	}
 
-	loginUserWithSecurityKey = () => {
-		return this.props.twoStepAuthorization.loginUserWithSecurityKey( {
-			user_id: this.props.currentUserId,
-		} );
-	};
-
 	renderFailedValidationMsg() {
 		if ( ! this.props.twoStepAuthorization.codeValidationFailed() ) {
 			return null;
@@ -166,6 +164,10 @@ class ReauthRequired extends Component {
 	}
 
 	renderVerificationForm() {
+		const enhancedSecurity = this.props.twoStepAuthorization.data?.two_step_enhanced_security;
+		if ( enhancedSecurity ) {
+			return this.renderSecurityKeyUnsupported();
+		}
 		const method = this.props.twoStepAuthorization.isTwoStepSMSEnabled() ? 'sms' : 'app';
 		return (
 			<Card compact>
@@ -227,31 +229,56 @@ class ReauthRequired extends Component {
 		);
 	}
 
-	render() {
+	renderSecurityKeyUnsupported() {
+		const { translate } = this.props;
+
+		return (
+			<Card compact>
+				<CardHeading tagName="h2">
+					{ translate( 'Two Factor Authentication Required' ) }
+				</CardHeading>
+				<WarningCard
+					message={ translate(
+						'Your WordPress.com account requires the use of security keys, but the current device does not seem to support them.'
+					) }
+				/>
+				<Button
+					onClick={ this.getClickHandler(
+						'Reauth Required Log Out Link',
+						this.props.redirectToLogout
+					) }
+					primary
+					className="reauth-required__button reauth-required__logout"
+				>
+					{ translate( 'Log out' ) }
+				</Button>
+			</Card>
+		);
+	}
+
+	renderDialog() {
+		const enhancedSecurity = this.props.twoStepAuthorization.data?.two_step_enhanced_security;
 		const method = this.props.twoStepAuthorization.isTwoStepSMSEnabled() ? 'sms' : 'authenticator';
 		const isSecurityKeySupported =
 			this.props.twoStepAuthorization.isSecurityKeyEnabled() && supported();
-		const { twoFactorAuthType } = this.state;
+		const twoFactorAuthType = enhancedSecurity ? 'webauthn' : this.state.twoFactorAuthType;
 		// This enables the SMS button on the security key form regardless if we can send SMS or not.
 		// Otherwise, there's no way to go back to the verification form if smsRequestsAllowed is false.
 		const shouldEnableSmsButton =
 			this.state.smsRequestsAllowed || ( method === 'sms' && twoFactorAuthType === 'webauthn' );
 
-		const hasSmsRecoveryNumber = !! this.props?.twoStepAuthorization?.data?.two_step_sms_last_four
-			?.length;
+		const hasSmsRecoveryNumber =
+			!! this.props?.twoStepAuthorization?.data?.two_step_sms_last_four?.length;
 
 		return (
 			<Dialog
+				bodyOpenClassName="ReactModal__Body--open reauth-required__dialog-body"
 				autoFocus={ false }
 				className="reauth-required__dialog"
-				isFullScreen={ false }
-				isVisible={ this.props.twoStepAuthorization.isReauthRequired() }
+				isVisible={ this.props?.twoStepAuthorization.isReauthRequired() }
 			>
 				{ isSecurityKeySupported && twoFactorAuthType === 'webauthn' ? (
-					<SecurityKeyForm
-						loginUserWithSecurityKey={ this.loginUserWithSecurityKey }
-						onComplete={ this.refreshNonceOnFailure }
-					/>
+					<SecurityKeyForm twoStepAuthorization={ this.props.twoStepAuthorization } />
 				) : (
 					this.renderVerificationForm()
 				) }
@@ -259,9 +286,10 @@ class ReauthRequired extends Component {
 					twoFactorAuthType={ twoFactorAuthType }
 					onChange={ this.handleAuthSwitch }
 					isSmsSupported={
-						method === 'sms' || ( method === 'authenticator' && hasSmsRecoveryNumber )
+						! enhancedSecurity &&
+						( method === 'sms' || ( method === 'authenticator' && hasSmsRecoveryNumber ) )
 					}
-					isAuthenticatorSupported={ method !== 'sms' }
+					isAuthenticatorSupported={ ! enhancedSecurity && method !== 'sms' }
 					isSmsAllowed={ shouldEnableSmsButton }
 					isSecurityKeySupported={ isSecurityKeySupported }
 				/>
@@ -269,12 +297,16 @@ class ReauthRequired extends Component {
 		);
 	}
 
-	refreshNonceOnFailure = ( error ) => {
-		const errors = [].slice.call( error?.data?.errors ?? [] );
-		if ( errors.some( ( e ) => e.code === 'invalid_two_step_nonce' ) ) {
-			this.props.twoStepAuthorization.fetch();
-		}
-	};
+	render() {
+		return (
+			<>
+				{ this.renderDialog() }
+				{ this.props.twoStepAuthorization.initialized &&
+					! this.props.twoStepAuthorization.isReauthRequired() &&
+					this.props.children?.() }
+			</>
+		);
+	}
 
 	handleAuthSwitch = ( authType ) => {
 		this.setState( { twoFactorAuthType: authType } );
@@ -295,17 +327,12 @@ class ReauthRequired extends Component {
 }
 
 ReauthRequired.propTypes = {
-	currentUserId: PropTypes.number.isRequired,
+	twoStepAuthorization: PropTypes.object.isRequired,
 };
 
 /* eslint-enable jsx-a11y/no-autofocus, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/anchor-is-valid */
 
-export default connect(
-	( state ) => ( {
-		currentUserId: getCurrentUserId( state ),
-	} ),
-	{
-		redirectToLogout,
-		recordGoogleEvent,
-	}
-)( localize( ReauthRequired ) );
+export default connect( null, {
+	redirectToLogout,
+	recordGoogleEvent,
+} )( localize( ReauthRequired ) );

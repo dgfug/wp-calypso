@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/anchor-is-valid */
 
-import { Card, Button, CompactCard, Gridicon } from '@automattic/components';
+import { Card, Button, CompactCard, FormLabel, Gridicon } from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
 import { createHigherOrderComponent } from '@wordpress/compose';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
@@ -10,7 +11,6 @@ import AuthorSelector from 'calypso/blocks/author-selector';
 import FormButton from 'calypso/components/forms/form-button';
 import FormButtonsBar from 'calypso/components/forms/form-buttons-bar';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormRadio from 'calypso/components/forms/form-radio';
 import FormSectionHeading from 'calypso/components/forms/form-section-heading';
 import Gravatar from 'calypso/components/gravatar';
@@ -19,9 +19,9 @@ import User from 'calypso/components/user';
 import useExternalContributorsQuery from 'calypso/data/external-contributors/use-external-contributors';
 import useRemoveExternalContributorMutation from 'calypso/data/external-contributors/use-remove-external-contributor-mutation';
 import accept from 'calypso/lib/accept';
-import { localizeUrl } from 'calypso/lib/i18n-utils';
 import { recordGoogleEvent } from 'calypso/state/analytics/actions';
 import { getCurrentUser } from 'calypso/state/current-user/selectors';
+import isSiteAutomatedTransfer from 'calypso/state/selectors/is-site-automated-transfer';
 import { getSite } from 'calypso/state/sites/selectors';
 import withDeleteUser from './with-delete-user';
 
@@ -32,6 +32,7 @@ class DeleteUser extends Component {
 
 	static propTypes = {
 		isMultisite: PropTypes.bool,
+		isAtomic: PropTypes.bool,
 		isJetpack: PropTypes.bool,
 		siteId: PropTypes.number,
 		user: PropTypes.object,
@@ -221,33 +222,7 @@ class DeleteUser extends Component {
 	};
 
 	renderSingleSite = () => {
-		const { translate, isJetpack, siteOwner, user } = this.props;
-
-		// A user should not be able to remove the site owner.
-		if ( ! isJetpack && user.ID === siteOwner ) {
-			return (
-				<Card className="delete-user__single-site">
-					<FormSectionHeading>{ this.getDeleteText() }</FormSectionHeading>
-					<p className="delete-user__explanation">
-						{ translate(
-							'You cannot delete the site owner. Please transfer ownership of this site to a different account before deleting this user. {{supportLink}}Learn more.{{/supportLink}}',
-							{
-								components: {
-									supportLink: (
-										<InlineSupportLink
-											supportPostId={ 102743 }
-											supportLink={ localizeUrl(
-												'https://wordpress.com/support/transferring-a-site-to-another-wordpress-com-account/'
-											) }
-										/>
-									),
-								},
-							}
-						) }
-					</p>
-				</Card>
-			);
-		}
+		const { translate } = this.props;
 
 		return (
 			<Card className="delete-user__single-site">
@@ -306,7 +281,7 @@ class DeleteUser extends Component {
 					</FormFieldset>
 
 					<FormButtonsBar>
-						<FormButton scary={ true } disabled={ this.isDeleteButtonDisabled() }>
+						<FormButton scary disabled={ this.isDeleteButtonDisabled() }>
 							{ translate( 'Delete user', { context: 'Button label' } ) }
 						</FormButton>
 					</FormButtonsBar>
@@ -333,15 +308,47 @@ class DeleteUser extends Component {
 	};
 
 	render() {
+		const { translate, isAtomic, isJetpack, isMultisite, siteOwner, user, currentUser } =
+			this.props;
+
 		// A user should not be able to remove themself.
-		if ( ! this.props.isJetpack && this.props.user.ID === this.props.currentUser.ID ) {
+		if ( ! isJetpack && user.ID === currentUser.ID ) {
 			return null;
 		}
-		if ( this.props.isJetpack && this.props.user.linked_user_ID === this.props.currentUser.ID ) {
+		if ( isJetpack && user.linked_user_ID === currentUser.ID ) {
 			return null;
 		}
 
-		return this.props.isMultisite ? this.renderMultisite() : this.renderSingleSite();
+		// A user should not be able to remove the Atomic or non-Jetpack site owner.
+		if ( ( ! isJetpack && user.ID === siteOwner ) || user.linked_user_ID === siteOwner ) {
+			const supportLink =
+				! isJetpack || isAtomic ? (
+					<InlineSupportLink
+						supportPostId={ 102743 }
+						supportLink={ localizeUrl(
+							'https://wordpress.com/support/transferring-a-site-to-another-wordpress-com-account/'
+						) }
+					/>
+				) : (
+					<InlineSupportLink supportLink="https://jetpack.com/redirect?source=jetpack-transfer-connection" />
+				);
+
+			return (
+				<Card className="delete-user__single-site">
+					<FormSectionHeading>{ this.getDeleteText() }</FormSectionHeading>
+					<p className="delete-user__explanation">
+						{ translate(
+							'You cannot delete the site owner. Please transfer ownership of this site to a different account before deleting this user. {{supportLink}}Learn more.{{/supportLink}}',
+							{
+								components: { supportLink },
+							}
+						) }
+					</p>
+				</Card>
+			);
+		}
+
+		return isMultisite ? this.renderMultisite() : this.renderSingleSite();
 	}
 }
 
@@ -381,6 +388,7 @@ export default localize(
 			return {
 				siteOwner: site?.site_owner,
 				currentUser: getCurrentUser( state ),
+				isAtomic: isSiteAutomatedTransfer( state, siteId ),
 			};
 		},
 		{ recordGoogleEvent }

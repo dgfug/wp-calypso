@@ -1,8 +1,8 @@
 import { FEATURE_WOOP } from '@automattic/calypso-products';
 import { sprintf, __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { addQueryArgs } from 'calypso/lib/url';
+import { useDispatch, useSelector } from 'calypso/state';
 import { requestLatestAtomicTransfer } from 'calypso/state/atomic/transfers/actions';
 import { getLatestAtomicTransfer } from 'calypso/state/atomic/transfers/selectors';
 import { requestEligibility } from 'calypso/state/automated-transfer/actions';
@@ -18,9 +18,9 @@ import {
 } from 'calypso/state/current-user/selectors';
 import { requestProductsList } from 'calypso/state/products-list/actions';
 import { getProductBySlug } from 'calypso/state/products-list/selectors';
-import hasActiveSiteFeature from 'calypso/state/selectors/has-active-site-feature';
-import hasAvailableSiteFeature from 'calypso/state/selectors/has-available-site-feature';
+import getPlansForFeature from 'calypso/state/selectors/get-plans-for-feature';
 import isAtomicSiteSelector from 'calypso/state/selectors/is-site-automated-transfer';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
 import { getSiteDomain } from 'calypso/state/sites/selectors';
 
 const TRANSFERRING_NOT_BLOCKERS = [
@@ -69,8 +69,8 @@ export default function useEligibility( siteId: number ): EligibilityHook {
 	);
 
 	// Get email verification data.
-	const currentUserEmail = useSelector( ( state ) => getCurrentUserEmail( state ) );
-	const isEmailVerified = useSelector( ( state ) => isCurrentUserEmailVerified( state ) );
+	const currentUserEmail = useSelector( getCurrentUserEmail );
+	const isEmailVerified = useSelector( isCurrentUserEmailVerified );
 
 	/*
 	 * Inspect transfer to detect blockers.
@@ -125,44 +125,20 @@ export default function useEligibility( siteId: number ): EligibilityHook {
 	const isTransferringBlocked = ! transferringDataIsAvailable || transferringBlockers?.length > 0;
 
 	/*
-	 * Plan site and `woop` site feature.
-	 * If the eligibility holds contains `NO_BUSINESS_PLAN`,
-	 * if the site doesn't have the `woop` feature,
-	 * and if the site has the `woop` feature upgradaable,
-	 * then the site needs to be upgraded.
-	 */
-	const eligibilityNoProperPlan = eligibilityHolds?.includes(
-		eligibilityHoldsConstants.NO_BUSINESS_PLAN
-	);
-
-	/*
 	 * Check whether the `woop` feature is actve.`
 	 * It's defined by wpcom in the store product list.
 	 */
-	const isWoopFeatureActive = useSelector( ( state ) =>
-		hasActiveSiteFeature( state, siteId, FEATURE_WOOP )
-	);
-
-	/*
-	 * Feature available means although the site doesn't have the feature active,
-	 * it's available to be activated via buying a plan.
-	 */
-	const hasWoopFeatureAvailable = useSelector(
-		( state ) => hasAvailableSiteFeature( state, siteId, FEATURE_WOOP ) || []
-	);
-
-	// The site requires upgrading when the feature is not active and available.
-	const requiresUpgrade = Boolean(
-		eligibilityNoProperPlan && ! isWoopFeatureActive && hasWoopFeatureAvailable.length
-	);
+	const hasWoopFeature = useSelector( ( state ) => siteHasFeature( state, siteId, FEATURE_WOOP ) );
 
 	/*
 	 * We pick the first plan from the available plans list.
 	 * The priority is defined by the store products list.
 	 */
-	const upgradingPlan = useSelector( ( state ) =>
-		getProductBySlug( state, hasWoopFeatureAvailable[ 0 ] )
-	);
+	const upgradingPlan = useSelector( ( state ) => {
+		const plans = getPlansForFeature( state, siteId, FEATURE_WOOP ) || [];
+
+		return getProductBySlug( state, plans[ 0 ] );
+	} );
 
 	const productName = upgradingPlan?.product_name ?? '';
 
@@ -174,7 +150,7 @@ export default function useEligibility( siteId: number ): EligibilityHook {
 	 * - data is ready
 	 * - does not require an upgrade, based on store `woop` feature
 	 */
-	let isReadyToStart = !! ( siteId && transferringDataIsAvailable && ! requiresUpgrade );
+	let isReadyToStart = !! ( siteId && transferringDataIsAvailable && hasWoopFeature );
 
 	// when the site is not Atomic, ...
 	if ( isReadyToStart && ! isAtomicSite ) {
@@ -185,7 +161,7 @@ export default function useEligibility( siteId: number ): EligibilityHook {
 	}
 
 	const siteUpgrading = {
-		required: requiresUpgrade,
+		required: ! hasWoopFeature,
 		checkoutUrl: addQueryArgs(
 			{
 				redirect_to: addQueryArgs(

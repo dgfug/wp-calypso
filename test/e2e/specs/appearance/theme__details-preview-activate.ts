@@ -1,5 +1,6 @@
 /**
  * @group calypso-pr
+ * @group jetpack-remote-site
  */
 
 import {
@@ -10,13 +11,17 @@ import {
 	ThemesDetailPage,
 	SiteSelectComponent,
 	TestAccount,
+	envVariables,
+	getTestAccountByFeature,
+	envToFeatureKey,
 } from '@automattic/calypso-e2e';
 import { Browser, Page } from 'playwright';
 
 declare const browser: Browser;
 
 describe( DataHelper.createSuiteTitle( 'Theme: Preview and Activate' ), () => {
-	const testAccount = new TestAccount( 'defaultUser' );
+	const accountName = getTestAccountByFeature( envToFeatureKey( envVariables ) );
+	const testAccount = new TestAccount( accountName );
 	const testAccountSiteDomain = testAccount.getSiteURL( { protocol: false } );
 	let sidebarComponent: SidebarComponent;
 	let themesPage: ThemesPage;
@@ -29,6 +34,7 @@ describe( DataHelper.createSuiteTitle( 'Theme: Preview and Activate' ), () => {
 
 	beforeAll( async () => {
 		page = await browser.newPage();
+
 		await testAccount.authenticate( page );
 	} );
 
@@ -45,9 +51,8 @@ describe( DataHelper.createSuiteTitle( 'Theme: Preview and Activate' ), () => {
 		}
 	} );
 
-	it( `Search for free theme with keyword ${ themeName }`, async function () {
+	it( `Search for theme with keyword ${ themeName }`, async function () {
 		themesPage = new ThemesPage( page );
-		await themesPage.filterThemes( 'Free' );
 		await themesPage.search( themeName );
 	} );
 

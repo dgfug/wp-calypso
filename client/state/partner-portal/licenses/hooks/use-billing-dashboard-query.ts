@@ -1,7 +1,8 @@
+import { useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { useTranslate } from 'i18n-calypso';
-import { useQuery, UseQueryOptions, UseQueryResult } from 'react-query';
-import { useDispatch, useSelector } from 'react-redux';
+import { useEffect } from 'react';
 import { wpcomJetpackLicensing as wpcomJpl } from 'calypso/lib/wp';
+import { useDispatch, useSelector } from 'calypso/state';
 import { errorNotice, plainNotice } from 'calypso/state/notices/actions';
 import { getActivePartnerKeyId } from 'calypso/state/partner-portal/partner/selectors';
 
@@ -21,6 +22,7 @@ interface APIBillingCosts {
 interface APIBillingProduct {
 	product_slug: string;
 	product_name: string;
+	product_quantity: number;
 	product_cost: number;
 	product_total_cost: number;
 	counts: APIBillingCounts;
@@ -31,6 +33,7 @@ interface APIBilling {
 	products: APIBillingProduct[];
 	licenses: APIBillingCounts;
 	costs: APIBillingCosts;
+	price_interval: string;
 }
 
 // Calypso interfaces.
@@ -49,6 +52,7 @@ interface BillingCosts {
 interface BillingProduct {
 	productSlug: string;
 	productName: string;
+	productQuantity: number;
 	productCost: number;
 	productTotalCost: number;
 	counts: BillingCounts;
@@ -59,6 +63,7 @@ interface Billing {
 	products: BillingProduct[];
 	licenses: BillingCounts;
 	costs: BillingCosts;
+	priceInterval: string;
 }
 
 interface BillingDashboardQueryError {
@@ -79,6 +84,7 @@ function selectBillingDashboard( api: APIBilling ): Billing {
 			( product ): BillingProduct => ( {
 				productSlug: product.product_slug,
 				productName: product.product_name,
+				productQuantity: product.product_quantity,
 				productCost: product.product_cost,
 				productTotalCost: product.product_total_cost,
 				counts: product.counts,
@@ -86,6 +92,7 @@ function selectBillingDashboard( api: APIBilling ): Billing {
 		),
 		licenses: api.licenses,
 		costs: api.costs,
+		priceInterval: api.price_interval,
 	};
 }
 
@@ -96,52 +103,57 @@ export default function useBillingDashboardQuery(
 	const dispatch = useDispatch();
 	const activeKeyId = useSelector( getActivePartnerKeyId );
 
-	return useQuery< APIBilling, BillingDashboardQueryError, Billing >(
-		[ 'partner-portal', 'billing-dashboard', activeKeyId ],
-		queryBillingDashboard,
-		{
-			select: selectBillingDashboard,
-			onError: ( error ) => {
-				// We wish to handle the "no billing invoice available" response differently
-				// from hard errors. We want this because the response itself did not encounter
-				// any errors but the upcoming invoice has not been created yet.
-				if ( error.hasOwnProperty( 'code' ) && 'no_billing_invoice_available' === error.code ) {
-					dispatch(
-						plainNotice(
-							translate( 'Your upcoming invoice is being prepared and will be available soon.' ),
-							{
-								id: 'partner-portal-billing-dashboard-no-billing-invoice-available',
-							}
-						)
-					);
+	const query = useQuery< APIBilling, BillingDashboardQueryError, Billing >( {
+		queryKey: [ 'partner-portal', 'billing-dashboard', activeKeyId ],
+		queryFn: queryBillingDashboard,
+		select: selectBillingDashboard,
+		retry: ( failureCount, error ) => {
+			// There is no reason for us to try and re-fetch on the "no billing
+			// invoice available" error because it is an expected behaviour which
+			// is only going to change when Jetpack prepares an invoice and is
+			// therefore not necessarily a temporary error and might take hours
+			// or even days before changing to either success or another error.
+			if ( error.hasOwnProperty( 'code' ) && 'no_billing_invoice_available' === error.code ) {
+				return false;
+			}
 
-					return;
-				}
+			// We have to define a fallback amount of failures because we
+			// override the retry option with a function.
+			// We use 3 as the failureCount since its the default value for
+			// react-query that we used before.
+			// @link https://react-query.tanstack.com/guides/query-retries
+			return 3 > failureCount;
+		},
+		...options,
+	} );
 
+	const { isError, error } = query;
+
+	useEffect( () => {
+		if ( isError ) {
+			// We wish to handle the "no billing invoice available" response differently
+			// from hard errors. We want this because the response itself did not encounter
+			// any errors but the upcoming invoice has not been created yet.
+			if ( error.hasOwnProperty( 'code' ) && 'no_billing_invoice_available' === error.code ) {
 				dispatch(
-					errorNotice( translate( 'We were unable to retrieve your billing details.' ), {
-						id: 'partner-portal-billing-dashboard-failure',
-					} )
+					plainNotice(
+						translate( 'Your upcoming invoice is being prepared and will be available soon.' ),
+						{
+							id: 'partner-portal-billing-dashboard-no-billing-invoice-available',
+						}
+					)
 				);
-			},
-			retry: ( failureCount, error ) => {
-				// There is no reason for us to try and re-fetch on the "no billing
-				// invoice available" error because it is an expected behaviour which
-				// is only going to change when Jetpack prepares an invoice and is
-				// therefore not necessarily a temporary error and might take hours
-				// or even days before changing to either success or another error.
-				if ( error.hasOwnProperty( 'code' ) && 'no_billing_invoice_available' === error.code ) {
-					return false;
-				}
 
-				// We have to define a fallback amount of failures because we
-				// override the retry option with a function.
-				// We use 3 as the failureCount since its the default value for
-				// react-query that we used before.
-				// @link https://react-query.tanstack.com/guides/query-retries
-				return 3 > failureCount;
-			},
-			...options,
+				return;
+			}
+
+			dispatch(
+				errorNotice( translate( 'We were unable to retrieve your billing details.' ), {
+					id: 'partner-portal-billing-dashboard-failure',
+				} )
+			);
 		}
-	);
+	}, [ dispatch, translate, isError, error ] );
+
+	return query;
 }

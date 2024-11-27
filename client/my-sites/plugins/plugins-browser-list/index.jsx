@@ -1,19 +1,15 @@
-import { isEnabled } from '@automattic/calypso-config';
-import { Card, Gridicon } from '@automattic/components';
-import { useBreakpoint } from '@automattic/viewport-react';
-import { useI18n } from '@wordpress/react-i18n';
-import classnames from 'classnames';
+import { Card } from '@automattic/components';
 import { times } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
-import { useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
+import AsyncLoad from 'calypso/components/async-load';
 import Spotlight from 'calypso/components/spotlight';
-import BillingIntervalSwitcher from 'calypso/my-sites/marketplace/components/billing-interval-switcher';
+import { getMessagePathForJITM } from 'calypso/lib/route';
 import PluginBrowserItem from 'calypso/my-sites/plugins/plugins-browser-item';
 import { PluginsBrowserElementVariant } from 'calypso/my-sites/plugins/plugins-browser-item/types';
-import { recordTracksEvent } from 'calypso/state/analytics/actions';
+import PluginsResultsHeader from 'calypso/my-sites/plugins/plugins-results-header';
+import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 import { PluginsBrowserListVariant } from './types';
-
 import './style.scss';
 
 const DEFAULT_PLACEHOLDER_NUMBER = 6;
@@ -23,35 +19,39 @@ const PluginsBrowserList = ( {
 	variant = PluginsBrowserListVariant.Fixed,
 	title,
 	subtitle,
+	resultCount,
 	extended,
-	billingPeriod,
-	setBillingPeriod,
 	showPlaceholders,
 	site,
 	currentSites,
 	listName,
-	expandedListLink,
+	listType,
+	browseAllLink,
 	size,
-	spotlightPlugin,
-	spotlightPluginFetched,
+	search,
+	noHeader = false,
 } ) => {
-	const isWide = useBreakpoint( '>1280px' );
-	const { __ } = useI18n();
-	const dispatch = useDispatch();
+	const extendedVariant = extended
+		? PluginsBrowserElementVariant.Extended
+		: PluginsBrowserElementVariant.Compact;
 
 	const renderPluginsViewList = () => {
 		const pluginsViewsList = plugins.map( ( plugin, n ) => {
+			// Needs a beter fix but something is leaking empty objects into this list.
+			if ( ! plugin?.slug ) {
+				return null;
+			}
 			return (
 				<PluginBrowserItem
 					site={ site }
 					key={ plugin.slug + n }
+					gridPosition={ n + 1 }
 					plugin={ plugin }
 					currentSites={ currentSites }
 					listName={ listName }
-					variant={
-						extended ? PluginsBrowserElementVariant.Extended : PluginsBrowserElementVariant.Compact
-					}
-					billingPeriod={ billingPeriod }
+					listType={ listType }
+					variant={ extendedVariant }
+					search={ search }
 				/>
 			);
 		} );
@@ -65,7 +65,11 @@ const PluginsBrowserList = ( {
 
 	const renderPlaceholdersViews = () => {
 		return times( size || DEFAULT_PLACEHOLDER_NUMBER, ( i ) => (
-			<PluginBrowserItem isPlaceholder key={ 'placeholder-plugin-' + i } />
+			<PluginBrowserItem
+				isPlaceholder
+				key={ 'placeholder-plugin-' + i }
+				variant={ extendedVariant }
+			/>
 		) );
 	};
 
@@ -91,53 +95,60 @@ const PluginsBrowserList = ( {
 		}
 	};
 
-	const spotlightOnClick = () => {
-		dispatch(
-			recordTracksEvent( 'calypso_marketplace_spotlight_click', {
-				type: 'plugin',
-				slug: spotlightPlugin.slug,
-				id: spotlightPlugin.id,
-				site: site,
-			} )
-		);
-		page( `/plugins/${ spotlightPlugin.slug }/${ site || '' }` );
-	};
+	const SpotlightPlaceholder = (
+		<Spotlight
+			isPlaceholder
+			taglineText="Calypso placeholder"
+			illustrationSrc="https://wordpress.com/wp-content/lib/marketplace-images/sensei-pro.svg"
+			onClick={ () => {} }
+			titleText="This is the default placeholder rendered in Calypso"
+			ctaText="Click me"
+		/>
+	);
+
+	// Get the message path for the current route. This is needed to be able to display JITMs
+	const currentRoute = useSelector( getCurrentRoute );
+	const sectionJitmPath = getMessagePathForJITM( currentRoute );
+
 	return (
 		<div className="plugins-browser-list">
-			<div className="plugins-browser-list__header">
-				<div className="plugins-browser-list__titles">
-					<div className={ classnames( 'plugins-browser-list__title', listName ) }>{ title }</div>
-					<div className="plugins-browser-list__subtitle">{ subtitle }</div>
-				</div>
-				<div className="plugins-browser-list__actions">
-					{ setBillingPeriod && (
-						<BillingIntervalSwitcher
-							billingPeriod={ billingPeriod }
-							onChange={ setBillingPeriod }
-							compact={ ! isWide }
-						/>
-					) }
-					{ expandedListLink && (
-						<a className="plugins-browser-list__browse-all" href={ expandedListLink }>
-							{ __( 'Browse All' ) }
-							<Gridicon icon="arrow-right" size="18" />
-						</a>
-					) }
-				</div>
-			</div>
-			{ listName === 'paid' &&
-				isEnabled( 'marketplace-spotlight' ) &&
-				spotlightPluginFetched &&
-				spotlightPlugin && (
-					<Spotlight
-						taglineText={ __( 'Drive more traffic with Yoast SEO Premium' ) }
-						titleText={ __( 'Under the Spotlight' ) }
-						ctaText={ __( 'View Details' ) }
-						illustrationSrc={ spotlightPlugin?.icon ?? '' }
-						onClick={ () => spotlightOnClick() }
-					/>
-				) }
-			<Card className="plugins-browser-list__elements">{ renderViews() }</Card>
+			{ ! noHeader && ( title || subtitle || resultCount || browseAllLink ) && (
+				<PluginsResultsHeader
+					title={ title }
+					subtitle={ subtitle }
+					resultCount={ resultCount }
+					browseAllLink={ browseAllLink }
+					listName={ listName }
+				/>
+			) }
+			{ listName === 'paid' && (
+				<AsyncLoad
+					require="calypso/blocks/jitm"
+					template="spotlight"
+					placeholder={ null }
+					messagePath="calypso:plugins:spotlight"
+				/>
+			) }
+			{ listType === 'search' && (
+				<AsyncLoad
+					require="calypso/blocks/jitm"
+					template="spotlight"
+					jitmPlaceholder={ SpotlightPlaceholder }
+					messagePath="calypso:plugins:search"
+					searchQuery={ search }
+				/>
+			) }
+			{ listType === 'browse' && (
+				<AsyncLoad
+					require="calypso/blocks/jitm"
+					template="spotlight"
+					jitmPlaceholder={ SpotlightPlaceholder }
+					messagePath={ `calypso:${ sectionJitmPath }:spotlight` }
+				/>
+			) }
+			<Card tagName="ul" className="plugins-browser-list__elements">
+				{ renderViews() }
+			</Card>
 		</div>
 	);
 };

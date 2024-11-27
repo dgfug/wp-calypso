@@ -1,7 +1,7 @@
-import page from 'page';
+import page from '@automattic/calypso-router';
 import { notFound, makeLayout, render as clientRender } from 'calypso/controller';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
-import wpcomUpsellController from 'calypso/lib/jetpack/wpcom-upsell-controller';
+import wpcomAtomicTransfer from 'calypso/lib/jetpack/wpcom-atomic-transfer';
 import wrapInSiteOffsetProvider from 'calypso/lib/wrap-in-site-offset';
 import { navigation, siteSelection, sites } from 'calypso/my-sites/controller';
 import {
@@ -16,21 +16,26 @@ import {
 } from 'calypso/my-sites/scan/controller';
 import WPCOMScanUpsellPage from 'calypso/my-sites/scan/wpcom-upsell';
 import isJetpackSectionEnabledForSite from 'calypso/state/selectors/is-jetpack-section-enabled-for-site';
+import isAtomicSite from 'calypso/state/selectors/is-site-automated-transfer';
 import getIsSiteWPCOM from 'calypso/state/selectors/is-site-wpcom';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 
-const notFoundIfNotEnabled = ( context, next ) => {
-	const state = context.store.getState();
-	const siteId = getSelectedSiteId( state );
-	const showJetpackSection = isJetpackSectionEnabledForSite( state, siteId );
-	const isWPCOMSite = getIsSiteWPCOM( state, siteId );
+const notFoundIfNotEnabled =
+	( { allowOnAtomic } = {} ) =>
+	( context, next ) => {
+		const state = context.store.getState();
+		const siteId = getSelectedSiteId( state );
+		const showJetpackSection = isJetpackSectionEnabledForSite( state, siteId );
+		const disabled = allowOnAtomic
+			? getIsSiteWPCOM( state, siteId ) && ! isAtomicSite( state, siteId )
+			: getIsSiteWPCOM( state, siteId );
 
-	if ( isWPCOMSite || ( ! isJetpackCloud() && ! showJetpackSection ) ) {
-		return notFound( context, next );
-	}
+		if ( disabled || ( ! isJetpackCloud() && ! showJetpackSection ) ) {
+			return notFound( context, next );
+		}
 
-	next();
-};
+		next();
+	};
 
 export default function () {
 	page( '/scan', siteSelection, sites, navigation, makeLayout, clientRender );
@@ -41,12 +46,12 @@ export default function () {
 		scan,
 		wrapInSiteOffsetProvider,
 		showUpsellIfNoScan,
-		wpcomUpsellController( WPCOMScanUpsellPage ),
+		wpcomAtomicTransfer( WPCOMScanUpsellPage ),
 		showUnavailableForVaultPressSites,
 		showJetpackIsDisconnected,
 		showUnavailableForMultisites,
 		showNotAuthorizedForNonAdmins,
-		notFoundIfNotEnabled,
+		notFoundIfNotEnabled( { allowOnAtomic: true } ),
 		makeLayout,
 		clientRender
 	);
@@ -58,12 +63,12 @@ export default function () {
 		scanHistory,
 		wrapInSiteOffsetProvider,
 		showUpsellIfNoScanHistory,
-		wpcomUpsellController( WPCOMScanUpsellPage ),
+		wpcomAtomicTransfer( WPCOMScanUpsellPage ),
 		showUnavailableForVaultPressSites,
 		showJetpackIsDisconnected,
 		showUnavailableForMultisites,
 		showNotAuthorizedForNonAdmins,
-		notFoundIfNotEnabled,
+		notFoundIfNotEnabled( { allowOnAtomic: true } ),
 		makeLayout,
 		clientRender
 	);
@@ -75,12 +80,12 @@ export default function () {
 		scan,
 		wrapInSiteOffsetProvider,
 		showUpsellIfNoScan,
-		wpcomUpsellController( WPCOMScanUpsellPage ),
+		wpcomAtomicTransfer( WPCOMScanUpsellPage ),
 		showUnavailableForVaultPressSites,
 		showJetpackIsDisconnected,
 		showUnavailableForMultisites,
 		showNotAuthorizedForNonAdmins,
-		notFoundIfNotEnabled,
+		notFoundIfNotEnabled(),
 		makeLayout,
 		clientRender
 	);

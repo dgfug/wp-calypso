@@ -1,11 +1,12 @@
 import config from '@automattic/calypso-config';
-import page from 'page';
+import page from '@automattic/calypso-router';
+import { getLanguageRouteParam } from '@automattic/i18n-utils';
 import { makeLayout, render as clientRender } from 'calypso/controller';
 import { OFFER_RESET_FLOW_TYPES } from 'calypso/jetpack-connect/flow-types';
-import { getLanguageRouteParam } from 'calypso/lib/i18n-utils';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 import { siteSelection } from 'calypso/my-sites/controller';
 import jetpackPlans from 'calypso/my-sites/plans/jetpack-plans';
+import { jetpackUpsell } from 'calypso/my-sites/plans/jetpack-plans/jetpack-upsell';
 import * as controller from './controller';
 
 import './style.scss';
@@ -13,10 +14,14 @@ import './style.scss';
 export default function () {
 	const locale = getLanguageRouteParam( 'locale' );
 
+	const legacyPlans = [ 'personal', 'premium', 'pro' ].join( '|' );
+
+	page(
+		`/jetpack/connect/:type(${ legacyPlans })/:interval(yearly|monthly)?/${ locale }`,
+		controller.redirectToCloudPricingPage
+	);
+
 	const planTypeString = [
-		'personal',
-		'premium',
-		'pro',
 		'backup',
 		'scan',
 		'realtimebackup',
@@ -72,6 +77,7 @@ export default function () {
 		clientRender
 	);
 
+	jetpackUpsell( `/jetpack/connect/store`, controller.offerResetContext );
 	jetpackPlans( `/jetpack/connect/store`, controller.offerResetContext );
 
 	page(
@@ -81,6 +87,14 @@ export default function () {
 	);
 
 	jetpackPlans(
+		`/jetpack/connect/plans`,
+		controller.redirectToLoginIfLoggedOut,
+		siteSelection,
+		controller.partnerCouponRedirects,
+		controller.offerResetRedirects,
+		controller.offerResetContext
+	);
+	jetpackUpsell(
 		`/jetpack/connect/plans`,
 		controller.redirectToLoginIfLoggedOut,
 		siteSelection,

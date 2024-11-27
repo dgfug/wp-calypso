@@ -1,18 +1,28 @@
-import { planHasFeature, FEATURE_UPLOAD_THEMES_PLUGINS } from '@automattic/calypso-products';
-import { Button, Card, CompactCard, ProgressBar, Gridicon } from '@automattic/components';
+import {
+	planHasFeature,
+	FEATURE_UPLOAD_THEMES_PLUGINS,
+	PLAN_ECOMMERCE_TRIAL_MONTHLY,
+	PLAN_BUSINESS,
+	PLAN_WOOEXPRESS_SMALL,
+} from '@automattic/calypso-products';
+import page from '@automattic/calypso-router';
+import { Button, Card, CompactCard, ProgressBar, Gridicon, Spinner } from '@automattic/components';
 import { getLocaleSlug, localize } from 'i18n-calypso';
 import { get, isEmpty, omit } from 'lodash';
 import moment from 'moment';
-import page from 'page';
 import { Component } from 'react';
 import { connect } from 'react-redux';
+import {
+	storeMigrationStatus,
+	clearMigrationStatus,
+} from 'calypso/blocks/importer/wordpress/utils';
 import DocumentHead from 'calypso/components/data/document-head';
 import FormattedHeader from 'calypso/components/formatted-header';
 import Main from 'calypso/components/main';
-import Spinner from 'calypso/components/spinner';
-import { Interval, EVERY_TEN_SECONDS } from 'calypso/lib/interval';
+import { Interval, EVERY_TEN_SECONDS, EVERY_FIVE_SECONDS } from 'calypso/lib/interval';
 import { urlToSlug } from 'calypso/lib/url';
 import wpcom from 'calypso/lib/wp';
+import { isMigrationTrialSite } from 'calypso/sites-dashboard/utils';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import getCurrentQueryArguments from 'calypso/state/selectors/get-current-query-arguments';
 import isSiteAutomatedTransfer from 'calypso/state/selectors/is-site-automated-transfer';
@@ -23,6 +33,7 @@ import {
 	getSelectedSiteId,
 	getSelectedSiteSlug,
 } from 'calypso/state/ui/selectors';
+import { MigrationInProgress } from './components/migration-in-progress';
 import StepConfirmMigration from './step-confirm-migration';
 import StepImportOrMigrate from './step-import-or-migrate';
 import StepSourceSelect from './step-source-select';
@@ -40,16 +51,29 @@ export class SectionMigrate extends Component {
 		errorMessage: '',
 		isJetpackConnected: false,
 		migrationStatus: 'unknown',
+		migrationErrorStatus: null,
 		percent: 0,
+		backupPercent: 0,
+		restorePercent: 0,
+		restoreMessage: '',
+		backupPosts: 0,
+		backupMedia: 0,
+		siteSize: 0,
 		siteInfo: null,
 		selectedSiteSlug: null,
 		sourceSitePlugins: [],
 		sourceSiteThemes: [],
 		startTime: '',
 		url: '',
+		stage: 0,
+		stageTotal: 0,
 	};
 
 	componentDidMount() {
+		const { targetSite, targetSiteId, targetSiteSlug, sourceSite, sourceSiteId } = this.props;
+		const sourceSiteUrl = get( sourceSite, 'URL', sourceSiteId );
+		clearMigrationStatus();
+
 		if ( this.isNonAtomicJetpack() ) {
 			return page( `/import/${ this.props.targetSiteSlug }` );
 		}
@@ -62,14 +86,24 @@ export class SectionMigrate extends Component {
 			this._startedMigrationFromCart = true;
 			this._timeStartedMigrationFromCart = new Date().getTime();
 			this.setMigrationState( { migrationStatus: 'backing-up' } );
-			this.startMigration();
+			const trackEventProps = {
+				source_site_id: sourceSiteId,
+				source_site_url: sourceSiteUrl,
+				target_site_id: targetSiteId,
+				target_site_slug: targetSiteSlug,
+				is_migrate_from_wp: false,
+				is_trial: isMigrationTrialSite( targetSite ),
+				type: 'in-product-from-cart',
+			};
+			this.startMigration( trackEventProps );
 		}
 
 		this.fetchSourceSitePluginsAndThemes();
 		this.updateFromAPI();
 	}
 
-	componentDidUpdate( prevProps ) {
+	/* eslint-disable no-unused-vars */
+	componentDidUpdate( prevProps, prevState ) {
 		if ( this.isNonAtomicJetpack() ) {
 			return page( `/import/${ this.props.targetSiteSlug }` );
 		}
@@ -82,7 +116,7 @@ export class SectionMigrate extends Component {
 			this.updateFromAPI();
 		}
 
-		if ( 'done' === this.state.migrationStatus ) {
+		if ( 'done' === this.state.migrationStatus && prevState.migrationStatus !== 'done' ) {
 			this.finishMigration();
 		}
 	}
@@ -93,7 +127,7 @@ export class SectionMigrate extends Component {
 		}
 
 		wpcom.site( this.props.sourceSite.ID ).pluginsList( ( error, data ) => {
-			if ( data.plugins ) {
+			if ( data?.plugins ) {
 				this.setState( { sourceSitePlugins: data.plugins } );
 			}
 		} );
@@ -157,6 +191,7 @@ export class SectionMigrate extends Component {
 	};
 
 	setMigrationState = ( state ) => {
+		storeMigrationStatus( state.migrationStatus );
 		// A response from the status endpoint may come in after the
 		// migrate/from endpoint has returned an error. This avoids that
 		// response accidentally clearing the error state.
@@ -183,9 +218,11 @@ export class SectionMigrate extends Component {
 			this.props.updateSiteMigrationMeta(
 				this.props.targetSiteId,
 				state.migrationStatus,
+				state.migrationErrorStatus,
 				state.lastModified
 			);
 		}
+
 		this.setState( state );
 	};
 
@@ -193,27 +230,35 @@ export class SectionMigrate extends Component {
 		this.setState( { siteInfo }, () => {
 			const selectedSiteSlug = urlToSlug( siteInfo.site_url.replace( /\/$/, '' ) );
 			this.setState( { selectedSiteSlug } );
-			wpcom
-				.site( selectedSiteSlug )
-				.get( {
-					apiVersion: '1.2',
-				} )
-				.then( ( site ) => {
-					if ( ! ( site && site.capabilities ) ) {
-						// A site isn't connected if we cannot manage it.
-						return this.setState( { isJetpackConnected: false } );
-					}
-
-					// Update the site in the state tree.
-					this.props.receiveSite( omit( site, '_headers' ) );
-					this.setState( { isJetpackConnected: true } );
-				} )
-				.catch( () => {
-					// @TODO: Do we need to better handle this? It most-likely means the site isn't connected.
-					this.setState( { isJetpackConnected: false } );
-				} )
-				.finally( callback );
+			this.updateSiteInfo( selectedSiteSlug, callback );
 		} );
+	};
+
+	updateSiteInfo = ( selectedSiteSlug, callback = () => {} ) => {
+		selectedSiteSlug = selectedSiteSlug || this.state.selectedSiteSlug;
+		if ( ! selectedSiteSlug ) {
+			return;
+		}
+		return wpcom
+			.site( selectedSiteSlug )
+			.get( {
+				apiVersion: '1.2',
+			} )
+			.then( ( site ) => {
+				if ( ! ( site && site.capabilities ) ) {
+					// A site isn't connected if we cannot manage it.
+					return this.setState( { isJetpackConnected: false } );
+				}
+
+				// Update the site in the state tree.
+				this.props.receiveSite( omit( site, '_headers' ) );
+				this.setState( { isJetpackConnected: true } );
+			} )
+			.catch( () => {
+				// @TODO: Do we need to better handle this? It most-likely means the site isn't connected.
+				this.setState( { isJetpackConnected: false } );
+			} )
+			.finally( callback );
 	};
 
 	setSourceSiteId = ( sourceSiteId ) => {
@@ -222,8 +267,8 @@ export class SectionMigrate extends Component {
 
 	setUrl = ( event ) => this.setState( { url: event.target.value } );
 
-	startMigration = () => {
-		const { sourceSiteId, targetSiteId, targetSite } = this.props;
+	startMigration = ( trackingProps = {} ) => {
+		const { sourceSiteId, targetSiteId, targetSite, isMigrateFromWp } = this.props;
 
 		if ( ! sourceSiteId || ! targetSiteId ) {
 			return;
@@ -241,12 +286,15 @@ export class SectionMigrate extends Component {
 
 		this.setMigrationState( { migrationStatus: 'backing-up', startTime: null } );
 
-		this.props.recordTracksEvent( 'calypso_site_migration_start_migration' );
+		this.props.recordTracksEvent( 'calypso_site_migration_start_migration', trackingProps );
 
 		wpcom.req
 			.post( {
 				path: `/sites/${ targetSiteId }/migrate-from/${ sourceSiteId }`,
 				apiNamespace: 'wpcom/v2',
+				body: {
+					check_migration_plugin: isMigrateFromWp,
+				},
 			} )
 			.then( () => this.updateFromAPI() )
 			.catch( ( error ) => {
@@ -259,17 +307,21 @@ export class SectionMigrate extends Component {
 
 				this.setMigrationState( {
 					migrationStatus: 'error',
+					migrationErrorStatus: code,
 					errorMessage: message,
 				} );
 			} );
 	};
 
 	goToCart = () => {
-		const { sourceSite, targetSiteSlug } = this.props;
+		const { sourceSite, targetSiteSlug, targetSite } = this.props;
 		const sourceSiteSlug = get( sourceSite, 'slug' );
+		const currentPlanSlug = get( targetSite, 'plan.product_slug' );
+		const isEcommerceTrial = currentPlanSlug === PLAN_ECOMMERCE_TRIAL_MONTHLY;
+		const plan = isEcommerceTrial ? PLAN_WOOEXPRESS_SMALL : PLAN_BUSINESS;
 
 		page(
-			`/checkout/${ targetSiteSlug }/business?redirect_to=/migrate/from/${ sourceSiteSlug }/to/${ targetSiteSlug }%3Fstart%3Dtrue`
+			`/checkout/${ targetSiteSlug }/${ plan }?redirect_to=/migrate/from/${ sourceSiteSlug }/to/${ targetSiteSlug }%3Fstart%3Dtrue`
 		);
 	};
 
@@ -283,27 +335,50 @@ export class SectionMigrate extends Component {
 			.then( ( response ) => {
 				const {
 					status: migrationStatus,
+					error_status: migrationErrorStatus,
 					percent,
+					backup_percent: backupPercent,
+					restore_percent: restorePercent,
+					restore_message: restoreMessage,
+					site_size: siteSize,
+					posts_count: backupPosts,
+					uploads_count: backupMedia,
 					source_blog_id: sourceSiteId,
 					created: startTime,
 					last_modified: lastModified,
 					is_atomic: isBackendAtomic,
+					step,
+					step_name: stepName,
+					total_steps: stepTotal,
 				} = response;
 
-				if ( sourceSiteId && sourceSiteId.toString() !== this.props.sourceSiteId.toString() ) {
-					this.setSourceSiteId( sourceSiteId );
+				if ( String( sourceSiteId ) !== String( this.props.sourceSiteId ) ) {
+					sourceSiteId && this.setSourceSiteId( sourceSiteId );
 				}
 
 				if ( migrationStatus ) {
+					const newState = {
+						migrationStatus,
+						migrationErrorStatus,
+						percent,
+						backupPercent,
+						restorePercent,
+						restoreMessage,
+						siteSize,
+						backupPosts,
+						backupMedia,
+						lastModified,
+						step,
+						stepName,
+						stepTotal,
+					};
+
 					if ( startTime && isEmpty( this.state.startTime ) ) {
 						const startMoment = moment.utc( startTime, 'YYYY-MM-DD HH:mm:ss' );
 
 						if ( ! startMoment.isValid() ) {
-							this.setMigrationState( {
-								migrationStatus,
-								percent,
-								lastModified,
-							} );
+							this.setMigrationState( newState );
+
 							return;
 						}
 
@@ -312,12 +387,9 @@ export class SectionMigrate extends Component {
 							.locale( getLocaleSlug() )
 							.format( 'lll' );
 
-						this.setMigrationState( {
-							migrationStatus,
-							percent,
-							startTime: localizedStartTime,
-							lastModified,
-						} );
+						newState.startTime = localizedStartTime;
+						this.setMigrationState( newState );
+
 						return;
 					}
 
@@ -328,11 +400,7 @@ export class SectionMigrate extends Component {
 						this.props.requestSite( targetSiteId );
 					}
 
-					this.setMigrationState( {
-						migrationStatus,
-						percent,
-						lastModified,
-					} );
+					this.setMigrationState( newState );
 				}
 			} )
 			.catch( ( error ) => {
@@ -458,7 +526,7 @@ export class SectionMigrate extends Component {
 				<Card className="migrate__pane">
 					<img
 						className="migrate__illustration"
-						src={ '/calypso/images/illustrations/waitTime-plain.svg' }
+						src="/calypso/images/illustrations/waitTime-plain.svg"
 						alt=""
 					/>
 					<FormattedHeader
@@ -470,7 +538,7 @@ export class SectionMigrate extends Component {
 					{ this.renderStartTime() }
 					{ this.renderProgressBar() }
 					{ this.renderProgressList() }
-					<p class="migrate__note">
+					<p className="migrate__note">
 						{ translate(
 							"You can safely navigate away from this page if you need to; we'll send you a notification when it's done."
 						) }
@@ -603,12 +671,22 @@ export class SectionMigrate extends Component {
 	}
 
 	render() {
-		const { step, sourceSite, targetSite, targetSiteSlug, translate } = this.props;
+		const { step, sourceSite, targetSite, targetSiteSlug, translate, targetSiteId } = this.props;
 		const sourceSiteSlug = get( sourceSite, 'slug' );
 
 		let migrationElement;
 
 		switch ( this.state.migrationStatus ) {
+			case 'in-progress':
+				return (
+					<MigrationInProgress
+						sourceSite={ sourceSite?.domain }
+						targetSite={ targetSite?.domain }
+						targetSiteId={ targetSiteId }
+						onComplete={ this.finishMigration }
+					/>
+				);
+
 			case 'inactive':
 				switch ( step ) {
 					case 'confirm':
@@ -623,14 +701,17 @@ export class SectionMigrate extends Component {
 						break;
 					case 'migrateOrImport':
 						migrationElement = (
-							<StepImportOrMigrate
-								onJetpackSelect={ this.handleJetpackSelect }
-								sourceSiteInfo={ this.state.siteInfo }
-								targetSite={ targetSite }
-								targetSiteSlug={ targetSiteSlug }
-								sourceHasJetpack={ this.state.isJetpackConnected }
-								isTargetSiteAtomic={ this.props.isTargetSiteAtomic }
-							/>
+							<>
+								<Interval onTick={ this.updateSiteInfo } period={ EVERY_FIVE_SECONDS } />
+								<StepImportOrMigrate
+									onJetpackSelect={ this.handleJetpackSelect }
+									sourceSiteInfo={ this.state.siteInfo }
+									targetSite={ targetSite }
+									targetSiteSlug={ targetSiteSlug }
+									sourceHasJetpack={ this.state.isJetpackConnected }
+									isTargetSiteAtomic={ this.props.isTargetSiteAtomic }
+								/>
+							</>
 						);
 						break;
 					case 'upgrade':

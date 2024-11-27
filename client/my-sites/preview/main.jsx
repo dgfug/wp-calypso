@@ -62,7 +62,7 @@ class PreviewMain extends Component {
 	}
 
 	updateUrl() {
-		if ( ! this.props.site ) {
+		if ( ! this.props.site || ! this.props.site.options ) {
 			if ( this.state.previewUrl !== null ) {
 				debug( 'unloaded page' );
 				this.setState( {
@@ -127,7 +127,12 @@ class PreviewMain extends Component {
 	}
 
 	updateSiteLocation = ( pathname ) => {
-		const externalUrl = this.props.site.URL + ( pathname === '/' ? '' : pathname );
+		let externalUrl;
+		try {
+			externalUrl = new URL( this.props.site.URL ).origin + ( pathname === '/' ? '' : pathname );
+		} catch ( e ) {
+			externalUrl = this.props.site.URL + ( pathname === '/' ? '' : pathname );
+		}
 		this.setState( { externalUrl } );
 		this.props.recordTracksEvent( 'calypso_view_site_page_view', {
 			full_url: externalUrl,
@@ -159,7 +164,7 @@ class PreviewMain extends Component {
 					title={ translate( 'Unable to show your site here' ) }
 					line={ translate( 'To view your site, click the button below' ) }
 					action={ action }
-					illustration={ '/calypso/images/illustrations/illustration-404.svg' }
+					illustration="/calypso/images/illustrations/illustration-404.svg"
 					illustrationWidth={ 350 }
 				/>
 			);
@@ -192,20 +197,27 @@ class PreviewMain extends Component {
 
 const ConnectedPreviewMain = ( props ) => {
 	const dispatch = useDispatch();
-	const selectedSiteId = useSelector( ( state ) => getSelectedSiteId( state ) );
-	const stateToProps = useSelector( ( state ) => {
-		const site = getSelectedSite( state );
-		const homePagePostId = get( site, [ 'options', 'page_on_front' ] );
+	const selectedSiteId = useSelector( getSelectedSiteId );
+	const site = useSelector( getSelectedSite );
+	const homePagePostId = get( site, [ 'options', 'page_on_front' ] );
+	const isPreviewable = useSelector( ( state ) => isSitePreviewable( state, selectedSiteId ) );
+	const selectedSiteNonce =
+		useSelector( ( state ) => getSiteOption( state, selectedSiteId, 'frame_nonce' ) ) || '';
+	const canEditPages = useSelector( ( state ) =>
+		canCurrentUser( state, selectedSiteId, 'edit_pages' )
+	);
+	const editorURL = useSelector( ( state ) =>
+		getEditorUrl( state, selectedSiteId, homePagePostId, 'page' )
+	);
 
-		return {
-			isPreviewable: isSitePreviewable( state, selectedSiteId ),
-			selectedSiteNonce: getSiteOption( state, selectedSiteId, 'frame_nonce' ) || '',
-			site: site,
-			siteId: selectedSiteId,
-			canEditPages: canCurrentUser( state, selectedSiteId, 'edit_pages' ),
-			editorURL: getEditorUrl( state, selectedSiteId, homePagePostId, 'page' ),
-		};
-	} );
+	const stateToProps = {
+		isPreviewable,
+		selectedSiteNonce,
+		site,
+		siteId: selectedSiteId,
+		canEditPages,
+		editorURL,
+	};
 
 	const dispatchToProps = bindActionCreators(
 		{

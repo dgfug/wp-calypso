@@ -13,7 +13,7 @@ import DataSource from './data-source';
 // These source supply very large images, and there are instances such as
 // the site icon editor, where we want to disable them because the editor
 // can't handle the large images.
-const largeImageSources = [ 'pexels', 'google_photos' ];
+const largeImageSources = [ 'google_photos', 'openverse', 'pexels' ];
 
 const noop = () => {};
 
@@ -95,12 +95,17 @@ export class MediaLibraryFilterBar extends Component {
 		return enabledFilters && ( ! filter.length || ! includes( enabledFilters, filter ) );
 	}
 
+	shouldSkipFilters() {
+		const { source, photosPickerApiEnabled } = this.props;
+		return photosPickerApiEnabled && source === 'google_photos';
+	}
+
 	changeFilter = ( filter ) => () => {
 		this.props.onFilterChange( filter );
 	};
 
 	getFiltersForSource( source ) {
-		if ( source === 'pexels' ) {
+		if ( source === 'pexels' || source === 'openverse' ) {
 			return [];
 		}
 
@@ -112,6 +117,10 @@ export class MediaLibraryFilterBar extends Component {
 	}
 
 	renderTabItems() {
+		if ( this.shouldSkipFilters() ) {
+			return null;
+		}
+
 		let tabs = this.getFiltersForSource( this.props.source );
 
 		if ( ! this.props.post ) {
@@ -155,7 +164,7 @@ export class MediaLibraryFilterBar extends Component {
 		return (
 			<Search
 				// eslint-disable-next-line jsx-a11y/no-autofocus
-				autoFocus={ source === 'pexels' }
+				autoFocus={ source === 'pexels' || source === 'openverse' }
 				key={ source }
 				analyticsGroup="Media"
 				pinned={ isPinned }
@@ -163,7 +172,7 @@ export class MediaLibraryFilterBar extends Component {
 				onSearch={ onSearch }
 				initialValue={ search }
 				placeholder={ this.getSearchPlaceholderText() }
-				delaySearch={ true }
+				delaySearch
 			/>
 		);
 	}
@@ -199,7 +208,7 @@ export class MediaLibraryFilterBar extends Component {
 
 				<SectionNav
 					selectedText={ this.getFilterLabel( this.props.filter ) }
-					hasSearch={ true }
+					hasSearch
 					allowDropdown={ ! this.props.source }
 				>
 					{ this.renderTabItems() }

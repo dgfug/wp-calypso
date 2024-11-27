@@ -10,13 +10,13 @@ import './style.scss';
 
 export default function PaymentMethodLoader( { title } ) {
 	return (
-		<LoadingPlaceholder title={ title } isFullWidth={ true }>
+		<LoadingPlaceholder title={ title } isFullWidth>
 			<Layout>
 				<Column type="main">
 					<Card className="payment-method-loader__credit-card-content credit-card-form__content">
 						<CreditCardFormFieldsLoadingPlaceholder />
 
-						<FormButton isPrimary={ false } />
+						<FormButton isPrimary={ false } disabled />
 					</Card>
 				</Column>
 				<Column type="sidebar">

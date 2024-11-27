@@ -1,8 +1,8 @@
 import { Button, ProgressBar } from '@automattic/components';
 import { useTranslate } from 'i18n-calypso';
-import { ReactElement } from 'react';
 import { connect } from 'react-redux';
 import getJetpackProductInstallProgress from 'calypso/state/selectors/get-jetpack-product-install-progress';
+import { IAppState } from 'calypso/state/types';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import ThankYou, { ThankYouCtaType } from './thank-you';
 
@@ -17,11 +17,7 @@ const ThankYouCta: ThankYouCtaType = ( { siteAdminUrl, recordThankYouClick } ) =
 	);
 };
 
-const AntiSpamProductThankYou = ( {
-	installProgress,
-}: {
-	installProgress: number | null;
-} ): ReactElement => {
+const AntiSpamProductThankYou = ( { installProgress }: { installProgress: number | null } ) => {
 	const translate = useTranslate();
 	const isInstalled = installProgress === 100;
 
@@ -33,25 +29,21 @@ const AntiSpamProductThankYou = ( {
 			ThankYouCtaComponent={ isInstalled ? ThankYouCta : undefined }
 		>
 			<>
-				<p>{ translate( "We're setting up Jetpack Anti-spam for you right now." ) }</p>
+				<p>{ translate( "We're setting up Jetpack Akismet Anti-spam for you right now." ) }</p>
 				<p>
 					{ translate(
 						"In no time you'll be able to enjoy more peace of mind and provide a better experience to your visitors."
 					) }
 				</p>
 				{ ! isInstalled && (
-					<ProgressBar
-						isPulsing={ true }
-						total={ 100 }
-						value={ Math.max( installProgress ?? 0, 10 ) }
-					/>
+					<ProgressBar isPulsing total={ 100 } value={ Math.max( installProgress ?? 0, 10 ) } />
 				) }
 			</>
 		</ThankYou>
 	);
 };
 
-export default connect( ( state ) => {
+export default connect( ( state: IAppState ) => {
 	const siteId = getSelectedSiteId( state );
 	const installProgress = siteId && getJetpackProductInstallProgress( state, siteId );
 

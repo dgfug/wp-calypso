@@ -1,23 +1,23 @@
 import { recordTracksEvent } from '@automattic/calypso-analytics';
-import { CompactCard, Button } from '@automattic/components';
-import classNames from 'classnames';
+import page from '@automattic/calypso-router';
+import { CompactCard, MaterialIcon } from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
+import { ECOMMERCE, FORMS } from '@automattic/urls';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import QuerySitePurchases from 'calypso/components/data/query-site-purchases';
 import Main from 'calypso/components/main';
-import MaterialIcon from 'calypso/components/material-icon';
+import SupportButton from 'calypso/components/support-button';
 import VerticalNav from 'calypso/components/vertical-nav';
 import VerticalNavItem from 'calypso/components/vertical-nav/item';
 import { getSelectedDomain } from 'calypso/lib/domains';
 import { sslStatuses } from 'calypso/lib/domains/constants';
-import { ECOMMERCE, FORMS } from 'calypso/lib/url/support';
 import DomainMainPlaceholder from 'calypso/my-sites/domains/domain-management/components/domain/main-placeholder';
 import Header from 'calypso/my-sites/domains/domain-management/components/header';
 import RenewButton from 'calypso/my-sites/domains/domain-management/edit/card/renew-button';
 import { domainManagementEdit } from 'calypso/my-sites/domains/paths';
-import { showInlineHelpPopover } from 'calypso/state/inline-help/actions';
 import { getProductBySlug } from 'calypso/state/products-list/selectors';
 import {
 	getByPurchaseId,
@@ -68,7 +68,7 @@ class Security extends Component {
 				break;
 		}
 
-		const statusClassNames = classNames( 'security__status', sslStatus );
+		const statusClassNames = clsx( 'security__status', sslStatus );
 
 		return (
 			<span className={ statusClassNames }>
@@ -90,9 +90,7 @@ class Security extends Component {
 							'Due to some changes to your domain, we need to generate a new SSL certificate to activate your HTTPS encryption. This process should only take a couple hours at most. If you’re running into delays please let us know so we can help you out.'
 						) }
 					</p>
-					<Button onClick={ this.props.showInlineHelpPopover }>
-						{ translate( 'Contact support' ) }
-					</Button>
+					<SupportButton skipToContactOptions>{ translate( 'Contact support' ) }</SupportButton>
 				</Fragment>
 			);
 		}
@@ -107,7 +105,7 @@ class Security extends Component {
 					</p>
 					{ selectedSite.ID && ! purchase && <QuerySitePurchases siteId={ selectedSite.ID } /> }
 					<RenewButton
-						primary={ true }
+						primary
 						purchase={ purchase }
 						selectedSite={ selectedSite }
 						subscriptionId={ parseInt( domain.subscriptionId, 10 ) }
@@ -162,10 +160,18 @@ class Security extends Component {
 				</CompactCard>
 				{ sslStatuses.SSL_ACTIVE === sslStatus && (
 					<VerticalNav>
-						<VerticalNavItem path={ ECOMMERCE } onClick={ this.handleLearnMoreClicks } external>
+						<VerticalNavItem
+							path={ localizeUrl( ECOMMERCE ) }
+							onClick={ this.handleLearnMoreClicks }
+							external
+						>
 							{ translate( 'Learn more about selling products on WordPress.com' ) }
 						</VerticalNavItem>
-						<VerticalNavItem path={ FORMS } onClick={ this.handleLearnMoreClicks } external>
+						<VerticalNavItem
+							path={ localizeUrl( FORMS ) }
+							onClick={ this.handleLearnMoreClicks }
+							external
+						>
 							{ translate( 'Learn more about forms on WordPress.com' ) }
 						</VerticalNavItem>
 					</VerticalNav>
@@ -205,7 +211,6 @@ export default connect(
 		};
 	},
 	{
-		showInlineHelpPopover,
 		recordTracksEvent,
 	}
 )( localize( Security ) );

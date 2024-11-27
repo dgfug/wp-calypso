@@ -10,8 +10,7 @@ import {
 
 /**
  * Returns the credit card validation rule set
- *
- * @returns {object} the ruleset
+ * @returns {Object} the ruleset
  */
 export function getCreditCardFieldRules() {
 	return {
@@ -55,8 +54,7 @@ export function getCreditCardFieldRules() {
 
 /**
  * Returns the credit card validation rule set for stripe elements
- *
- * @returns {object} the ruleset
+ * @returns {Object} the ruleset
  */
 export function getStripeElementsRules() {
 	return {
@@ -82,35 +80,8 @@ export function getStripeElementsRules() {
 }
 
 /**
- * Returns the tef payment validation rule set
- *
- * @returns {object} the ruleset
- */
-export function tefPaymentFieldRules() {
-	return Object.assign(
-		{
-			name: {
-				description: i18n.translate( 'Your Name' ),
-				rules: [ 'required' ],
-			},
-
-			'tef-bank': {
-				description: i18n.translate( 'Bank' ),
-				rules: [ 'required' ],
-			},
-
-			country: {
-				rules: [ 'isBrazil' ],
-			},
-		},
-		countrySpecificFieldRules( 'BR' )
-	);
-}
-
-/**
  * Returns the token validation rule set
- *
- * @returns {object} the ruleset
+ * @returns {Object} the ruleset
  */
 export function tokenFieldRules() {
 	return {
@@ -132,10 +103,9 @@ export function tokenFieldRules() {
 
 /**
  * Returns a validation ruleset to use for the given payment type
- *
- * @param {object} paymentDetails object containing fieldname/value keypairs
- * @param {string} paymentType credit-card|paypal|p24|brazil-tef|netbanking|token|stripe|ebanx
- * @returns {object|null} the ruleset
+ * @param {Object} paymentDetails object containing fieldname/value keypairs
+ * @param {string} paymentType credit-card|paypal|p24|netbanking|token|stripe|ebanx
+ * @returns {Object | null} the ruleset
  */
 export function paymentFieldRules( paymentDetails, paymentType ) {
 	switch ( paymentType ) {
@@ -150,8 +120,6 @@ export function paymentFieldRules( paymentDetails, paymentType ) {
 				getCreditCardFieldRules(),
 				getConditionalCreditCardRules( paymentDetails )
 			);
-		case 'brazil-tef':
-			return tefPaymentFieldRules();
 		case 'netbanking':
 			return countrySpecificFieldRules( 'IN' );
 		case 'token':
@@ -166,9 +134,8 @@ export function paymentFieldRules( paymentDetails, paymentType ) {
 /**
  * Returns arguments deep-merged into one object with any array values
  * concatentated and deduped
- *
- * @param {object} rulesets Objects describing the rulesets to be combined
- * @returns {object} The aggregated ruleset
+ * @param {Object} rulesets Objects describing the rulesets to be combined
+ * @returns {Object} The aggregated ruleset
  */
 export function mergeValidationRules( ...rulesets ) {
 	return mergeWith( {}, ...rulesets, ( objValue, srcValue ) =>
@@ -300,7 +267,8 @@ validators.validIndonesiaNik = {
 
 validators.validIndiaGstin = {
 	isValid( value ) {
-		const gstinRegex = /^([0-2][0-9]|[3][0-7])[A-Z]{3}[ABCFGHLJPTK][A-Z]\d{4}[A-Z][A-Z0-9][Z][A-Z0-9]$/i;
+		const gstinRegex =
+			/^([0-2][0-9]|[3][0-7])[A-Z]{3}[ABCFGHLJPTK][A-Z]\d{4}[A-Z][A-Z0-9][Z][A-Z0-9]$/i;
 
 		if ( ! value ) {
 			return true;
@@ -339,10 +307,9 @@ validators.validStreetNumber = {
  * Returns an object with one property: `errors`. That object is another object
  * with keys that are the field names of those errors.  The value of each
  * property of that object is an array of error strings.
- *
- * @param {object} paymentDetails object containing fieldname/value keypairs
- * @param {string} paymentType credit-card|paypal|p24|brazil-tef|netbanking|token|stripe|ebanx
- * @returns {object} validation errors, if any
+ * @param {Object.<string, string>} paymentDetails object containing fieldname/value keypairs
+ * @param {string} paymentType credit-card|paypal|p24|netbanking|token|stripe|ebanx
+ * @returns {{errors:Object.<string, string[]>}} validation errors, if any
  */
 export function validatePaymentDetails( paymentDetails, paymentType ) {
 	const rules = paymentFieldRules( paymentDetails, paymentType ) || {};
@@ -361,7 +328,6 @@ export function validatePaymentDetails( paymentDetails, paymentType ) {
 
 /**
  * Retrieves the type of credit card from the specified number.
- *
  * @param {string} number - credit card number
  * @returns {string|null} the type of the credit card
  * @see {@link http://en.wikipedia.org/wiki/Bank_card_number} for more information
@@ -396,7 +362,7 @@ export function getCreditCardType( number ) {
  *
  * @param {string} field the name of the field
  * @param {*} value the value of the field
- * @param {object} paymentDetails object containing fieldname/value keypairs
+ * @param {Object} paymentDetails object containing fieldname/value keypairs
  * @returns {Array} array of errors found, if any
  */
 function getErrors( field, value, paymentDetails ) {
@@ -418,7 +384,7 @@ function getEbanxCreditCardRules( { country } ) {
 /**
  *
  * @param {{country: string}} cardDetails - a map of credit card field key value pairs
- * @returns {object|null} If match is found,
+ * @returns {Object | null} If match is found,
  * an object containing rule sets for specific credit card processing providers,
  * otherwise `null`
  */

@@ -1,5 +1,4 @@
-import classNames from 'classnames';
-import { omit } from 'lodash';
+import clsx from 'clsx';
 import PropTypes from 'prop-types';
 import { PureComponent } from 'react';
 
@@ -11,6 +10,10 @@ export default class FormTextInput extends PureComponent {
 		isValid: PropTypes.bool,
 		selectOnFocus: PropTypes.bool,
 		className: PropTypes.string,
+		name: PropTypes.string,
+		value: PropTypes.any,
+		placeholder: PropTypes.any,
+		onChange: PropTypes.func,
 	};
 
 	state = {
@@ -64,17 +67,9 @@ export default class FormTextInput extends PureComponent {
 	};
 
 	render() {
-		const props = omit(
-			this.props,
-			'isError',
-			'isValid',
-			'selectOnFocus',
-			'inputRef',
-			'onChange',
-			'value'
-		);
+		const { isError, isValid, selectOnFocus, inputRef, onChange, value, ...rest } = this.props;
 
-		const classes = classNames( 'form-text-input', this.props.className, {
+		const classes = clsx( 'form-text-input', this.props.className, {
 			'is-error': this.props.isError,
 			'is-valid': this.props.isValid,
 		} );
@@ -82,7 +77,7 @@ export default class FormTextInput extends PureComponent {
 		return (
 			<input
 				type="text"
-				{ ...props }
+				{ ...rest }
 				value={ this.state.value }
 				ref={ this.textFieldRef }
 				className={ classes }

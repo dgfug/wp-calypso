@@ -3,7 +3,6 @@ const root = '/domains/';
 class DomainEmail {
 	/**
 	 * `DomainEmail` constructor.
-	 *
 	 * @param {string} [email] - email
 	 * @param {string} domainId - domain identifier
 	 * @param {WPCOM} wpcom - wpcom instance
@@ -25,9 +24,8 @@ class DomainEmail {
 
 	/**
 	 * Update the email forwards/configuration for a domain.
-	 *
 	 * @param {string} destination - the email address to forward email to.
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -39,8 +37,7 @@ class DomainEmail {
 	/**
 	 * Create an email forward for the domain
 	 * if it has enough licenses.
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -61,9 +58,8 @@ class DomainEmail {
 
 	/**
 	 * Delete an email forward for the domain
-	 *
 	 * @param {string} mailbox - mailbox to alter
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */

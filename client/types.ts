@@ -1,3 +1,4 @@
+import { StyleVariation } from '@automattic/design-picker';
 import type { NonUndefined } from 'utility-types';
 
 // Web stuff
@@ -23,9 +24,10 @@ export interface Theme {
 	author: string;
 	author_uri: string;
 	cost: ThemeCost;
+	block_theme?: boolean;
 	date_launched: string;
 	date_updated: string;
-	demo_uri: string;
+	demo_uri?: string;
 	description: string;
 	descriptionLong: string;
 	download: string;
@@ -37,19 +39,35 @@ export interface Theme {
 	name: string;
 	next: string;
 	popularity_rank: string;
+	product_details?: MarketplaceThemeProductDetails[];
 	preview_url: string;
 	screenshot: string;
 	screenshots: string[];
+	style_variations: StyleVariation[];
 	stylesheet: string;
 	supportDocumentation: string;
 	tags: string[];
 	taxonomies?: {
 		theme_feature?: ThemeFeature[];
+		theme_software_set?: ThemeSoftwareSet[];
+		theme_subject?: ThemeSubject[];
 	};
 	template: string;
 	theme_uri: string;
+	theme_tier: {
+		slug: string;
+		feature?: string;
+		featureList?: string[];
+		platform: string;
+	};
 	trending_rank: number;
 	version: string;
+}
+
+interface MarketplaceThemeProductDetails {
+	product_id: number;
+	product_slug: string;
+	billing_product_slug: string;
 }
 
 interface ThemeCost {
@@ -59,6 +77,18 @@ interface ThemeCost {
 }
 
 interface ThemeFeature {
+	name: string;
+	slug: string;
+	term_id: string;
+}
+
+export interface ThemeSoftwareSet {
+	name: string;
+	slug: string;
+	term_id: string;
+}
+
+interface ThemeSubject {
 	name: string;
 	slug: string;
 	term_id: string;
@@ -101,5 +131,10 @@ export type __TodoAny__ = any; /* eslint-disable-line @typescript-eslint/no-expl
 declare global {
 	interface Window {
 		AppBoot: () => void;
+		COMMIT_SHA: string; // Added by an inline script in <head> via SSR context + webpack.
+		app?: {
+			isDebug?: boolean;
+		};
+		__REDUX_DEVTOOLS_EXTENSION__?: () => void;
 	}
 }

@@ -28,7 +28,7 @@ class SecurityCheckupTwoFactorAuthentication extends Component {
 		} = this.props;
 
 		if ( ! areUserSettingsLoaded ) {
-			return <SecurityCheckupNavigationItem isPlaceholder={ true } />;
+			return <SecurityCheckupNavigationItem isPlaceholder />;
 		}
 
 		let icon;
@@ -64,7 +64,7 @@ class SecurityCheckupTwoFactorAuthentication extends Component {
 
 		return (
 			<SecurityCheckupNavigationItem
-				path={ '/me/security/two-step' }
+				path="/me/security/two-step"
 				materialIcon={ icon }
 				text={ translate( 'Two-Step Authentication' ) }
 				description={ description }

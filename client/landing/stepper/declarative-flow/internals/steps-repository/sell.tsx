@@ -14,11 +14,12 @@ const SellStep: Step = function SellStep( { navigation } ) {
 
 	return (
 		<StepContainer
+			stepName="sell"
 			hideSkip
 			goBack={ goBack }
-			isHorizontalLayout={ true }
+			isHorizontalLayout
 			formattedHeader={
-				<FormattedHeader id={ 'seller-step-header' } headerText={ headerText } align={ 'left' } />
+				<FormattedHeader id="seller-step-header" headerText={ headerText } align="left" />
 			}
 			stepContent={ <div>Sell step content</div> }
 			recordTracksEvent={ recordTracksEvent }

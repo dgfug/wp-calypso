@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import deepFreeze from 'deep-freeze';
 import {
 	PRODUCTS_LIST_RECEIVE,
@@ -6,40 +5,37 @@ import {
 	PRODUCTS_LIST_REQUEST_FAILURE,
 } from 'calypso/state/action-types';
 import { serialize, deserialize } from 'calypso/state/utils';
-import { useSandbox } from 'calypso/test-helpers/use-sinon';
 import reducer, { items, isFetching, type } from '../reducer';
 
 describe( 'reducer', () => {
-	useSandbox( ( sandbox ) => {
-		sandbox.stub( console, 'warn' );
-	} );
+	jest.spyOn( console, 'warn' ).mockImplementation();
 
 	test( 'should include expected keys in return value', () => {
-		expect( reducer( undefined, {} ) ).to.have.keys( [ 'items', 'isFetching', 'type' ] );
+		expect( Object.keys( reducer( undefined, {} ) ) ).toEqual(
+			expect.arrayContaining( [ 'items', 'isFetching', 'type' ] )
+		);
 	} );
 
 	describe( '#items()', () => {
 		test( 'should default to empty object', () => {
 			const state = items( undefined, {} );
 
-			expect( state ).to.eql( {} );
+			expect( state ).toEqual( {} );
 		} );
 
 		test( 'should store the product list received', () => {
-			const productsList = [
-				{
-					'business-bundle': {
-						available: true,
-						product_id: 1008,
-						product_name: 'WordPress.com Business',
-						product_slug: 'business-bundle',
-						is_domain_registration: false,
-						description: '',
-						cost: 300,
-						cost_display: '$300',
-					},
+			const productsList = {
+				'business-bundle': {
+					available: true,
+					product_id: 1008,
+					product_name: 'WordPress.com Business',
+					product_slug: 'business-bundle',
+					is_domain_registration: false,
+					description: '',
+					cost: 300,
+					cost_display: '$300',
 				},
-			];
+			};
 
 			const state = items(
 				{},
@@ -49,7 +45,7 @@ describe( 'reducer', () => {
 				}
 			);
 
-			expect( state ).to.eql( productsList );
+			expect( state ).toEqual( productsList );
 		} );
 
 		describe( 'persistence', () => {
@@ -67,7 +63,7 @@ describe( 'reducer', () => {
 					},
 				} );
 				const state = serialize( items, original );
-				expect( state ).to.eql( original );
+				expect( state ).toEqual( original );
 			} );
 
 			test( 'loads valid persisted state', () => {
@@ -84,7 +80,7 @@ describe( 'reducer', () => {
 					},
 				} );
 				const state = deserialize( items, original );
-				expect( state ).to.eql( original );
+				expect( state ).toEqual( original );
 			} );
 
 			test( 'loads default state when schema does not match', () => {
@@ -97,7 +93,7 @@ describe( 'reducer', () => {
 					},
 				} );
 				const state = deserialize( items, original );
-				expect( state ).to.eql( {} );
+				expect( state ).toEqual( {} );
 			} );
 		} );
 	} );
@@ -106,22 +102,22 @@ describe( 'reducer', () => {
 		test( 'should default to false', () => {
 			const state = isFetching( undefined, {} );
 
-			expect( state ).to.eql( false );
+			expect( state ).toEqual( false );
 		} );
 
 		test( 'should be true after a request begins', () => {
 			const state = isFetching( false, { type: PRODUCTS_LIST_REQUEST } );
-			expect( state ).to.eql( true );
+			expect( state ).toEqual( true );
 		} );
 
 		test( 'should be false when a request completes', () => {
 			const state = isFetching( true, { type: PRODUCTS_LIST_RECEIVE } );
-			expect( state ).to.eql( false );
+			expect( state ).toEqual( false );
 		} );
 
 		test( 'should be false when a request fails', () => {
 			const state = isFetching( true, { type: PRODUCTS_LIST_REQUEST_FAILURE } );
-			expect( state ).to.eql( false );
+			expect( state ).toEqual( false );
 		} );
 	} );
 
@@ -129,31 +125,31 @@ describe( 'reducer', () => {
 		test( 'should default to null', () => {
 			const state = type( undefined, {} );
 
-			expect( state ).to.eql( null );
+			expect( state ).toBeNull();
 		} );
 
 		test( 'should store the received type', () => {
 			const state = type( undefined, { type: PRODUCTS_LIST_RECEIVE, productsListType: 'all' } );
-			expect( state ).to.eql( 'all' );
+			expect( state ).toEqual( 'all' );
 		} );
 
 		describe( 'persistence', () => {
 			test( 'persists state', () => {
 				const original = deepFreeze( 'jetpack' );
 				const state = serialize( type, original );
-				expect( state ).to.eql( original );
+				expect( state ).toEqual( original );
 			} );
 
 			test( 'loads valid persisted state', () => {
 				const original = deepFreeze( 'jetpack' );
 				const state = deserialize( type, original );
-				expect( state ).to.eql( original );
+				expect( state ).toEqual( original );
 			} );
 
 			test( 'loads default state when schema does not match', () => {
 				const original = deepFreeze( 0 );
 				const state = deserialize( type, original );
-				expect( state ).to.eql( null );
+				expect( state ).toBeNull();
 			} );
 		} );
 	} );

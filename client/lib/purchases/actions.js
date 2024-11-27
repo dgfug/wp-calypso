@@ -1,6 +1,8 @@
 import debugFactory from 'debug';
 import wpcom from 'calypso/lib/wp';
+import { getCancelPurchaseSurveyCompletedPreferenceKey } from 'calypso/me/purchases/utils';
 import { errorNotice } from 'calypso/state/notices/actions';
+import { savePreference } from 'calypso/state/preferences/actions';
 
 const debug = debugFactory( 'calypso:purchases:actions' );
 
@@ -25,6 +27,25 @@ export function cancelAndRefundPurchase( purchaseId, data, onComplete ) {
 	);
 }
 
+export async function cancelPurchaseAsync( purchaseId ) {
+	try {
+		const data = await wpcom.req.post( `/upgrades/${ purchaseId }/disable-auto-renew` );
+		debug( null, data );
+		return data.success;
+	} catch ( error ) {
+		debug( error, null );
+		return false;
+	}
+}
+
+export async function cancelAndRefundPurchaseAsync( purchaseId, data ) {
+	return wpcom.req.post( {
+		path: `/purchases/${ purchaseId }/cancel`,
+		body: data,
+		apiNamespace: 'wpcom/v2',
+	} );
+}
+
 export const submitSurvey = ( surveyName, siteId, surveyData ) => ( dispatch ) => {
 	return wpcom.req
 		.post( '/marketing/survey', {
@@ -39,6 +60,10 @@ export const submitSurvey = ( surveyName, siteId, surveyData ) => ( dispatch ) =
 			}
 		} )
 		.catch( ( err ) => debug( err ) ); // shouldn't get here
+};
+
+export const cancelPurchaseSurveyCompleted = ( purchaseId ) => ( dispatch ) => {
+	savePreference( getCancelPurchaseSurveyCompletedPreferenceKey( purchaseId ), true )( dispatch );
 };
 
 export function disableAutoRenew( purchaseId, onComplete ) {

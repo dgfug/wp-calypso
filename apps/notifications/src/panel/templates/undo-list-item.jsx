@@ -89,7 +89,9 @@ export class UndoListItem extends Component {
 		const component = this;
 
 		const updateSpamStatus = function ( error, data ) {
-			if ( error ) throw error;
+			if ( error ) {
+				throw error;
+			}
 
 			if ( 'spam' !== data.status ) {
 				// TODO: Handle failure to set Spam status
@@ -97,13 +99,16 @@ export class UndoListItem extends Component {
 		};
 
 		comment.get( function ( error, data ) {
-			if ( error ) throw error;
+			if ( error ) {
+				throw error;
+			}
 
 			data.status = 'spam';
 			comment.update( data, updateSpamStatus );
 		} );
 
-		this.props.removeNotes( [ this.props.note.id ] );
+		const isComment = true;
+		this.props.removeNotes( [ this.props.note.id ], isComment );
 
 		component.finishExecution();
 	};
@@ -113,12 +118,15 @@ export class UndoListItem extends Component {
 			.site( this.props.note.meta.ids.site )
 			.comment( this.props.note.meta.ids.comment )
 			.del( ( error ) => {
-				if ( error ) throw error;
+				if ( error ) {
+					throw error;
+				}
 			} );
 
 		this.instance && this.setState( { isVisible: false } );
 
-		this.props.removeNotes( [ this.props.note.id ] );
+		const isComment = true;
+		this.props.removeNotes( [ this.props.note.id ], isComment );
 
 		this.finishExecution();
 	};

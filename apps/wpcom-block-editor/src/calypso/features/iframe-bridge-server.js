@@ -1,52 +1,86 @@
-/* global calypsoifyGutenberg, Image, MessageChannel, MessagePort, requestAnimationFrame */
+/* global calypsoifyGutenberg, Image, requestAnimationFrame */
 
 import { parse } from '@wordpress/blocks';
-import {
-	Button,
-	__experimentalNavigationBackButton as NavigationBackButton,
-} from '@wordpress/components';
+import { Button } from '@wordpress/components';
 import { dispatch, select, subscribe, use } from '@wordpress/data';
 import domReady from '@wordpress/dom-ready';
 import { __experimentalMainDashboardButton as MainDashboardButton } from '@wordpress/edit-post';
 import { addAction, addFilter, doAction, removeAction } from '@wordpress/hooks';
 import { __ } from '@wordpress/i18n';
-import { comment, wordpress } from '@wordpress/icons';
+import { wordpress } from '@wordpress/icons';
 import { registerPlugin } from '@wordpress/plugins';
 import { addQueryArgs, getQueryArg } from '@wordpress/url';
 import debugFactory from 'debug';
 import { filter, forEach, get, map } from 'lodash';
 import { Component, useEffect, useState } from 'react';
 import tinymce from 'tinymce/tinymce';
-import { STORE_KEY as NAV_SIDEBAR_STORE_KEY } from '../../../../editing-toolkit/editing-toolkit-plugin/wpcom-block-editor-nav-sidebar/src/constants';
 import {
+	getPages,
+	getPostTypeRecords,
 	inIframe,
 	isEditorReady,
 	isEditorReadyWithBlocks,
 	sendMessage,
-	getPages,
 } from '../../utils';
-import FeedbackForm from './fse-beta/feedback-form';
-/**
- * Conditional dependency.  We cannot use the standard 'import' since this package is
- * not available in the post editor and causes WSOD in that case.  Instead, we can
- * define it from 'require' and conditionally check if it is available for use.
- */
-const editSitePackage = require( '@wordpress/edit-site' );
 
 const debug = debugFactory( 'wpcom-block-editor:iframe-bridge-server' );
 
 const clickOverrides = {};
-let addedListener = false;
-// Replicates basic '$( el ).on( selector, cb )'. Includes preventDefault to override
-// the default event handlers.
+let addedClickListener = false;
+// Replicates basic '$( el ).on( selector, cb )'.
 function addEditorListener( selector, cb ) {
 	clickOverrides[ selector ] = cb;
-
-	if ( ! addedListener ) {
-		document.querySelector( '#editor' )?.addEventListener( 'click', triggerOverrideHandler );
-		addedListener = true;
+	if ( ! addedClickListener ) {
+		document
+			.querySelector( 'body.is-iframed' )
+			?.addEventListener( 'click', triggerOverrideHandler );
+		addedClickListener = true;
 	}
 }
+
+const enterOverrides = {};
+let addedEnterListener = false;
+function addCommandsInputListener( selector, cb ) {
+	enterOverrides[ selector ] = cb;
+
+	if ( ! addedEnterListener ) {
+		document.querySelector( 'body.is-iframed' )?.addEventListener( 'keydown', ( e ) => {
+			const isInputActive = document.activeElement?.matches(
+				'.commands-command-menu__header input'
+			);
+			const selectedCommand = document.querySelector( '[data-selected=true]' );
+
+			if ( e.key === 'Enter' && isInputActive && !! selectedCommand ) {
+				const matchingSelector = Object.keys( enterOverrides ).find( ( _selector ) => {
+					return selectedCommand.matches( _selector );
+				} );
+
+				if ( matchingSelector ) {
+					const callback = enterOverrides[ matchingSelector ];
+
+					callback?.( e );
+				}
+			}
+		} );
+
+		addedEnterListener = true;
+	}
+}
+
+/**
+ * Returns the Popover fallback container if exists or creates a new node
+ */
+const fallbackContainerClassname = 'components-popover__fallback-container';
+const getPopoverFallbackContainer = () => {
+	let container = document.body.querySelector( '.' + fallbackContainerClassname );
+	if ( ! container ) {
+		container = document.createElement( 'div' );
+		container.className = fallbackContainerClassname;
+		document.body.append( container );
+	}
+
+	return container;
+};
 
 // Calls a callback if the event occured on an element or parent thereof matching
 // the callback's selector. This is needed because elements are added and removed
@@ -63,16 +97,12 @@ function triggerOverrideHandler( e ) {
 
 	// Find the correct callback to use for this clicked element.
 	for ( const [ selector, cb ] of Object.entries( clickOverrides ) ) {
-		if ( matchingElement.matches( selector ) ) {
-			e.preventDefault();
-			cb( e );
-		}
+		matchingElement.matches( selector ) && cb( e );
 	}
 }
 
 /**
  * Monitors Gutenberg store for draft ID assignment and transmits it to parent frame when needed.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function transmitDraftId( calypsoPort ) {
@@ -97,10 +127,21 @@ function transmitDraftId( calypsoPort ) {
 
 /**
  * Sends a message to the parent frame when the "Move to trash" button is clicked.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function handlePostTrash( calypsoPort ) {
+	/**
+	 * As of Gutenberg 18.2, posts are trashed with code that we cannot override
+	 * via the actions registry, so we need to change the behavior overriding the
+	 * onClick event.
+	 *
+	 * See https://github.com/WordPress/gutenberg/blob/379e5f42d11a46dfa29fe4c595ba43f1f3ba9b17/packages/editor/src/components/post-actions/actions.js#L122-L220
+	 */
+	addEditorListener( '.editor-action-modal__move-to-trash button.is-primary', ( e ) => {
+		e.preventDefault();
+		calypsoPort.postMessage( { action: 'trashPost' } );
+	} );
+
 	use( ( registry ) => {
 		return {
 			dispatch: ( store ) => {
@@ -129,7 +170,8 @@ function handlePostTrash( calypsoPort ) {
 }
 
 function overrideRevisions( calypsoPort ) {
-	addEditorListener( '[href*="revision.php"]', () => {
+	addEditorListener( '[href*="revision.php"]', ( e ) => {
+		e.preventDefault();
 		calypsoPort.postMessage( { action: 'openRevisions' } );
 
 		calypsoPort.addEventListener( 'message', onLoadRevision, false );
@@ -155,46 +197,46 @@ function overrideRevisions( calypsoPort ) {
  * Listens for post lock status changing to locked, and overrides the modal dialog
  * actions, addind an event handler for the All Posts button, and changing the
  * Take Over Url to work inside the iframe.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function handlePostLocked( calypsoPort ) {
 	const unsubscribe = subscribe( () => {
 		const isLocked = select( 'core/editor' ).isPostLocked();
 		const isLockTakeover = select( 'core/editor' ).isPostLockTakeover();
-		const lockedDialogButtons = document.querySelectorAll(
-			'div.editor-post-locked-modal__buttons > a'
-		);
 
-		const isPostTakeoverDialog = isLocked && ! isLockTakeover && lockedDialogButtons.length === 3;
-
-		if ( isPostTakeoverDialog ) {
-			//signal the parent frame to navigate to All Posts
-			lockedDialogButtons[ 0 ].addEventListener(
-				'click',
-				( event ) => {
-					event.preventDefault();
-					calypsoPort.postMessage( { action: 'goToAllPosts' } );
-				},
-				false
+		if ( isLocked && ! isLockTakeover ) {
+			const lockedDialogButtons = document.querySelectorAll(
+				'div.editor-post-locked-modal__buttons > a'
 			);
 
-			//overrides the all posts link just in case the user treats the link... as a link.
-			if ( calypsoifyGutenberg && calypsoifyGutenberg.closeUrl ) {
-				lockedDialogButtons[ 0 ].setAttribute( 'target', '_parent' );
-				lockedDialogButtons[ 0 ].setAttribute( 'href', calypsoifyGutenberg.closeUrl );
+			if ( lockedDialogButtons.length === 3 ) {
+				//signal the parent frame to navigate to All Posts
+				lockedDialogButtons[ 0 ].addEventListener(
+					'click',
+					( event ) => {
+						event.preventDefault();
+						calypsoPort.postMessage( { action: 'goToAllPosts' } );
+					},
+					false
+				);
+
+				//overrides the all posts link just in case the user treats the link... as a link.
+				if ( calypsoifyGutenberg && calypsoifyGutenberg.closeUrl ) {
+					lockedDialogButtons[ 0 ].setAttribute( 'target', '_parent' );
+					lockedDialogButtons[ 0 ].setAttribute( 'href', calypsoifyGutenberg.closeUrl );
+				}
+
+				//changes the Take Over link url to add the frame-nonce
+				lockedDialogButtons[ 2 ].setAttribute(
+					'href',
+					addQueryArgs( lockedDialogButtons[ 2 ].getAttribute( 'href' ), {
+						calypsoify: 1,
+						'frame-nonce': getQueryArg( window.location.href, 'frame-nonce' ),
+					} )
+				);
+
+				unsubscribe();
 			}
-
-			//changes the Take Over link url to add the frame-nonce
-			lockedDialogButtons[ 2 ].setAttribute(
-				'href',
-				addQueryArgs( lockedDialogButtons[ 2 ].getAttribute( 'href' ), {
-					calypsoify: 1,
-					'frame-nonce': getQueryArg( window.location.href, 'frame-nonce' ),
-				} )
-			);
-
-			unsubscribe();
 		}
 	} );
 }
@@ -202,35 +244,35 @@ function handlePostLocked( calypsoPort ) {
 /**
  * Listens for post lock status changing to locked, and for the post to have been taken over
  * by another user, adding an event handler for the All Posts button.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function handlePostLockTakeover( calypsoPort ) {
 	const unsubscribe = subscribe( () => {
 		const isLocked = select( 'core/editor' ).isPostLocked();
 		const isLockTakeover = select( 'core/editor' ).isPostLockTakeover();
-		const allPostsButton = document.querySelector( 'div.editor-post-locked-modal__buttons > a' );
 
-		const isPostTakeoverDialog = isLocked && isLockTakeover && allPostsButton;
+		if ( isLocked && isLockTakeover ) {
+			const allPostsButton = document.querySelector( 'div.editor-post-locked-modal__buttons > a' );
 
-		if ( isPostTakeoverDialog ) {
-			//handle All Posts button click event
-			allPostsButton.addEventListener(
-				'click',
-				( event ) => {
-					event.preventDefault();
-					calypsoPort.postMessage( { action: 'goToAllPosts' } );
-				},
-				false
-			);
+			if ( allPostsButton ) {
+				//handle All Posts button click event
+				allPostsButton.addEventListener(
+					'click',
+					( event ) => {
+						event.preventDefault();
+						calypsoPort.postMessage( { action: 'goToAllPosts' } );
+					},
+					false
+				);
 
-			//overrides the all posts link just in case the user treats the link... as a link.
-			if ( calypsoifyGutenberg && calypsoifyGutenberg.closeUrl ) {
-				allPostsButton.setAttribute( 'target', '_parent' );
-				allPostsButton.setAttribute( 'href', calypsoifyGutenberg.closeUrl );
+				//overrides the all posts link just in case the user treats the link... as a link.
+				if ( calypsoifyGutenberg && calypsoifyGutenberg.closeUrl ) {
+					allPostsButton.setAttribute( 'target', '_parent' );
+					allPostsButton.setAttribute( 'href', calypsoifyGutenberg.closeUrl );
+				}
+
+				unsubscribe();
 			}
-
-			unsubscribe();
 		}
 	} );
 }
@@ -270,7 +312,6 @@ function handlePostStatusChange( calypsoPort ) {
 /**
  * Listens for image changes or removals happening in the Media Modal,
  * and updates accordingly all blocks containing them.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function handleUpdateImageBlocks( calypsoPort ) {
@@ -289,9 +330,8 @@ function handleUpdateImageBlocks( calypsoPort ) {
 
 	/**
 	 * Updates all the blocks containing a given edited image.
-	 *
 	 * @param {Array} blocks Array of block objects for the current post.
-	 * @param {object} image The edited image.
+	 * @param {Object} image The edited image.
 	 * @param {number} image.id The image ID.
 	 * @param {string} image.url The new image URL.
 	 * @param {string} image.status The new image status. "deleted" or "updated" (default).
@@ -409,7 +449,6 @@ function handleUpdateImageBlocks( calypsoPort ) {
 /**
  * Listens for insert media events happening in a Media Modal opened in a Classic Block,
  * and inserts the media into the appropriate block.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function handleInsertClassicBlockMedia( calypsoPort ) {
@@ -430,7 +469,6 @@ function handleInsertClassicBlockMedia( calypsoPort ) {
 /**
  * Prevents the default closing flow and sends a message to the parent frame to
  * perform the navigation on the client side.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function handleCloseEditor( calypsoPort ) {
@@ -461,35 +499,7 @@ function handleCloseEditor( calypsoPort ) {
 
 	handleCloseInLegacyEditors( dispatchAction );
 
-	// Add back to dashboard fill for Site Editor when edit-site package is available.
-	if ( editSitePackage ) {
-		registerPlugin( 'a8c-wpcom-block-editor-site-editor-back-to-dashboard-override', {
-			render: () => {
-				const SiteEditorDashboardFill = editSitePackage?.__experimentalMainDashboardButton;
-				if ( ! SiteEditorDashboardFill || ! NavigationBackButton ) {
-					return null;
-				}
-
-				return (
-					<SiteEditorDashboardFill>
-						<NavigationBackButton
-							backButtonLabel={ __( 'Dashboard' ) }
-							// eslint-disable-next-line wpcalypso/jsx-classname-namespace
-							className="edit-site-navigation-panel__back-to-dashboard"
-							href={ calypsoifyGutenberg.closeUrl }
-							onClick={ dispatchAction }
-						/>
-					</SiteEditorDashboardFill>
-				);
-			},
-		} );
-	}
-
 	if ( ! MainDashboardButton ) {
-		return;
-	}
-
-	if ( isNavSidebarPresent() ) {
 		return;
 	}
 
@@ -542,52 +552,125 @@ function handleCloseInLegacyEditors( handleClose ) {
 
 	// Selects the close button in modern Gutenberg versions, unless it itself is a close button override
 	const wpcomCloseSelector = '.wpcom-block-editor__close-button';
-	const navSidebarCloseSelector = '.wpcom-block-editor-nav-sidebar-toggle-sidebar-button__button';
-	const selector = `.edit-post-header .edit-post-fullscreen-mode-close:not(${ wpcomCloseSelector }):not(${ navSidebarCloseSelector })`;
+	const selector = `.edit-post-header .edit-post-fullscreen-mode-close:not(${ wpcomCloseSelector })`;
 	addEditorListener( selector, handleClose );
 }
 
 /**
- * Uses presence of data store to detect whether the nav sidebar has been loaded.
- * Could run into timing issues, but the nav sidebar's data store is currently
- * loaded early enough that this works for our needs.
- */
-function isNavSidebarPresent() {
-	const selectors = select( NAV_SIDEBAR_STORE_KEY );
-	return !! selectors;
-}
-
-/**
  * Modify links in order to open them in parent window and not in a child iframe.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 async function openLinksInParentFrame( calypsoPort ) {
 	const viewPostLinks = [
-		'.components-notice-list .is-success .components-notice__action.is-link', // View Post link in success notice, Gutenberg <5.9
-		'.components-snackbar-list .components-snackbar__content a', // View Post link in success snackbar, Gutenberg >=5.9
 		'.post-publish-panel__postpublish .components-panel__body.is-opened a', // Post title link in publish panel
 		'.components-panel__body.is-opened .post-publish-panel__postpublish-buttons a.components-button', // View Post button in publish panel
+		'.wpcom-block-editor-post-published-sharing-modal__view-post-link', // View Post button in sharing modal
 	].join( ',' );
 
 	addEditorListener( viewPostLinks, ( e ) => {
-		// Ignore if the click has modifier
+		// Allows modifiers to open links outside of the current tab using the default behavior.
 		if ( e.shiftKey || e.ctrlKey || e.metaKey ) {
 			return;
 		}
-
+		e.preventDefault();
 		calypsoPort.postMessage( {
-			action: 'viewPost',
+			action: 'openLinkInParentFrame',
 			payload: { postUrl: e.target.href },
 		} );
 	} );
 
-	const { createNewPostUrl, manageReusableBlocksUrl } = calypsoifyGutenberg;
-	if ( ! createNewPostUrl && ! manageReusableBlocksUrl ) {
+	await isEditorReadyWithBlocks();
+
+	// Observes the popover slot for the "Manage Patterns" link which can be found
+	// in the block's more menu or in the block-editor menu, and for the navigation link.
+	const popoverSlotObserver = new window.MutationObserver( ( mutations ) => {
+		for ( const record of mutations ) {
+			for ( const node of record.addedNodes ) {
+				// For some reason, some nodes might be `undefined`, see:
+				// https://sentry.io/organizations/a8c/issues/3216750319/?project=5876245.
+				// We skip the iteration if that's the case.
+				if ( ! node ) {
+					continue;
+				}
+
+				if ( node?.classList?.contains( 'components-popover' ) ) {
+					const manageReusableBlocksAnchorElem = node.querySelector(
+						'a[href$="site-editor.php?path=%2Fpatterns"]'
+					);
+
+					if ( manageReusableBlocksAnchorElem ) {
+						manageReusableBlocksAnchorElem.addEventListener(
+							'click',
+							( e ) => {
+								calypsoPort.postMessage( {
+									action: 'openLinkInParentFrame',
+									payload: { postUrl: manageReusableBlocksAnchorElem.href },
+								} );
+								e.preventDefault();
+							},
+							false
+						);
+					}
+
+					const manageNavigationMenusAnchorElem = node.querySelector(
+						'a[href$="edit.php?post_type=wp_navigation"]'
+					);
+
+					if ( manageNavigationMenusAnchorElem ) {
+						manageNavigationMenusAnchorElem.addEventListener(
+							'click',
+							( e ) => {
+								calypsoPort.postMessage( {
+									action: 'openLinkInParentFrame',
+									payload: { postUrl: manageNavigationMenusAnchorElem.href },
+								} );
+								e.preventDefault();
+							},
+							false
+						);
+					}
+				}
+			}
+		}
+	} );
+
+	// Observe children of the Popover Container
+	const popoverContainer = getPopoverFallbackContainer();
+	popoverContainer && popoverSlotObserver.observe( popoverContainer, { childList: true } );
+
+	const { createNewPostUrl } = calypsoifyGutenberg;
+	if ( ! createNewPostUrl ) {
 		return;
 	}
 
-	await isEditorReadyWithBlocks();
+	// Handle the view post link in the snackbar, which unfortunately has a click
+	// handler which stops propagation, so we can't override it with the global handler.
+	const updateViewPostLinkNotice = () => {
+		// This timeout might not be necessary, but replicates the fix for Safari several lines below.
+		setTimeout( () => {
+			const snackbarLink = document.querySelector(
+				'.components-snackbar-list a.components-snackbar__action'
+			);
+			if ( snackbarLink ) {
+				// Make sure this link doesn't open inside the iframe.
+				snackbarLink.target = '_blank';
+			}
+		} );
+	};
+
+	// Essentially, when the snackbar list changes, attempt to update the link.
+	// Only called once when a snackbar item is added and when removed, so
+	// it doesn't cost much.
+	const snackbarList = document.querySelector( '.components-snackbar-list' );
+	if ( snackbarList ) {
+		const snackbarObserver = new window.MutationObserver( updateViewPostLinkNotice );
+		snackbarObserver.observe( snackbarList, { childList: true } );
+	} else {
+		// eslint-disable-next-line no-console
+		console.warn(
+			'Could not find the snackbar list element so, the "View post" link may open inside the iframe.'
+		);
+	}
 
 	// Create a new post link in block settings sidebar for Query block
 	const tryToReplaceCreateNewPostLink = () => {
@@ -603,25 +686,8 @@ async function openLinksInParentFrame( calypsoPort ) {
 	};
 	const createNewPostLinkObserver = new window.MutationObserver( tryToReplaceCreateNewPostLink );
 
-	// Manage reusable blocks link in the global block inserter's Reusable tab
-	// Post editor only
-	const inserterManageReusableBlocksObserver = new window.MutationObserver( ( mutations ) => {
-		const node = mutations[ 0 ].target;
-		if ( node.attributes.getNamedItem( 'aria-selected' )?.nodeValue === 'true' ) {
-			const hyperlink = document.querySelector( 'a.block-editor-inserter__manage-reusable-blocks' );
-			if ( hyperlink ) {
-				hyperlink.href = manageReusableBlocksUrl;
-				hyperlink.target = '_top';
-			}
-		}
-	} );
-
 	const shouldReplaceCreateNewPostLinksFor = ( node ) =>
 		createNewPostUrl && node.classList.contains( 'interface-interface-skeleton__sidebar' );
-
-	const shouldReplaceManageReusableBlockLinksFor = ( node ) =>
-		manageReusableBlocksUrl &&
-		node.classList.contains( 'interface-interface-skeleton__secondary-sidebar' );
 
 	const observeSidebarMutations = ( node ) => {
 		if (
@@ -632,16 +698,6 @@ async function openLinksInParentFrame( calypsoPort ) {
 			// If a Query block is selected, then the sidebar will
 			// directly open on the block settings tab
 			tryToReplaceCreateNewPostLink();
-		} else if (
-			// Block inserter sidebar, Reusable tab
-			shouldReplaceManageReusableBlockLinksFor( node )
-		) {
-			const reusableTab = node.querySelector( '.components-tab-panel__tabs-item[id*="reusable"]' );
-			if ( reusableTab ) {
-				inserterManageReusableBlocksObserver.observe( reusableTab, {
-					attributeFilter: [ 'aria-selected' ],
-				} );
-			}
 		}
 	};
 
@@ -651,11 +707,6 @@ async function openLinksInParentFrame( calypsoPort ) {
 			shouldReplaceCreateNewPostLinksFor( node )
 		) {
 			createNewPostLinkObserver.disconnect();
-		} else if (
-			// Block inserter sidebar, Reusable tab
-			shouldReplaceManageReusableBlockLinksFor( node )
-		) {
-			inserterManageReusableBlocksObserver.disconnect();
 		}
 	};
 
@@ -690,31 +741,6 @@ async function openLinksInParentFrame( calypsoPort ) {
 	const body = document.querySelector( '.interface-interface-skeleton__body' );
 	sidebarsObserver.observe( body, { childList: true } );
 
-	// Manage reusable blocks link in the 3 dots more menu, post and site editors
-	if ( manageReusableBlocksUrl ) {
-		const toggleButton = document.querySelector(
-			'.edit-post-more-menu button, .edit-site-more-menu button'
-		);
-		const moreMenuManageReusableBlocksObserver = new window.MutationObserver( () => {
-			const isExpanded =
-				toggleButton.attributes.getNamedItem( 'aria-expanded' )?.nodeValue === 'true';
-			if ( isExpanded ) {
-				// The menu has not expanded at this point in Safari, so modify the link
-				// after the call stack has cleared and the menu has rendered.
-				setTimeout( () => {
-					const hyperlink = document.querySelector(
-						'a.components-menu-item__button[href*="post_type=wp_block"]'
-					);
-					hyperlink.href = manageReusableBlocksUrl;
-					hyperlink.target = '_top';
-				} );
-			}
-		} );
-		moreMenuManageReusableBlocksObserver.observe( toggleButton, {
-			attributeFilter: [ 'aria-expanded' ],
-		} );
-	}
-
 	// Sidebar might already be open before this script is executed.
 	// post and site editors
 	if ( createNewPostUrl ) {
@@ -733,11 +759,11 @@ async function openLinksInParentFrame( calypsoPort ) {
 
 /**
  * Ensures the Calypso Customizer is opened when clicking on the FSE blocks' edit buttons.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function openCustomizer( calypsoPort ) {
 	addEditorListener( '[href*="customize.php"]', ( e ) => {
+		e.preventDefault();
 		calypsoPort.postMessage( {
 			action: 'openCustomizer',
 			payload: {
@@ -751,11 +777,11 @@ function openCustomizer( calypsoPort ) {
 /**
  * Sends a message to Calypso when clicking the "Edit Header" or "Edit Footer"
  * buttons in order to perform the navigation in Calypso instead of in the iFrame.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function openTemplatePartLinks( calypsoPort ) {
 	addEditorListener( '.template__block-container .template-block__overlay a', ( e ) => {
+		e.preventDefault();
 		e.stopPropagation(); // Otherwise it will port the message twice.
 
 		// Get the template part ID from the current href.
@@ -779,7 +805,6 @@ function openTemplatePartLinks( calypsoPort ) {
  * Ensures the calypsoifyGutenberg close URL matches the one on the client.
  * This is important because we modify the close URL client side in the
  * context of template part blocks in FSE.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function getCloseButtonUrl( calypsoPort ) {
@@ -816,7 +841,6 @@ function getCloseButtonUrl( calypsoPort ) {
  * Ensures gutenboarding status and corresponding data is placed on the calypsoifyGutenberg object.
  * This is imporant because it allows us to adapt small changes to the editor when
  * used in the context of Gutenboarding.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function getGutenboardingStatus( calypsoPort ) {
@@ -839,7 +863,6 @@ function getGutenboardingStatus( calypsoPort ) {
 
 /**
  * Hooks the nav sidebar to change some of its button labels and behaviour.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function getNavSidebarLabels( calypsoPort ) {
@@ -875,7 +898,6 @@ function getNavSidebarLabels( calypsoPort ) {
 /**
  * Retrieves info to allow the bridge to build calypso urls. Hook parts of
  * the editor that use this info.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function getCalypsoUrlInfo( calypsoPort ) {
@@ -964,25 +986,6 @@ async function preselectParentPage() {
 	}
 }
 
-function handleSiteEditorFeedbackPlugin( calypsoPort ) {
-	const PluginSidebar = editSitePackage?.PluginSidebar;
-	if ( PluginSidebar ) {
-		registerPlugin( 'a8c-fse-beta-feedback-plugin', {
-			render: () => (
-				<PluginSidebar
-					name="a8c-fse-beta-feedback-plugin"
-					title={ __( 'Site Editor Beta Feedback', 'full-site-editing' ) }
-					// eslint-disable-next-line wpcalypso/jsx-classname-namespace
-					className="a8c-site-editor-feedback-plugin"
-					icon={ comment }
-				>
-					<FeedbackForm calypsoPort={ calypsoPort } />
-				</PluginSidebar>
-			),
-		} );
-	}
-}
-
 function handleCheckoutModalOpened( calypsoPort, data ) {
 	const { port1, port2 } = new MessageChannel();
 
@@ -1032,25 +1035,10 @@ function handleCheckoutModal( calypsoPort ) {
 	};
 }
 
-function handleInlineHelpButton( calypsoPort ) {
-	addAction(
-		'a8c.wpcom-block-editor.toggleInlineHelpButton',
-		'a8c/wpcom-block-editor/toggleInlineHelpButton',
-		/** @type {({ hidden: boolean }) => void} */
-		( data ) => {
-			calypsoPort.postMessage( {
-				action: 'toggleInlineHelpButton',
-				payload: data,
-			} );
-		}
-	);
-}
-
 /**
  * If WelcomeTour is set to show, check if the App Banner is visible.
  * If App Banner is visible, we set the Welcome Tour to not show.
  * When the App Banner gets dismissed, we set the Welcome Tour to show.
- *
  * @param {MessagePort} calypsoPort Port used for communication with parent frame.
  */
 function handleAppBannerShowing( calypsoPort ) {
@@ -1077,6 +1065,73 @@ function handleAppBannerShowing( calypsoPort ) {
 			} );
 		}
 	};
+}
+
+function handleWpAdminRedirect( { calypsoPort, path, title } ) {
+	const selector = `[data-value="${ title }"]`;
+
+	const callback = ( e ) => {
+		e.preventDefault();
+
+		calypsoPort.postMessage( {
+			action: 'wpAdminRedirect',
+			payload: {
+				destinationUrl: `/wp-admin/${ path }`,
+				unsavedChanges: select( 'core/editor' ).isEditedPostDirty(),
+			},
+		} );
+	};
+
+	addEditorListener( selector, callback );
+	addCommandsInputListener( selector, callback );
+}
+
+function handlePatterns( calypsoPort ) {
+	handleWpAdminRedirect( {
+		calypsoPort,
+		path: 'site-editor.php?postType=wp_block',
+		title: __( 'Patterns' ),
+	} );
+}
+
+function handleAddPage( calypsoPort ) {
+	handleWpAdminRedirect( {
+		calypsoPort,
+		path: 'post-new.php?post_type=page',
+		title: __( 'Add new page' ),
+	} );
+}
+
+function handleAddPost( calypsoPort ) {
+	handleWpAdminRedirect( { calypsoPort, path: 'post-new.php', title: __( 'Add new post' ) } );
+}
+
+async function handleWpTemplateCommands( calypsoPort ) {
+	const callback = ( e, postType, postId ) => {
+		e.preventDefault();
+
+		calypsoPort.postMessage( {
+			action: 'wpAdminRedirect',
+			payload: {
+				destinationUrl: `/wp-admin/site-editor.php?postType=${ postType }&postId=${ encodeURIComponent(
+					postId
+				) }&canvas=edit`,
+				unsavedChanges: select( 'core/editor' ).isEditedPostDirty(),
+			},
+		} );
+	};
+
+	const entityNames = [ 'wp_template', 'wp_template_part' ];
+
+	entityNames.forEach( async ( entityName ) => {
+		const records = await getPostTypeRecords( entityName );
+
+		records.forEach( ( record ) => {
+			const selector = `[data-value$="${ record.id }"]`;
+			addEditorListener( selector, ( e ) => callback( e, entityName, record.id ) );
+			addCommandsInputListener( selector, ( e ) => callback( e, entityName, record.id ) );
+		} );
+	} );
 }
 
 function initPort( message ) {
@@ -1178,11 +1233,15 @@ function initPort( message ) {
 
 		handleCheckoutModal( calypsoPort );
 
-		handleInlineHelpButton( calypsoPort );
-
-		handleSiteEditorFeedbackPlugin( calypsoPort );
-
 		handleAppBannerShowing( calypsoPort );
+
+		handlePatterns( calypsoPort );
+
+		handleAddPage( calypsoPort );
+
+		handleAddPost( calypsoPort );
+
+		handleWpTemplateCommands( calypsoPort );
 	}
 
 	window.removeEventListener( 'message', initPort, false );

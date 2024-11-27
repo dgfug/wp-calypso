@@ -1,32 +1,44 @@
-import { ProcessPayment } from '@automattic/composite-checkout';
+import { useTogglePaymentMethod } from '@automattic/composite-checkout';
 import { useI18n } from '@wordpress/react-i18n';
 import debugFactory from 'debug';
-import { Fragment, useCallback } from 'react';
+import { Fragment, useCallback, useEffect } from 'react';
 import { PaymentMethodLogos } from '../payment-method-logos';
 import PaymentRequestButton from '../payment-request-button';
-import { usePaymentRequestOptions, useStripePaymentRequest } from './web-pay-utils';
+import {
+	SubmitCompletePaymentMethodTransaction,
+	usePaymentRequestOptions,
+	useStripePaymentRequest,
+} from './web-pay-utils';
 import type { StripeConfiguration } from '@automattic/calypso-stripe';
-import type { PaymentMethod } from '@automattic/composite-checkout';
+import type { PaymentMethod, ProcessPayment } from '@automattic/composite-checkout';
+import type { CartKey } from '@automattic/shopping-cart';
 import type { Stripe } from '@stripe/stripe-js';
 
 const debug = debugFactory( 'composite-checkout:apple-pay-payment-method' );
 
 export function createApplePayMethod(
 	stripe: Stripe,
-	stripeConfiguration: StripeConfiguration
+	stripeConfiguration: StripeConfiguration,
+	cartKey: CartKey
 ): PaymentMethod {
 	return {
 		id: 'apple-pay',
+		paymentProcessorId: 'apple-pay',
 		label: <ApplePayLabel />,
 		submitButton: (
-			<ApplePaySubmitButton stripe={ stripe } stripeConfiguration={ stripeConfiguration } />
+			<ApplePaySubmitButton
+				stripe={ stripe }
+				stripeConfiguration={ stripeConfiguration }
+				cartKey={ cartKey }
+			/>
 		),
 		inactiveContent: <ApplePaySummary />,
 		getAriaLabel: ( __ ) => __( 'Apple Pay' ),
+		isInitiallyDisabled: true,
 	};
 }
 
-export function ApplePayLabel(): JSX.Element {
+export function ApplePayLabel() {
 	const { __ } = useI18n();
 
 	return (
@@ -44,14 +56,17 @@ export function ApplePaySubmitButton( {
 	onClick,
 	stripe,
 	stripeConfiguration,
+	cartKey,
 }: {
 	disabled?: boolean;
 	onClick?: ProcessPayment;
 	stripe: Stripe;
 	stripeConfiguration: StripeConfiguration;
-} ): JSX.Element {
-	const paymentRequestOptions = usePaymentRequestOptions( stripeConfiguration );
-	const onSubmit = useCallback(
+	cartKey: CartKey;
+} ) {
+	const togglePaymentMethod = useTogglePaymentMethod();
+	const paymentRequestOptions = usePaymentRequestOptions( stripeConfiguration, cartKey );
+	const onSubmit = useCallback< SubmitCompletePaymentMethodTransaction >(
 		( { name, paymentMethodToken } ) => {
 			debug( 'submitting stripe payment with key', paymentMethodToken );
 			if ( ! onClick ) {
@@ -59,7 +74,7 @@ export function ApplePaySubmitButton( {
 					'Missing onClick prop; ApplePaySubmitButton must be used as a payment button in CheckoutSubmitButton'
 				);
 			}
-			onClick( 'apple-pay', {
+			onClick( {
 				stripe,
 				paymentMethodToken,
 				name,
@@ -68,18 +83,21 @@ export function ApplePaySubmitButton( {
 		},
 		[ onClick, stripe, stripeConfiguration ]
 	);
-	const { paymentRequest, canMakePayment, isLoading } = useStripePaymentRequest( {
-		webPaymentType: 'apple-pay',
+	const { paymentRequest, allowedPaymentTypes, isLoading } = useStripePaymentRequest( {
 		paymentRequestOptions,
 		onSubmit,
 		stripe,
 	} );
 	debug( 'apple-pay button isLoading', isLoading );
 
-	if ( ! isLoading && ! canMakePayment ) {
-		// This should never occur because we should not display this payment
-		// method as an option if it is not supported.
-		throw new Error( 'This payment type is not supported' );
+	useEffect( () => {
+		if ( ! isLoading ) {
+			togglePaymentMethod( 'apple-pay', allowedPaymentTypes.applePay );
+		}
+	}, [ isLoading, allowedPaymentTypes.applePay, togglePaymentMethod ] );
+
+	if ( ! allowedPaymentTypes.applePay ) {
+		return null;
 	}
 
 	return (
@@ -91,12 +109,12 @@ export function ApplePaySubmitButton( {
 	);
 }
 
-export function ApplePaySummary(): JSX.Element {
+export function ApplePaySummary() {
 	const { __ } = useI18n();
 	return <Fragment>{ __( 'Apple Pay' ) }</Fragment>;
 }
 
-function ApplePayIcon( { fill }: { fill: string } ): JSX.Element {
+function ApplePayIcon( { fill }: { fill: string } ) {
 	return (
 		<svg
 			width="38"

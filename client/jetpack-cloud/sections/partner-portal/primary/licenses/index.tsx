@@ -1,21 +1,39 @@
 import { Button } from '@automattic/components';
+import { getQueryArg } from '@wordpress/url';
 import { useTranslate } from 'i18n-calypso';
-import { ReactElement } from 'react';
-import { useDispatch } from 'react-redux';
+import { useEffect } from 'react';
 import CardHeading from 'calypso/components/card-heading';
-import DocumentHead from 'calypso/components/data/document-head';
-import Main from 'calypso/components/main';
+import QueryJetpackPartnerPortalLicenseCounts from 'calypso/components/data/query-jetpack-partner-portal-license-counts';
+import MissingPaymentNotification from 'calypso/jetpack-cloud/components/missing-payment-notification';
+import SiteAddLicenseNotification from 'calypso/jetpack-cloud/sections/agency-dashboard/sites-overview/site-add-license-notification';
 import LicenseList from 'calypso/jetpack-cloud/sections/partner-portal/license-list';
 import LicenseListContext from 'calypso/jetpack-cloud/sections/partner-portal/license-list-context';
 import LicenseStateFilter from 'calypso/jetpack-cloud/sections/partner-portal/license-state-filter';
 import SelectPartnerKeyDropdown from 'calypso/jetpack-cloud/sections/partner-portal/select-partner-key-dropdown';
-import SidebarNavigation from 'calypso/jetpack-cloud/sections/partner-portal/sidebar-navigation';
 import {
 	LicenseFilter,
 	LicenseSortDirection,
 	LicenseSortField,
 } from 'calypso/jetpack-cloud/sections/partner-portal/types';
+import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
+import { useDispatch, useSelector } from 'calypso/state';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
+import { infoNotice } from 'calypso/state/notices/actions';
+import {
+	getLicenseCounts,
+	hasFetchedLicenseCounts,
+} from 'calypso/state/partner-portal/licenses/selectors';
+import {
+	getCurrentPartner,
+	showAgencyDashboard,
+} from 'calypso/state/partner-portal/partner/selectors';
+import Layout from '../../layout';
+import LayoutBody from '../../layout/body';
+import LayoutHeader from '../../layout/header';
+import LayoutTop from '../../layout/top';
+import LicenseSearch from '../../license-search';
+import OnboardingWidget from '../onboarding-widget';
+import Banners from './banners';
 import './style.scss';
 
 interface Props {
@@ -32,9 +50,29 @@ export default function Licenses( {
 	currentPage,
 	sortDirection,
 	sortField,
-}: Props ): ReactElement {
+}: Props ) {
 	const dispatch = useDispatch();
 	const translate = useTranslate();
+	const isAgencyUser = useSelector( showAgencyDashboard );
+	const counts = useSelector( getLicenseCounts );
+	const hasFetched = useSelector( hasFetchedLicenseCounts );
+	const allLicensesCount = counts[ 'all' ];
+	const provisioningSite = getQueryArg( window.location.href, 'provisioning' ) as string;
+	const partner = useSelector( getCurrentPartner );
+	const partnerCanIssueLicense = Boolean( partner?.can_issue_licenses );
+
+	useEffect( () => {
+		if ( 'true' === provisioningSite ) {
+			dispatch(
+				infoNotice(
+					translate(
+						'We are creating a WordPress.com site in the background. It will appear on your dashboard shortly.'
+					),
+					{ id: 'provisioning-site-notice' }
+				)
+			);
+		}
+	}, [ provisioningSite, translate, dispatch ] );
 
 	const context = {
 		filter,
@@ -48,31 +86,54 @@ export default function Licenses( {
 		dispatch( recordTracksEvent( 'calypso_partner_portal_license_list_issue_license_click' ) );
 	};
 
+	const showEmptyStateContent = hasFetched && allLicensesCount === 0;
+
 	return (
-		<Main wideLayout className="licenses">
-			<DocumentHead title={ translate( 'Licenses' ) } />
-			<SidebarNavigation />
-
-			<div className="licenses__header">
-				<CardHeading size={ 36 }>{ translate( 'Licenses' ) }</CardHeading>
-
-				<SelectPartnerKeyDropdown />
-
-				<Button
-					href="/partner-portal/issue-license"
-					onClick={ onIssueNewLicenseClick }
-					primary
-					style={ { marginLeft: 'auto' } }
-				>
-					{ translate( 'Issue New License' ) }
-				</Button>
-			</div>
+		<Layout className="licenses" title={ translate( 'Licenses' ) } wide>
+			<PageViewTracker
+				title="Partner Portal > Licenses"
+				path="/partner-portal/licenses/:filter"
+				properties={ { filter } }
+			/>
+			<QueryJetpackPartnerPortalLicenseCounts />
 
 			<LicenseListContext.Provider value={ context }>
-				<LicenseStateFilter />
+				<LayoutTop>
+					{ isAgencyUser && <Banners /> }
+					<SiteAddLicenseNotification />
 
-				<LicenseList />
+					<MissingPaymentNotification />
+
+					<LayoutHeader>
+						<CardHeading size={ 36 }>{ translate( 'Licenses' ) }</CardHeading>
+
+						<SelectPartnerKeyDropdown />
+
+						<Button
+							disabled={ ! partnerCanIssueLicense }
+							href={ partnerCanIssueLicense ? '/partner-portal/issue-license' : undefined }
+							onClick={ onIssueNewLicenseClick }
+							primary
+							style={ { marginLeft: 'auto' } }
+						>
+							{ translate( 'Issue New License' ) }
+						</Button>
+					</LayoutHeader>
+
+					<LicenseStateFilter />
+				</LayoutTop>
+
+				<LayoutBody>
+					{ showEmptyStateContent ? (
+						<OnboardingWidget isLicensesPage />
+					) : (
+						<>
+							<LicenseSearch />
+							<LicenseList />
+						</>
+					) }
+				</LayoutBody>
 			</LicenseListContext.Provider>
-		</Main>
+		</Layout>
 	);
 }

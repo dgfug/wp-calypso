@@ -1,5 +1,5 @@
 import { extendAction } from '@automattic/state-utils';
-import { camelCase, isPlainObject, map, reduce, set, snakeCase } from 'lodash';
+import { camelCase, map, reduce, set, snakeCase } from 'lodash';
 
 const doBypassDataLayer = {
 	meta: {
@@ -13,17 +13,16 @@ export const bypassDataLayer = ( action ) => extendAction( action, doBypassDataL
 
 /**
  * Deeply converts keys of an object using provided function.
- *
- * @param {object} obj object to convert
+ * @param {Object} obj object to convert
  * @param  {Function} fn function to apply to each key of the object
- * @returns {object} a new object with all keys converted
+ * @returns {Object} a new object with all keys converted
  */
 export function convertKeysBy( obj, fn ) {
 	if ( Array.isArray( obj ) ) {
 		return map( obj, ( v ) => convertKeysBy( v, fn ) );
 	}
 
-	if ( isPlainObject( obj ) ) {
+	if ( typeof obj === 'object' && obj !== null ) {
 		return reduce(
 			obj,
 			( result, value, key ) => {
@@ -39,17 +38,17 @@ export function convertKeysBy( obj, fn ) {
 }
 
 /**
- * Deeply converts keys from the specified object to camelCase notation.
+ * @deprecated Use TS version of this function: `import { convertSnakeCaseToCamelCase } from 'calypso/state/data-layer/convert-snake-case-to-camel-case';`
  *
- * @param {object} obj object to convert
- * @returns {object} a new object with all keys converted
+ * Deeply converts keys from the specified object to camelCase notation.
+ * @param {Object} obj object to convert
+ * @returns {Object} a new object with all keys converted
  */
 export const convertToCamelCase = ( obj ) => convertKeysBy( obj, camelCase );
 
 /**
  * Deeply convert keys of an object to snake_case.
- *
- * @param {object} obj Object to convert
- * @returns {object} a new object with snake_cased keys
+ * @param {Object} obj Object to convert
+ * @returns {Object} a new object with snake_cased keys
  */
 export const convertToSnakeCase = ( obj ) => convertKeysBy( obj, snakeCase );

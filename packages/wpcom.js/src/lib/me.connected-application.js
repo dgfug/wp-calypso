@@ -3,7 +3,6 @@ const root = '/me/connected-applications/';
 export default class MeConnectedApp {
 	/**
 	 * `MeConnectedApp` constructor.
-	 *
 	 * @param {string} appId - application identifier
 	 * @param {WPCOM} wpcom - wpcom instance
 	 * @returns {null} null
@@ -18,8 +17,7 @@ export default class MeConnectedApp {
 
 	/**
 	 * Get one of current user's connected applications.
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -30,8 +28,7 @@ export default class MeConnectedApp {
 	/**
 	 * Delete the app of the  current user
 	 * through of the given appId
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */

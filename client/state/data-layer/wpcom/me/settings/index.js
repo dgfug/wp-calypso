@@ -21,6 +21,14 @@ import {
  * that the REST API returns already HTML-encoded
  */
 const PROPERTIES_TO_DECODE = new Set( [ 'display_name', 'description', 'user_URL' ] );
+
+/*
+ * Properties that should not trigger a notification when changed
+ * ex. advertising_targeting_opt_out should fail quietly in the event they have an expired 2fa token
+ * and a success notification is not standard when accepting or denying cookies
+ */
+const PROPERTIES_TO_SUPRESS_NOTIFICATIONS = new Set( [ 'advertising_targeting_opt_out' ] );
+
 export const fromApi = ( apiResponse ) =>
 	mapValues( apiResponse, ( value, name ) =>
 		PROPERTIES_TO_DECODE.has( name ) ? decodeEntities( value ) : value
@@ -90,6 +98,16 @@ export function userSettingsSaveFailure( { settingsOverride }, error ) {
 		];
 	}
 
+	// If every property in settingsOverride is to be suppressed, don't show a notification
+	if (
+		settingsOverride &&
+		Object.keys( settingsOverride || {} ).every( ( key ) =>
+			PROPERTIES_TO_SUPRESS_NOTIFICATIONS.has( key )
+		)
+	) {
+		return;
+	}
+
 	return [
 		errorNotice( error.message || translate( 'There was a problem saving your changes.' ), {
 			id: 'save-user-settings',
@@ -102,24 +120,38 @@ export function userSettingsSaveFailure( { settingsOverride }, error ) {
  * After settings were successfully saved, update the settings stored in the Redux state,
  * clear the unsaved settings list, and re-fetch info about the user.
  */
-export const userSettingsSaveSuccess = ( { settingsOverride }, data ) => async ( dispatch ) => {
-	dispatch( saveUserSettingsSuccess( fromApi( data ) ) );
-	dispatch( clearUnsavedUserSettings( settingsOverride ? Object.keys( settingsOverride ) : null ) );
+export const userSettingsSaveSuccess =
+	( { settingsOverride }, data ) =>
+	async ( dispatch ) => {
+		dispatch( saveUserSettingsSuccess( fromApi( data ) ) );
+		dispatch(
+			clearUnsavedUserSettings( settingsOverride ? Object.keys( settingsOverride ) : null )
+		);
 
-	// Refetch the user data after saving user settings
-	await dispatch( fetchCurrentUser() );
+		// Refetch the user data after saving user settings
+		await dispatch( fetchCurrentUser() );
 
-	if ( settingsOverride?.user_email_change_pending !== undefined ) {
-		dispatch( successNotice( translate( 'The email change has been successfully canceled.' ) ) );
-		return;
-	}
+		if ( settingsOverride?.user_email_change_pending !== undefined ) {
+			dispatch( successNotice( translate( 'The email change has been successfully canceled.' ) ) );
+			return;
+		}
 
-	dispatch(
-		successNotice( translate( 'Settings saved successfully!' ), {
-			id: 'save-user-settings',
-		} )
-	);
-};
+		// If every property in settingsOverride is to be suppressed, don't show a notification
+		if (
+			settingsOverride &&
+			Object.keys( settingsOverride ).every( ( key ) =>
+				PROPERTIES_TO_SUPRESS_NOTIFICATIONS.has( key )
+			)
+		) {
+			return;
+		}
+
+		dispatch(
+			successNotice( translate( 'Settings saved successfully!' ), {
+				id: 'save-user-settings',
+			} )
+		);
+	};
 
 registerHandlers( 'state/data-layer/wpcom/me/settings/index.js', {
 	[ USER_SETTINGS_REQUEST ]: [

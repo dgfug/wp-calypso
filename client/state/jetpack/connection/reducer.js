@@ -13,9 +13,8 @@ import { combineReducers, keyedReducer } from 'calypso/state/utils';
 /**
  * `Reducer` function which handles request/response actions
  * concerning Jetpack connection updates
- *
  * @param  {Array}  state  Current state
- * @param  {object} action action
+ * @param  {Object} action action
  * @returns {Array}         Updated state
  */
 export const items = keyedReducer( 'siteId', ( state = {}, action ) => {
@@ -30,10 +29,9 @@ export const items = keyedReducer( 'siteId', ( state = {}, action ) => {
 /**
  * `Reducer` function which handles request/response actions
  * concerning Jetpack connection requests
- *
- * @param {object} state - current state
- * @param {object} action - action
- * @returns {object} updated state
+ * @param {Object} state - current state
+ * @param {Object} action - action
+ * @returns {Object} updated state
  */
 export const requests = keyedReducer( 'siteId', ( state = false, action ) => {
 	switch ( action.type ) {
@@ -50,9 +48,8 @@ export const requests = keyedReducer( 'siteId', ( state = false, action ) => {
 /**
  * `Reducer` function which handles request/response actions
  * concerning Jetpack user connection data
- *
  * @param  {Array}  state  Current state
- * @param  {object} action action
+ * @param  {Object} action action
  * @returns {Array}         Updated state
  */
 export const dataItems = keyedReducer( 'siteId', ( state = {}, action ) => {
@@ -67,10 +64,9 @@ export const dataItems = keyedReducer( 'siteId', ( state = {}, action ) => {
 /**
  * `Reducer` function which handles request/response actions
  * concerning Jetpack user connection data requests
- *
- * @param {object} state - current state
- * @param {object} action - action
- * @returns {object} updated state
+ * @param {Object} state - current state
+ * @param {Object} action - action
+ * @returns {Object} updated state
  */
 export const dataRequests = keyedReducer( 'siteId', ( state = false, action ) => {
 	switch ( action.type ) {

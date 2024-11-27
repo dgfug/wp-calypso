@@ -1,35 +1,36 @@
 import { Button } from '@automattic/components';
 import { useTranslate } from 'i18n-calypso';
 import { FunctionComponent, useState, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
-import {
-	isPaymentAgreement,
-	PaymentMethodSummary,
-	PaymentMethod,
-} from 'calypso/lib/checkout/payment-methods';
+import { isPaymentAgreement, PaymentMethodSummary } from 'calypso/lib/checkout/payment-methods';
+import { useStoredPaymentMethods } from 'calypso/my-sites/checkout/src/hooks/use-stored-payment-methods';
+import { useDispatch, useSelector } from 'calypso/state';
 import { errorNotice, successNotice } from 'calypso/state/notices/actions';
-import { deleteStoredCard } from 'calypso/state/stored-cards/actions';
-import { isDeletingStoredCard } from 'calypso/state/stored-cards/selectors';
+import { getSitePurchases, getUserPurchases } from 'calypso/state/purchases/selectors';
+import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import PaymentMethodDeleteDialog from './payment-method-delete-dialog';
-import type { CalypsoDispatch } from 'calypso/state/types';
+import type { StoredPaymentMethod } from 'calypso/lib/checkout/payment-methods';
 
 interface Props {
-	card: PaymentMethod;
+	card: StoredPaymentMethod;
 }
 
 const PaymentMethodDelete: FunctionComponent< Props > = ( { card } ) => {
 	const translate = useTranslate();
-	const isDeleting = useSelector( ( state ) =>
-		isDeletingStoredCard( state, card.stored_details_id )
-	);
-	const reduxDispatch = useDispatch< CalypsoDispatch >();
+	const { isDeleting, deletePaymentMethod } = useStoredPaymentMethods( {
+		type: 'all',
+		expired: true,
+	} );
+	const reduxDispatch = useDispatch();
 	const [ isDialogVisible, setIsDialogVisible ] = useState( false );
 	const closeDialog = useCallback( () => setIsDialogVisible( false ), [] );
+	const siteId = useSelector( getSelectedSiteId );
+	const sitePurchases = useSelector( ( state ) => getSitePurchases( state, siteId ) );
+	const userPurchases = useSelector( ( state ) => getUserPurchases( state ) );
 
 	const handleDelete = useCallback( () => {
 		closeDialog();
-		reduxDispatch( deleteStoredCard( card ) )
+		deletePaymentMethod( card.stored_details_id )
 			.then( () => {
 				if ( isPaymentAgreement( card ) ) {
 					reduxDispatch( successNotice( translate( 'Payment method deleted successfully' ) ) );
@@ -42,34 +43,50 @@ const PaymentMethodDelete: FunctionComponent< Props > = ( { card } ) => {
 			.catch( ( error: Error ) => {
 				reduxDispatch( errorNotice( error.message ) );
 			} );
-	}, [ closeDialog, card, translate, reduxDispatch ] );
+	}, [ deletePaymentMethod, closeDialog, card, translate, reduxDispatch ] );
+
+	/* translators: %s is the name of the payment method (usually the last 4 digits of the card but could be a proper name for PayPal). */
+	const deleteText = translate( 'Delete the "%s" payment method', {
+		textOnly: true,
+		args: [ 'card_last_4' in card ? card.card_last_4 : card.name ],
+	} );
 
 	const renderDeleteButton = () => {
-		const text = isDeleting ? translate( 'Deleting…' ) : translate( 'Delete' );
+		const text = isDeleting ? translate( 'Deleting…' ) : translate( 'Delete this payment method' );
+		const ariaText = isDeleting ? translate( 'Deleting…' ) : deleteText;
 
 		return (
-			<Button disabled={ isDeleting } onClick={ () => setIsDialogVisible( true ) }>
+			<Button
+				aria-label={ ariaText }
+				className="payment-method-delete__button"
+				disabled={ isDeleting }
+				onClick={ () => setIsDialogVisible( true ) }
+				scary
+				borderless
+			>
 				{ text }
 			</Button>
 		);
 	};
 
 	return (
-		<>
+		<div className="payment-method-delete">
 			<PaymentMethodDeleteDialog
 				paymentMethodSummary={
 					<PaymentMethodSummary
-						type={ card.card_type || card.payment_partner }
-						digits={ card.card }
+						type={ 'card_type' in card ? card.card_type : card.payment_partner }
+						digits={ 'card_last_4' in card ? card.card_last_4 : undefined }
 						email={ card.email }
 					/>
 				}
 				isVisible={ isDialogVisible }
 				onClose={ closeDialog }
 				onConfirm={ handleDelete }
+				card={ card }
+				purchases={ userPurchases || sitePurchases }
 			/>
 			{ renderDeleteButton() }
-		</>
+		</div>
 	);
 };
 

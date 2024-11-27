@@ -37,13 +37,24 @@ class StatsVideoSummary extends Component {
 				? summaryData.data.map( ( item ) => {
 						return {
 							...item,
-							period: moment( item.period ).format( 'MMM D' ),
+							period: moment( item.period ).format( 'year' === query.period ? 'MMM' : 'MMM D' ),
 						};
 				  } )
 				: [];
 		let selectedBar = this.state.selectedBar;
 		if ( ! selectedBar && !! data.length ) {
 			selectedBar = data[ data.length - 1 ];
+		}
+
+		let tabLabel = translate( 'Views' );
+		if ( 'impressions' === query.statType ) {
+			tabLabel = translate( 'Impressions' );
+		}
+		if ( 'watch_time' === query.statType ) {
+			tabLabel = translate( 'Hours Watched' );
+		}
+		if ( 'retention_rate' === query.statType ) {
+			tabLabel = translate( 'Retention Rate' );
 		}
 
 		return (
@@ -55,19 +66,20 @@ class StatsVideoSummary extends Component {
 					activeKey="period"
 					dataKey="value"
 					labelKey="period"
-					labelClass="video"
+					chartType="video"
 					sectionClass="is-video"
 					selected={ selectedBar }
 					onClick={ this.selectBar }
-					tabLabel={ translate( 'Plays' ) }
+					tabLabel={ tabLabel }
+					type="video"
 				/>
 			</div>
 		);
 	}
 }
 
-const connectComponent = connect( ( state, { postId } ) => {
-	const query = { postId };
+const connectComponent = connect( ( state, { postId, statType, period } ) => {
+	const query = { postId, statType, period };
 	const siteId = getSelectedSiteId( state );
 
 	return {

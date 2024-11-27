@@ -1,50 +1,74 @@
-import { Button, Dialog } from '@automattic/components';
+import page from '@automattic/calypso-router';
+import { Button, ConfettiAnimation } from '@automattic/components';
 import styled from '@emotion/styled';
 import debugFactory from 'debug';
 import { useTranslate } from 'i18n-calypso';
-import page from 'page';
 import { useEffect, useState, ChangeEvent, useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import errorIllustration from 'calypso/assets/images/customer-home/disconnected.svg';
+import { LoadingEllipsis } from 'calypso/components/loading-ellipsis';
 import AccordionForm from 'calypso/signup/accordion-form/accordion-form';
-import { ValidationErrors } from 'calypso/signup/accordion-form/types';
+import {
+	BBE_STORE_WEBSITE_CONTENT_FILLING_STEP,
+	BBE_WEBSITE_CONTENT_FILLING_STEP,
+	useTranslatedPageTitles,
+} from 'calypso/signup/difm/translation-hooks';
 import StepWrapper from 'calypso/signup/step-wrapper';
-import getDIFMLiteSiteCategory from 'calypso/state/selectors/get-difm-lite-site-category';
-import isDIFMLiteInProgress from 'calypso/state/selectors/is-difm-lite-in-progress';
-import isDIFMLiteWebsiteContentSubmitted from 'calypso/state/selectors/is-difm-lite-website-content-submitted';
+import { useSelector, useDispatch } from 'calypso/state';
+import { errorNotice, successNotice } from 'calypso/state/notices/actions';
+import getInitialQueryArguments from 'calypso/state/selectors/get-initial-query-arguments';
 import { saveSignupStep } from 'calypso/state/signup/progress/actions';
 import {
-	initializePages,
+	changesSaved,
+	initializeWebsiteContentForm,
 	updateWebsiteContentCurrentIndex,
 } from 'calypso/state/signup/steps/website-content/actions';
+import { useGetWebsiteContentQuery } from 'calypso/state/signup/steps/website-content/hooks/use-get-website-content-query';
+import { useSaveWebsiteContentMutation } from 'calypso/state/signup/steps/website-content/hooks/use-save-website-content-mutation';
 import {
 	getWebsiteContent,
 	getWebsiteContentDataCollectionIndex,
-	isImageUploadInProgress,
+	isMediaUploadInProgress,
 	WebsiteContentStateModel,
+	hasUnsavedChanges as hasUnsavedWebsiteContentChanges,
 } from 'calypso/state/signup/steps/website-content/selectors';
-import { requestSite } from 'calypso/state/sites/actions';
-import { getSiteId, isRequestingSite } from 'calypso/state/sites/selectors';
+import { getSiteId } from 'calypso/state/sites/selectors';
+import { ContentGuidelinesDialog, ConfirmDialog } from './dialogs';
 import { sectionGenerator } from './section-generator';
+import type { ValidationErrors } from 'calypso/signup/accordion-form/types';
+import type { WebsiteContentServerState } from 'calypso/state/signup/steps/website-content/types';
+import type { SiteId } from 'calypso/types';
+
 import './style.scss';
 
 const debug = debugFactory( 'calypso:difm' );
 
-const DialogContent = styled.div`
-	padding: 16px;
-	p {
-		font-size: 1rem;
-		color: var( --studio-gray-50 );
+const LinkButton = styled( Button )`
+	text-decoration: underline;
+	cursor: pointer;
+
+	.formatted-header__subtitle
+		button&[type='button'].button.is-borderless.is-primary.is-transparent:focus {
+		border-color: transparent;
+		box-shadow: none;
 	}
 `;
 
-const DialogButton = styled( Button )`
-	box-shadow: 0px 1px 2px rgba( 0, 0, 0, 0.05 );
-	border-radius: 5px;
-	padding: ${ ( props ) => ( props.primary ? '10px 64px' : '10px 32px' ) };
-	--color-accent: #117ac9;
-	--color-accent-60: #0e64a5;
-	.gridicon {
-		margin-left: 10px;
+const LoadingContainer = styled.div`
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	width: 100%;
+	height: 90vh;
+	h1 {
+		font-size: 24px;
+	}
+`;
+
+const PagesNotAvailable = styled( LoadingContainer )`
+	img {
+		max-height: 200px;
+		padding: 24px;
 	}
 `;
 
@@ -55,10 +79,8 @@ interface WebsiteContentStepProps {
 	flowName: string;
 	stepName: string;
 	positionInFlow: string;
-	queryObject: {
-		siteSlug?: string;
-		siteId?: string;
-	};
+	siteId: SiteId | null;
+	websiteContentServerState: WebsiteContentServerState;
 }
 
 function WebsiteContentStep( {
@@ -66,44 +88,55 @@ function WebsiteContentStep( {
 	stepName,
 	submitSignupStep,
 	goToNextStep,
-	queryObject,
+	siteId,
+	websiteContentServerState,
 }: WebsiteContentStepProps ) {
 	const [ formErrors, setFormErrors ] = useState< ValidationErrors >( {} );
 	const dispatch = useDispatch();
 	const translate = useTranslate();
-	const siteId = useSelector( ( state ) => getSiteId( state, queryObject.siteSlug as string ) );
 	const websiteContent = useSelector( getWebsiteContent );
 	const currentIndex = useSelector( getWebsiteContentDataCollectionIndex );
-	const siteCategory = useSelector( ( state ) => getDIFMLiteSiteCategory( state, siteId ) );
 	const isImageUploading = useSelector( ( state ) =>
-		isImageUploadInProgress( state as WebsiteContentStateModel )
+		isMediaUploadInProgress( state as WebsiteContentStateModel )
 	);
+	const hasUnsavedChanges = useSelector( hasUnsavedWebsiteContentChanges );
 
 	const [ isConfirmDialogOpen, setIsConfirmDialogOpen ] = useState( false );
+	const translatedPageTitles = useTranslatedPageTitles();
+	const context = websiteContentServerState.isStoreFlow
+		? BBE_STORE_WEBSITE_CONTENT_FILLING_STEP
+		: BBE_WEBSITE_CONTENT_FILLING_STEP;
 
-	useEffect( () => {
-		function getPageFromCategory( category: string | null ) {
-			switch ( category ) {
-				case 'creative-arts':
-					return { id: 'Portfolio', name: translate( 'Portfolio' ) };
-				case 'restaurant':
-					return { id: 'Menu', name: translate( 'Menu' ) };
-				default:
-					return { id: 'Services', name: translate( 'Services' ) };
-			}
-		}
+	const { isPending: isSaving, mutateAsync } = useSaveWebsiteContentMutation(
+		siteId,
+		websiteContent
+	);
 
-		if ( siteCategory ) {
+	const saveFormValues = async () => {
+		try {
+			await mutateAsync();
+			dispatch( changesSaved() );
 			dispatch(
-				initializePages( [
-					{ id: 'Home', name: translate( 'Home' ) },
-					{ id: 'About', name: translate( 'About' ) },
-					{ id: 'Contact', name: translate( 'Contact' ) },
-					getPageFromCategory( siteCategory ),
-				] )
+				successNotice( translate( 'Changes saved successfully!' ), {
+					id: 'website-content-save-notice',
+					duration: 3000,
+				} )
+			);
+		} catch ( error ) {
+			dispatch(
+				errorNotice(
+					translate( 'Failed to save your content. Please check your internet connection.' )
+				)
 			);
 		}
-	}, [ dispatch, siteCategory, translate ] );
+	};
+
+	useEffect( () => {
+		const { selectedPageTitles } = websiteContentServerState;
+		if ( siteId && selectedPageTitles && selectedPageTitles.length > 0 ) {
+			dispatch( initializeWebsiteContentForm( websiteContentServerState, translatedPageTitles ) );
+		}
+	}, [ dispatch, siteId, translatedPageTitles, websiteContentServerState ] );
 
 	useEffect( () => {
 		dispatch( saveSignupStep( { stepName } ) );
@@ -131,50 +164,48 @@ function WebsiteContentStep( {
 				translate,
 				formValues: websiteContent,
 				formErrors: formErrors,
+				context,
 				onChangeField,
 			} ),
-		[ translate, websiteContent, formErrors, onChangeField ]
+		[ translate, websiteContent, formErrors, context, onChangeField ]
 	);
 	const generatedSections = generatedSectionsCallback();
 
-	const dialogButtons = [
-		<DialogButton onClick={ () => setIsConfirmDialogOpen( false ) }>
-			{ translate( 'Cancel' ) }
-		</DialogButton>,
-		<DialogButton primary onClick={ onSubmit }>
-			{ translate( 'Submit' ) }
-		</DialogButton>,
-	];
+	const prefersReducedMotion = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 
 	return (
 		<>
-			<Dialog
-				isVisible={ isConfirmDialogOpen }
-				onClose={ () => setIsConfirmDialogOpen( false ) }
-				buttons={ dialogButtons }
-			>
-				<DialogContent>
-					<h1>{ translate( 'Submit Content?' ) }</h1>
-					<p>
-						{ translate(
-							'Click "Submit" to start your site build or "Cancel" to make further edits.'
-						) }
-					</p>
-				</DialogContent>
-			</Dialog>
-
+			<ConfettiAnimation trigger={ ! prefersReducedMotion } />
+			<ConfirmDialog
+				isConfirmDialogOpen={ isConfirmDialogOpen }
+				setIsConfirmDialogOpen={ setIsConfirmDialogOpen }
+				onSubmit={ onSubmit }
+			/>
 			<AccordionForm
 				generatedSections={ generatedSections }
 				onErrorUpdates={ ( errors ) => setFormErrors( errors ) }
-				formValuesInitialState={ websiteContent }
+				formValues={ websiteContent }
 				currentIndex={ currentIndex }
 				updateCurrentIndex={ ( currentIndex ) => {
 					dispatch( updateWebsiteContentCurrentIndex( currentIndex ) );
 				} }
 				onSubmit={ () => setIsConfirmDialogOpen( true ) }
+				saveFormValues={ saveFormValues }
 				blockNavigation={ isImageUploading }
+				isSaving={ isSaving }
+				hasUnsavedChanges={ hasUnsavedChanges }
 			/>
 		</>
+	);
+}
+
+function Loader() {
+	const translate = useTranslate();
+	return (
+		<LoadingContainer>
+			<h1 className="wp-brand-font">{ translate( 'Loading your site information' ) }</h1>
+			<LoadingEllipsis />
+		</LoadingContainer>
 	);
 }
 
@@ -189,65 +220,104 @@ export default function WrapperWebsiteContent(
 		};
 	} & WebsiteContentStepProps
 ) {
+	const { skippedCheckout } = useSelector( getInitialQueryArguments ) ?? {};
 	const { flowName, stepName, positionInFlow, queryObject } = props;
 	const translate = useTranslate();
-	const dispatch = useDispatch();
-	const headerText = translate( 'Website Content' );
-	const subHeaderText = translate(
-		'In this step, you will add your brand visuals, pages and media to be used on your website.'
-	);
 	const siteId = useSelector( ( state ) => getSiteId( state, queryObject.siteSlug as string ) );
 
-	const isWebsiteContentSubmitted = useSelector( ( state ) =>
-		isDIFMLiteWebsiteContentSubmitted( state, siteId )
-	);
-	const isLoadingSiteInformation = useSelector( ( state ) =>
-		isRequestingSite( state, siteId as number )
-	);
+	const { isLoading, isError, data } = useGetWebsiteContentQuery( queryObject.siteSlug );
 
-	// We assume that difm lite is purchased when the is_difm_lite_in_progress sticker is active in a given blog
-	const isDifmLitePurchased = useSelector( ( state ) => isDIFMLiteInProgress( state, siteId ) );
+	const [ isContentGuidelinesDialogOpen, setIsContentGuidelinesDialogOpen ] = useState( true );
 
-	//Make sure the most up to date site information is loaded so that we can validate access to this page
+	const headerText = translate( 'Website Content' );
+
+	const subHeaderTextTranslateArgs = {
+		components: {
+			br: <br />,
+			Link: (
+				<LinkButton
+					borderless
+					primary
+					transparent
+					onClick={ () => setIsContentGuidelinesDialogOpen( true ) }
+				/>
+			),
+		},
+	};
+
+	const subHeaderText = data?.isStoreFlow
+		? translate(
+				'Provide content for your website build. You can add products later with the WordPress editor.{{br}}{{/br}}{{br}}{{/br}}{{Link}}View Content Guidelines{{/Link}}',
+				subHeaderTextTranslateArgs
+		  )
+		: translate(
+				'Provide content for your website build. You will be able to edit all content later using the WordPress editor.{{br}}{{/br}}{{br}}{{/br}}{{Link}}View Content Guidelines{{/Link}}',
+				subHeaderTextTranslateArgs
+		  );
+
 	useEffect( () => {
-		siteId && dispatch( requestSite( siteId ) );
-	}, [ dispatch, siteId ] );
-
-	useEffect( () => {
-		if ( ! isLoadingSiteInformation ) {
-			if ( ! isDifmLitePurchased ) {
-				debug( 'DIFM not purchased yet, redirecting to DIFM purchase flow' );
-				// Due to a bug related to a  race condition this redirection is currently disabled
-				// Read pdh1Xd-xv-p2#comment-869 for more context (Submission loop with existing site)
-				// page( `/start/do-it-for-me` );
-			} else if ( isWebsiteContentSubmitted ) {
-				debug( 'Website content content already submitted, redirecting to home' );
-				page( `/home/${ queryObject.siteSlug }` );
-			}
+		if ( data?.isWebsiteContentSubmitted ) {
+			debug( 'Website content content already submitted, redirecting to home' );
+			page( `/home/${ queryObject.siteSlug }` );
 		}
-	}, [
-		isLoadingSiteInformation,
-		isDifmLitePurchased,
-		isWebsiteContentSubmitted,
-		queryObject.siteSlug,
-	] );
+	}, [ data, queryObject.siteSlug ] );
 
-	return isWebsiteContentSubmitted || isLoadingSiteInformation ? null : (
-		<StepWrapper
-			headerText={ headerText }
-			subHeaderText={ subHeaderText }
-			fallbackHeaderText={ headerText }
-			fallbackSubHeaderText={ subHeaderText }
-			flowName={ flowName }
-			stepName={ stepName }
-			positionInFlow={ positionInFlow }
-			stepContent={ <WebsiteContentStep { ...props } /> }
-			goToNextStep={ false }
-			hideFormattedHeader={ false }
-			hideBack={ false }
-			align={ 'left' }
-			isHorizontalLayout={ true }
-			isWideLayout={ true }
-		/>
+	useEffect( () => {
+		if ( skippedCheckout === '1' ) {
+			debug( 'User did not make a DIFM purchase, redirecting to home' );
+			page( `/home/${ queryObject.siteSlug }` );
+		}
+	}, [ skippedCheckout, queryObject.siteSlug ] );
+
+	if ( isLoading ) {
+		return <Loader />;
+	}
+
+	if ( isError || ! ( data?.selectedPageTitles && data?.selectedPageTitles.length ) ) {
+		return (
+			<PagesNotAvailable>
+				<img src={ errorIllustration } alt="" />
+				<div>
+					{ translate(
+						'We could not retrieve your site information. Please {{SupportLink}}contact support{{/SupportLink}}.',
+						{
+							components: {
+								SupportLink: (
+									<a className="subtitle-link" rel="noopener noreferrer" href="/help/contact" />
+								),
+							},
+						}
+					) }
+				</div>
+			</PagesNotAvailable>
+		);
+	}
+
+	return (
+		<>
+			<ContentGuidelinesDialog
+				isContentGuidelinesDialogOpen={ isContentGuidelinesDialogOpen }
+				setIsContentGuidelinesDialogOpen={ setIsContentGuidelinesDialogOpen }
+			/>
+
+			<StepWrapper
+				headerText={ headerText }
+				subHeaderText={ subHeaderText }
+				fallbackHeaderText={ headerText }
+				fallbackSubHeaderText={ subHeaderText }
+				flowName={ flowName }
+				stepName={ stepName }
+				positionInFlow={ positionInFlow }
+				stepContent={
+					<WebsiteContentStep { ...props } websiteContentServerState={ data } siteId={ siteId } />
+				}
+				goToNextStep={ false }
+				hideFormattedHeader={ false }
+				hideBack={ false }
+				align="left"
+				isHorizontalLayout
+				isWideLayout
+			/>
+		</>
 	);
 }

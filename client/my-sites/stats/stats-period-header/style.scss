@@ -1,0 +1,58 @@
+@import "@automattic/typography/styles/variables";
+@import "@wordpress/base-styles/breakpoints";
+@import "@automattic/components/src/styles/typography";
+@import "../modernized-mixins";
+
+.stats__period-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	margin-top: 32px;
+	padding: 0;
+
+	.stats-content & {
+		margin: 16px 0;
+	}
+
+	.is-sticky & {
+		margin-top: 0;
+		padding: 0 32px;
+	}
+
+	.period {
+		font-family: $brand-serif;
+	}
+
+	.stats-period-navigation {
+		@include section-header-with-siblings;
+
+	 // this new selector removes padding only for the date filtering design
+		&.stats-period-navigation__is-with-new-date-filtering {
+			padding: 0;
+			align-items: center;
+
+			@media (max-width: $break-medium) {
+				padding: 0 16px;
+			}
+		}
+	}
+
+	@include navigation-segment-control-buttons;
+
+	// Make the content break line earlier than 660px
+	@media (max-width: $break-large) {
+		.stats-period-navigation {
+			margin: 0 0 24px 0;
+			padding: 0;
+		}
+	}
+
+	@media (max-width: $break-medium) {
+		padding: 0 16px;
+	}
+
+	@media (max-width: $break-mobile) {
+		margin-top: 0;
+	}
+}

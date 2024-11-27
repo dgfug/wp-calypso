@@ -1,5 +1,5 @@
 import config from '@automattic/calypso-config';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { find } from 'lodash';
 import PropTypes from 'prop-types';
@@ -13,6 +13,7 @@ const noop = () => {};
 
 export class LanguagePicker extends PureComponent {
 	static propTypes = {
+		isLoading: PropTypes.bool,
 		languages: PropTypes.array.isRequired,
 		valueKey: PropTypes.string,
 		value: PropTypes.any,
@@ -24,6 +25,7 @@ export class LanguagePicker extends PureComponent {
 	};
 
 	static defaultProps = {
+		isLoading: false,
 		languages: [],
 		valueKey: 'value',
 		onChange: noop,
@@ -110,7 +112,7 @@ export class LanguagePicker extends PureComponent {
 	handleClose = () => this.setState( { open: false } );
 
 	renderPlaceholder() {
-		const classes = classNames( 'language-picker', 'is-loading' );
+		const classes = clsx( 'language-picker', 'is-loading' );
 
 		return (
 			<div className={ classes }>
@@ -147,7 +149,7 @@ export class LanguagePicker extends PureComponent {
 
 	render() {
 		const language = this.state.selectedLanguage;
-		if ( ! language ) {
+		if ( ! language || this.props.isLoading ) {
 			return this.renderPlaceholder();
 		}
 

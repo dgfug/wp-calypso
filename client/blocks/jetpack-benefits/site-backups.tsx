@@ -2,15 +2,16 @@ import { ProgressBar } from '@automattic/components';
 import { useTranslate } from 'i18n-calypso';
 import { useCallback } from 'react';
 import * as React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { JetpackBenefitsCard } from 'calypso/blocks/jetpack-benefits/benefit-card';
 import { JetpackBenefitsStandaloneCard } from 'calypso/blocks/jetpack-benefits/standalone-benefit-card';
 import QueryRewindBackups from 'calypso/components/data/query-rewind-backups';
 import { useLocalizedMoment } from 'calypso/components/localized-moment';
 import { EVERY_SECOND, Interval } from 'calypso/lib/interval';
+import { useDispatch, useSelector } from 'calypso/state';
 import { requestRewindBackups } from 'calypso/state/rewind/backups/actions';
 import { getInProgressBackupForSite } from 'calypso/state/rewind/selectors';
 import getRewindBackups from 'calypso/state/selectors/get-rewind-backups';
+import { getSiteSlug } from 'calypso/state/sites/selectors';
 
 interface Props {
 	siteId: number;
@@ -26,20 +27,22 @@ interface Backup {
 				published: string;
 			};
 		};
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		[ key: string ]: any;
 	};
 }
 
 const JetpackBenefitsSiteBackups: React.FC< Props > = ( { siteId, isStandalone } ) => {
+	const siteSlug = useSelector( ( state ) => getSiteSlug( state, siteId ) );
 	const translate = useTranslate();
 	const moment = useLocalizedMoment();
 	const backups = useSelector( ( state ) => getRewindBackups( state, siteId ) );
 
 	const dispatch = useDispatch();
-	const refreshBackupProgress = useCallback( () => dispatch( requestRewindBackups( siteId ) ), [
-		dispatch,
-		siteId,
-	] );
+	const refreshBackupProgress = useCallback(
+		() => dispatch( requestRewindBackups( siteId ) ),
+		[ dispatch, siteId ]
+	);
 
 	const loadingBackups = backups === null; // getRewindBackups returns null if there are no backups for the siteId
 	const backupCurrentlyInProgress = useSelector( ( state ) =>
@@ -68,11 +71,10 @@ const JetpackBenefitsSiteBackups: React.FC< Props > = ( { siteId, isStandalone }
 		return (
 			<React.Fragment>
 				<JetpackBenefitsCard
-					jestMarker="loading-backups" // for test suite
 					headline={ translate( 'Site Backups' ) }
 					description={ translate( 'Loading backup data' ) }
 					stat={ translate( 'Placeholder' ) }
-					placeholder={ true }
+					placeholder
 				/>
 			</React.Fragment>
 		);
@@ -102,11 +104,20 @@ const JetpackBenefitsSiteBackups: React.FC< Props > = ( { siteId, isStandalone }
 	// now that backups are loaded and any in progress are complete, get the most recent one
 	const mostRecentBackup = backups?.[ 0 ] || null;
 
+	// License is not attached to a site yet
+	if ( ! siteSlug ) {
+		return (
+			<JetpackBenefitsCard
+				headline={ translate( 'Site Backups' ) }
+				description={ translate( 'License key awaiting activation' ) }
+			/>
+		);
+	}
+
 	// no backups taken yet
 	if ( ! mostRecentBackup ) {
 		return (
 			<JetpackBenefitsCard
-				jestMarker="no-backups" // for test suite
 				headline={ translate( 'Site Backups' ) }
 				description={ translate( 'Jetpack will back up your site soon.' ) }
 			/>
@@ -117,7 +128,6 @@ const JetpackBenefitsSiteBackups: React.FC< Props > = ( { siteId, isStandalone }
 	if ( mostRecentBackup.status !== 'finished' && mostRecentBackup.status !== 'started' ) {
 		return (
 			<JetpackBenefitsCard
-				jestMarker="recent-backup-error" // for test suite
 				headline={ translate( 'Site Backups' ) }
 				description={ translate(
 					"Jetpack's last attempt to back up your site was not successful. Please contact Jetpack support."
@@ -156,7 +166,6 @@ const JetpackBenefitsSiteBackups: React.FC< Props > = ( { siteId, isStandalone }
 
 	return (
 		<JetpackBenefitsCard
-			jestMarker="default-backup-output" // for test suite
 			headline={ translate( 'Site Backups' ) }
 			description={ translate( 'Your latest site backup.' ) }
 			stat={ lastBackupTimeAgo }

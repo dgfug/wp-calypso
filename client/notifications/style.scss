@@ -1,17 +1,15 @@
-/* stylelint-disable selector-max-id */
-
 /**
  * Notifications
  */
 
 #wpnc-panel {
 	position: fixed;
-	top: var( --masterbar-height );
+	top: var(--masterbar-height);
 	right: 0;
 	bottom: 0;
 	min-width: 400px;
 
-	@include breakpoint-deprecated( '<660px' ) {
+	@media only screen and (max-width: 600px) {
 		width: 100%;
 		min-width: 0;
 	}
@@ -48,18 +46,18 @@
 		text-transform: uppercase;
 	}
 
-	.has-drop-cap:not( :focus )::first-letter {
+	.has-drop-cap:not(:focus)::first-letter {
 		font-weight: bold;
 		line-height: 0.66;
 		text-transform: uppercase;
 		font-style: normal;
 		float: left;
-		font-size: calc( 2 * 2.25rem );
+		font-size: calc(2 * 2.25rem);
 		margin: 0.05em 0.1em 0 0;
 	}
 
-	.has-drop-cap:not( :focus )::after {
-		content: '';
+	.has-drop-cap:not(:focus)::after {
+		content: "";
 		display: table;
 		clear: both;
 		padding-top: 14px;
@@ -90,7 +88,7 @@
 
 	&.wpnt-open {
 		right: 0;
-		transition: all 0.15s cubic-bezier( 0.075, 0.82, 0.165, 1 );
+		transition: all 0.15s cubic-bezier(0.075, 0.82, 0.165, 1);
 		opacity: 1;
 		pointer-events: auto;
 		visibility: visible;
@@ -101,7 +99,7 @@
 		right: -400px;
 		opacity: 0;
 		pointer-events: none;
-		transition: all 0.15s cubic-bezier( 0.075, 0.82, 0.165, 1 );
+		transition: all 0.15s cubic-bezier(0.075, 0.82, 0.165, 1);
 	}
 
 	&.wpnc__main .wpnc__time-group-title.fixed {
@@ -112,13 +110,13 @@
 		left: inherit;
 		width: 400px;
 
-		@include breakpoint-deprecated( '<800px' ) {
+		@include breakpoint-deprecated( "<800px" ) {
 			left: 0;
 			width: auto;
 		}
 	}
 
-	@include breakpoint-deprecated( '<800px' ) {
+	@include breakpoint-deprecated( "<800px" ) {
 		&.wpnc__main header {
 			top: 47px;
 		}
@@ -128,8 +126,8 @@
 		blockquote {
 			padding: 0 24px 0 32px;
 			margin: 16px 0 32px;
-			border-left: 3px solid var( --color-neutral-0 );
-			color: var( --color-neutral-50 );
+			border-left: 3px solid var(--color-neutral-0);
+			color: var(--color-neutral-50);
 			font-weight: 400;
 			background: transparent;
 		}
@@ -163,4 +161,76 @@
 
 html.touch #wpnc-panel {
 	-webkit-overflow-scrolling: touch;
+}
+
+div.reader-notifications__panel {
+	#wpnc-panel.wpnc__main {
+		min-width: 410px;
+
+		&.wpnt-open {
+			position: fixed;
+			top: var(--masterbar-height);
+			right: auto;
+			left: var(--sidebar-width-max);
+			bottom: 0;
+
+			@media only screen and (max-width: 783px) {
+				left: 0;
+			}
+			@media only screen and (min-width: 783px) {
+				top: calc(var(--masterbar-height) + 20px);
+				height: calc(100vh - var(--masterbar-height) - 36px);
+				border-bottom-left-radius: 8px; /* stylelint-disable-line scales/radii */
+			}
+			@media only screen and (min-width: 601px) and (max-width: 783px) {
+				top: calc(var(--masterbar-height) + 24px);
+				height: calc(100vh - 50px - var(--masterbar-height));
+				left: 24px;
+				border-top-left-radius: 8px; /* stylelint-disable-line scales/radii */
+				border-bottom-left-radius: 8px; /* stylelint-disable-line scales/radii */
+			}
+		}
+		.wpnc__list-view {
+			border: none;
+			border-right: 1px solid var(--color-neutral-0);
+
+			.wpnc__note:focus,
+			.wpnc__selected-note {
+				box-shadow: inset -4px 0 0 var(--color-primary);
+			}
+		}
+
+		&.wpnc__note-list {
+			right: auto;
+			left: 0;
+		}
+
+		.wpnc__single-view {
+			min-width: 410px;
+		}
+	}
+
+	@media only screen and (min-width: 1114px) {
+		#wpnc-panel.wpnc__main {
+			background-color: unset;
+
+			.wpnc__note-list:not(.is-note-open) {
+				box-shadow: 3px 1px 10px -2px rgba(var(--color-neutral-70-rgb), 0.075);
+			}
+
+			.wpnc__single-view {
+				animation-name: dedicated_wpnc__slideIn;
+				border-right: 1px solid var(--color-neutral-5);
+				right: inherit;
+			}
+		}
+	}
+	@keyframes dedicated_wpnc__slideIn {
+		from {
+			transform: translateX(0%);
+		}
+		to {
+			transform: translateX(100%);
+		}
+	}
 }

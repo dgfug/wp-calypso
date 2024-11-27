@@ -6,7 +6,6 @@ import { render, screen } from '@testing-library/react';
 import { Provider as ReduxProvider } from 'react-redux';
 import { createReduxStore } from 'calypso/state';
 import PurchaseNotice from '../notices';
-import '@testing-library/jest-dom/extend-expect';
 
 describe( 'PurchaseNotice', () => {
 	const store = createReduxStore();
@@ -18,7 +17,7 @@ describe( 'PurchaseNotice', () => {
 	it( 'renders nothing when data is still loading', () => {
 		render(
 			<ReduxProvider store={ store }>
-				<PurchaseNotice isDataLoading={ true } renewableSitePurchases={ [] } />
+				<PurchaseNotice isDataLoading renewableSitePurchases={ [] } />
 			</ReduxProvider>
 		);
 		expect( screen.container ).toBeFalsy();
@@ -54,11 +53,7 @@ describe( 'PurchaseNotice', () => {
 		const purchase = { product_slug: 'concierge-session', expiryStatus: 'expired' };
 		render(
 			<ReduxProvider store={ store }>
-				<PurchaseNotice
-					purchase={ purchase }
-					isProductOwner={ true }
-					renewableSitePurchases={ [] }
-				/>
+				<PurchaseNotice purchase={ purchase } isProductOwner renewableSitePurchases={ [] } />
 			</ReduxProvider>
 		);
 		expect( screen.getByText( 'This session has been used.' ) ).toBeInTheDocument();
@@ -78,7 +73,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -112,7 +107,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -152,7 +147,7 @@ describe( 'PurchaseNotice', () => {
 				<PurchaseNotice
 					purchase={ purchase }
 					purchaseAttachedTo={ plan }
-					isProductOwner={ true }
+					isProductOwner
 					renewableSitePurchases={ [] }
 					selectedSite={ { slug: 'testingsite' } }
 				/>
@@ -176,7 +171,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -199,7 +194,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -223,7 +218,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -247,7 +242,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -269,7 +264,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -301,7 +296,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					purchaseAttachedTo={ plan }
 					renewableSitePurchases={ [] }
@@ -328,7 +323,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -354,7 +349,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -379,7 +374,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -415,7 +410,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -449,7 +444,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>
@@ -482,7 +477,7 @@ describe( 'PurchaseNotice', () => {
 			<ReduxProvider store={ store }>
 				<PurchaseNotice
 					purchase={ purchase }
-					isProductOwner={ true }
+					isProductOwner
 					selectedSite={ { slug: 'testingsite' } }
 					renewableSitePurchases={ [] }
 				/>

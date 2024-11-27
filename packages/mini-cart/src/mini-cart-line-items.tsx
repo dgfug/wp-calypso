@@ -18,8 +18,9 @@ const MiniCartLineItemsWrapper = styled.ul< { theme?: Theme } >`
 	box-sizing: border-box;
 	margin: 20px 0;
 	padding: 0;
-	overflow-y: scroll;
+	overflow-y: auto;
 	max-height: 50vh;
+	scrollbar-color: var( --color-text, #000 ) var( --color-surface, #fff );
 `;
 
 const MiniCartLineItemWrapper = styled.li`
@@ -39,7 +40,7 @@ export function MiniCartLineItems( {
 	removeCoupon: RemoveCouponFromCart;
 	createUserAndSiteBeforeTransaction?: boolean;
 	responseCart: ResponseCart;
-} ): JSX.Element {
+} ) {
 	const creditsLineItem = getCreditsLineItemFromCart( responseCart );
 	const couponLineItem = getCouponLineItemFromCart( responseCart );
 
@@ -64,7 +65,7 @@ export function MiniCartLineItems( {
 						lineItem={ couponLineItem }
 						removeProductFromCart={ removeCoupon }
 						createUserAndSiteBeforeTransaction={ createUserAndSiteBeforeTransaction }
-						hasDeleteButton
+						hasDeleteButton={ couponLineItem.hasDeleteButton }
 					/>
 				</MiniCartLineItemWrapper>
 			) }

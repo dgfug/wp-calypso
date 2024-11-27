@@ -1,46 +1,19 @@
-// TODO: complete this type
-export interface Purchase {
-	active?: boolean;
-	id: number;
-	userId: number;
-	saleAmount?: number;
-	amount: number;
-	meta?: string;
-	isRechargeable: boolean;
-	isDomainRegistration?: boolean;
-	productName: string;
-	currencyCode: string;
-	expiryDate: string;
-	renewDate: string;
-	mostRecentRenewDate?: string;
-	productSlug: string;
-	siteId: number;
-	subscribedDate: string;
-	payment: PurchasePayment;
-	subscriptionStatus: string;
-	domain: string;
-	isLocked: boolean;
-	isInAppPurchase: boolean;
-	iapPurchaseManagementLink?: string;
-}
+import { Purchases } from '@automattic/data-stores';
+import { useTranslate } from 'i18n-calypso';
+import { useLocalizedMoment } from 'calypso/components/localized-moment';
 
-export interface PurchasePayment {
-	name: string | undefined;
-	type: string | undefined;
-	countryCode: string | undefined;
-	countryName: string | undefined;
-	storedDetailsId: string | number | undefined;
-	expiryDate?: string; // Only for payment.type === 'paypal_direct'
-	creditCard?: PurchasePaymentCreditCard; // Only for payment.type === 'credit_card'
-}
-
-export interface PurchasePaymentCreditCard {
-	id: number;
-	type: string;
-	processor: string;
-	number: string;
-	expiryDate: string;
-}
+export type Purchase = Purchases.Purchase;
+export type PurchasePriceTier = Purchases.PurchasePriceTier;
+export type RawPurchasePriceTierEntry = Purchases.RawPurchasePriceTierEntry;
+export type RawPurchase = Purchases.RawPurchase;
+export type RawPurchaseCreditCard = Purchases.RawPurchaseCreditCard;
+export type RefundOptions = Purchases.RefundOptions;
+export type RawPurchaseIntroductoryOffer = Purchases.RawPurchaseIntroductoryOffer;
+export type PurchaseIntroductoryOffer = Purchases.PurchaseIntroductoryOffer;
+export type PurchasePayment = Purchases.PurchasePayment;
+export type PurchasePaymentWithPayPal = Purchases.PurchasePaymentWithPayPal;
+export type PurchasePaymentWithCreditCard = Purchases.PurchasePaymentWithCreditCard;
+export type PurchasePaymentCreditCard = Purchases.PurchasePaymentCreditCard;
 
 export interface MembershipSubscription {
 	ID: string;
@@ -63,3 +36,26 @@ export interface MembershipSubscriptionsSite {
 	domain: string;
 	subscriptions: MembershipSubscription[];
 }
+
+export interface Owner {
+	ID: number;
+	display_name?: string;
+}
+export type GetChangePaymentMethodUrlFor = ( siteSlug: string, purchase: Purchase ) => string;
+export type GetManagePurchaseUrlFor = (
+	siteSlug: string,
+	attachedToPurchaseId: string | number
+) => string;
+
+export type RenderRenewsOrExpiresOn = ( args: {
+	moment: ReturnType< typeof useLocalizedMoment >;
+	purchase: Purchase;
+	siteSlug: string | undefined;
+	translate: ReturnType< typeof useTranslate >;
+	getManagePurchaseUrlFor: GetManagePurchaseUrlFor;
+} ) => JSX.Element | null;
+
+export type RenderRenewsOrExpiresOnLabel = ( args: {
+	purchase: Purchase;
+	translate: ReturnType< typeof useTranslate >;
+} ) => string | null;

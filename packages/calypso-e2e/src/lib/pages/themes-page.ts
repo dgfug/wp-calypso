@@ -1,12 +1,13 @@
 import { ElementHandle, Page } from 'playwright';
+import { getCalypsoURL } from '../../data-helper';
 
 const selectors = {
 	// Curent theme
 	currentTheme: ( name: string ) => `.current-theme:has-text("${ name }")`,
 
 	// Main themes listing
-	items: '.card.theme',
-	excludeActiveTheme: ':not(.is-active)',
+	items: '.card.theme-card',
+	excludeActiveTheme: ':not(.theme-card--is-active)',
 
 	// Transitions
 	spinner: '.themes__content > .spinner',
@@ -15,11 +16,7 @@ const selectors = {
 	// Search
 	showAllThemesButton: 'text=Show all themes',
 	searchToolbar: '.themes-magic-search',
-	searchInput: `[placeholder="Search by style or feature: portfolio, store, multiple menus, or…"]`,
-
-	// Theme card
-	popoverButton: '.theme__more-button',
-	popoverMenuItem: '.popover__menu-item',
+	searchInput: '.themes__content input.search__input',
 };
 
 /**
@@ -50,24 +47,6 @@ export class ThemesPage {
 	}
 
 	/**
-	 * Filters the themes on page according to the pricing structure.
-	 *
-	 * @param {string} type Pre-defined types of themes.
-	 * @returns {Promise<void>} No return value.
-	 */
-	async filterThemes( type: 'All' | 'Free' | 'Premium' ): Promise< void > {
-		await this.pageSettled();
-
-		const selector = `a[role="radio"]:has-text("${ type }")`;
-		await this.page.click( selector );
-		const button = await this.page.waitForSelector( selector );
-
-		// Wait for placeholder to disappear (indicating load is completed).
-		await this.page.waitForSelector( selectors.placeholder, { state: 'hidden' } );
-		await this.page.waitForFunction( ( element: any ) => element.ariaChecked === 'true', button );
-	}
-
-	/**
 	 * Given a keyword, perform a search in the Themes toolbar.
 	 *
 	 * @param {string} keyword Theme name to search for. Can be a partial match.
@@ -77,8 +56,9 @@ export class ThemesPage {
 		await this.pageSettled();
 
 		const searchInput = await this.page.waitForSelector( selectors.searchInput );
-		await Promise.all( [ this.page.waitForNavigation(), searchInput.fill( keyword ) ] );
-		await this.page.waitForSelector( selectors.placeholder, { state: 'hidden' } );
+		await searchInput.fill( keyword );
+		await Promise.all( [ this.page.waitForNavigation(), searchInput.press( 'Enter' ) ] );
+		await this.page.waitForSelector( selectors.placeholder, { state: 'detached' } );
 	}
 
 	/**
@@ -112,22 +92,6 @@ export class ThemesPage {
 	}
 
 	/**
-	 * Given a target theme and action, click on the popover item of the action on the theme.
-	 *
-	 * @param {ElementHandle} selectedTheme Reference to the target theme.
-	 * @param {string} action Action to be called from the popover.
-	 * @returns {Promise<void>} No return value.
-	 */
-	async clickPopoverItem(
-		selectedTheme: ElementHandle,
-		action: 'Live Demo' | 'Activate' | 'Info' | 'Support'
-	): Promise< void > {
-		const popoverButton = await selectedTheme.waitForSelector( selectors.popoverButton );
-		await popoverButton.click();
-		await this.page.click( `${ selectors.popoverMenuItem }:text("${ action }")` );
-	}
-
-	/**
 	 * Given a target theme, hover over the card in the theme gallery and perform a click.
 	 *
 	 * @param {ElementHandle} selectedTheme Reference to the target theme.
@@ -150,5 +114,25 @@ export class ThemesPage {
 	 */
 	async validateCurrentTheme( expectedTheme: string ): Promise< void > {
 		await this.page.waitForSelector( selectors.currentTheme( expectedTheme ) );
+	}
+
+	/**
+	 * Visit the Theme showcase page.
+	 *
+	 * @param siteSlug
+	 */
+	async visitShowcase( siteSlug: string | null = null ) {
+		const targetUrl = `themes/${ siteSlug ?? '' }`;
+
+		// We are getting a pending status for https://wordpress.com/cspreport intermittently
+		// which causes the login to hang on networkidle when running the tests locally.
+		// This fulfill's the route request with status 200.
+		// See https://github.com/Automattic/wp-calypso/issues/69294
+		await this.page.route( '**/cspreport', ( route ) => {
+			route.fulfill( {
+				status: 200,
+			} );
+		} );
+		await this.page.goto( getCalypsoURL( targetUrl ) );
 	}
 }

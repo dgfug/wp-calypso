@@ -4,25 +4,25 @@
 
 import {
 	DataHelper,
-	LoginPage,
 	UserSignupPage,
-	CloseAccountFlow,
 	EmailClient,
+	SecretsManager,
+	RestAPIClient,
+	NewUserResponse,
 } from '@automattic/calypso-e2e';
 import { Page, Browser } from 'playwright';
+import { apiCloseAccount } from '../shared';
 
 declare const browser: Browser;
 
 describe( DataHelper.createSuiteTitle( 'Signup: WordPress.com WPCC' ), function () {
-	const inboxId = DataHelper.config.get( 'signupInboxId' ) as string;
-	const username = `e2eflowtestingwpcc${ DataHelper.getTimestamp() }`;
-	const email = DataHelper.getTestEmailAddress( {
-		inboxId: inboxId,
-		prefix: username,
+	const testUser = DataHelper.getNewTestUser( {
+		usernamePrefix: 'wpcc',
 	} );
-	const signupPassword = DataHelper.config.get( 'passwordForNewTestSignUps' ) as string;
+	const emailClient = new EmailClient();
 
 	let page: Page;
+	let newUserDetails: NewUserResponse;
 
 	beforeAll( async () => {
 		page = await browser.newPage();
@@ -33,14 +33,13 @@ describe( DataHelper.createSuiteTitle( 'Signup: WordPress.com WPCC' ), function 
 
 		it( 'Navigate to CrowdSignal WPCC endpoint', async function () {
 			const calypsoBaseURL = DataHelper.getCalypsoURL();
-			const wpccAuthPath = DataHelper.config.get( 'wpccAuthPath' );
-			console.log( calypsoBaseURL + wpccAuthPath );
+			const wpccAuthPath = SecretsManager.secrets.wpccAuthPath;
 			await page.goto( calypsoBaseURL + wpccAuthPath );
 		} );
 
 		it( 'Create a new WordPress.com account', async function () {
 			const userSignupPage = new UserSignupPage( page );
-			await userSignupPage.signupWPCC( email, signupPassword );
+			newUserDetails = await userSignupPage.signupWPCC( testUser.email, testUser.password );
 		} );
 
 		it( 'User lands in CrowdSignal dashboard', async function () {
@@ -49,10 +48,9 @@ describe( DataHelper.createSuiteTitle( 'Signup: WordPress.com WPCC' ), function 
 		} );
 
 		it( 'Get activation link', async function () {
-			const emailClient = new EmailClient();
-			const message = await emailClient.getLastEmail( {
-				inboxId: inboxId,
-				emailAddress: email,
+			const message = await emailClient.getLastMatchingMessage( {
+				inboxId: testUser.inboxId,
+				sentTo: testUser.email,
 				subject: 'Activate',
 			} );
 			const links = await emailClient.getLinksFromMessage( message );
@@ -70,37 +68,25 @@ describe( DataHelper.createSuiteTitle( 'Signup: WordPress.com WPCC' ), function 
 			// Waiting for `networkidle` is required so Calypso loading won't swallow up
 			// the click on navbar in the Close Account steps.
 			await Promise.all( [
-				page.waitForNavigation( { url: '**/read', waitUntil: 'load' } ),
+				page.waitForNavigation( { url: '**/sites', waitUntil: 'load' } ),
 				page.goto( DataHelper.getCalypsoURL() ),
 			] );
 		} );
 	} );
 
-	describe( 'Delete user account', function () {
-		it( 'Close account', async function () {
-			const closeAccountFlow = new CloseAccountFlow( page );
-			await closeAccountFlow.closeAccount();
-		} );
-	} );
+	afterAll( async function () {
+		const restAPIClient = new RestAPIClient(
+			{
+				username: testUser.username,
+				password: testUser.password,
+			},
+			newUserDetails.body.bearer_token
+		);
 
-	describe( 'Ensure account is no longer accessible', function () {
-		let loginPage: LoginPage;
-
-		beforeAll( async () => {
-			loginPage = new LoginPage( page );
-		} );
-
-		it( 'Go to WordPress.com Login page', async function () {
-			await loginPage.visit();
-		} );
-
-		it( 'Ensure user is unable to log in', async function () {
-			await loginPage.fillUsername( email );
-			await loginPage.clickSubmit();
-			await loginPage.fillPassword( signupPassword );
-			await loginPage.clickSubmit();
-
-			await page.waitForSelector( 'text=This account has been closed' );
+		await apiCloseAccount( restAPIClient, {
+			userID: newUserDetails.body.user_id,
+			username: newUserDetails.body.username,
+			email: testUser.email,
 		} );
 	} );
 } );

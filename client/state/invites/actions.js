@@ -1,6 +1,5 @@
 import config from '@automattic/calypso-config';
 import { translate } from 'i18n-calypso';
-import { get, truncate } from 'lodash';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import { getLocaleSlug } from 'calypso/lib/i18n-utils';
 import wpcom from 'calypso/lib/wp';
@@ -12,7 +11,14 @@ import {
 	INVITES_REQUEST,
 	INVITES_REQUEST_FAILURE,
 	INVITES_REQUEST_SUCCESS,
+	INVITES_VALIDATE_TOKEN,
+	INVITES_VALIDATE_TOKEN_SUCCESS,
+	INVITES_VALIDATE_TOKEN_FAILURE,
 	INVITE_ACCEPTED,
+	INVITES_SEND,
+	INVITES_SEND_ERROR,
+	INVITES_SEND_FAILURE,
+	INVITES_SEND_SUCCESS,
 	INVITE_RESEND_REQUEST,
 	INVITE_RESEND_REQUEST_FAILURE,
 	INVITE_RESEND_REQUEST_SUCCESS,
@@ -26,7 +32,6 @@ import 'calypso/state/invites/init';
 
 /**
  * Triggers a network request to fetch invites for the specified site.
- *
  * @param  {?number}  siteId Site ID
  * @returns {Function}        Action thunk
  */
@@ -95,11 +100,14 @@ export function deleteInvite( siteId, inviteId ) {
 const deleteInvitesFailureNotice = ( siteId, inviteIds ) => ( dispatch, getState ) => {
 	for ( const inviteId of inviteIds ) {
 		const invite = getInviteForSite( getState(), siteId, inviteId );
+		const invitee = ( invite.user.email || invite.user.login ) ?? '';
 		dispatch(
 			errorNotice(
-				translate( 'An error occurred while deleting the invite for %s.', {
-					args: truncate( invite.user.email || invite.user.login, { length: 20 } ),
-				} )
+				invitee.length > 20
+					? translate( 'An error occurred while deleting the invite for %s….', {
+							args: invitee.slice( 0, 20 ),
+					  } )
+					: translate( 'An error occurred while deleting the invite for %s.', { args: invitee } )
 			)
 		);
 	}
@@ -181,8 +189,8 @@ export function createAccount( userData, invite ) {
 		result
 			.then( () => {
 				recordTracksEvent( 'calypso_invite_account_created', {
-					is_p2_site: get( invite, 'site.is_wpforteams_site', false ),
-					inviter_blog_id: get( invite, 'site.ID', false ),
+					is_p2_site: invite.site?.is_wpforteams_site ?? false,
+					inviter_blog_id: invite.site?.ID ?? false,
 				} );
 			} )
 			.catch( ( error ) => {
@@ -216,13 +224,14 @@ export function disableInviteLinks( siteId ) {
 	};
 }
 
-export function acceptInvite( invite ) {
+export function acceptInvite( invite, emailVerificationSecret ) {
 	return async ( dispatch ) => {
 		try {
 			const data = await wpcom.req.get(
 				`/sites/${ invite.site.ID }/invites/${ invite.inviteKey }/accept`,
 				{
 					activate: invite.activationKey,
+					email_verification_secret: emailVerificationSecret,
 					include_domain_only: true,
 					apiVersion: '1.3',
 				}
@@ -250,6 +259,69 @@ export function acceptInvite( invite ) {
 			}
 			recordTracksEvent( 'calypso_invite_accept_failed', { error: error.error } );
 			throw error;
+		}
+	};
+}
+
+export function validateTokens( siteId, invitees, role ) {
+	return async ( dispatch ) => {
+		dispatch( {
+			type: INVITES_VALIDATE_TOKEN,
+		} );
+
+		try {
+			const data = await wpcom.req.post( `/sites/${ siteId }/invites/validate`, {
+				invitees,
+				role,
+			} );
+
+			dispatch( {
+				type: INVITES_VALIDATE_TOKEN_SUCCESS,
+				data,
+			} );
+			recordTracksEvent( 'calypso_invite_create_validation_success' );
+		} catch ( e ) {
+			dispatch( {
+				type: INVITES_VALIDATE_TOKEN_FAILURE,
+			} );
+			recordTracksEvent( 'calypso_invite_create_validation_failed' );
+		}
+	};
+}
+
+export function sendInvites( siteId, invitees, role, message, isExternal ) {
+	return async ( dispatch ) => {
+		dispatch( {
+			type: INVITES_SEND,
+		} );
+
+		try {
+			const response = await wpcom.req.post( `/sites/${ siteId }/invites/new`, {
+				invitees,
+				role,
+				message,
+				is_external: isExternal,
+				source: 'calypso',
+			} );
+			const errorsCount = Object.keys( response.errors ).length;
+
+			if ( errorsCount ) {
+				dispatch( {
+					type: INVITES_SEND_ERROR,
+					errorType: errorsCount === invitees.length ? 'all' : 'partial',
+				} );
+				recordTracksEvent( 'calypso_invite_send_failed' );
+			} else {
+				dispatch( {
+					type: INVITES_SEND_SUCCESS,
+				} );
+				recordTracksEvent( 'calypso_invite_send_success', { role } );
+			}
+		} catch ( e ) {
+			dispatch( {
+				type: INVITES_SEND_FAILURE,
+			} );
+			recordTracksEvent( 'calypso_invite_send_failed' );
 		}
 	};
 }

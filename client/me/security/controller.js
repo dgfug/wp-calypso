@@ -1,12 +1,13 @@
+import page from '@automattic/calypso-router';
 import i18n from 'i18n-calypso';
-import page from 'page';
 import { createElement } from 'react';
 import { getSocialServiceFromClientId } from 'calypso/lib/login';
 import ConnectedAppsComponent from 'calypso/me/connected-applications';
+import PasswordComponent from 'calypso/me/security/main';
 import SecurityAccountEmail from 'calypso/me/security-account-email';
 import AccountRecoveryComponent from 'calypso/me/security-account-recovery';
 import SecurityCheckupComponent from 'calypso/me/security-checkup';
-import PasswordComponent from 'calypso/me/security/main';
+import { SecuritySSHKey } from 'calypso/me/security-ssh-key/security-ssh-key';
 import SocialLoginComponent from 'calypso/me/social-login';
 import { successNotice } from 'calypso/state/notices/actions';
 
@@ -82,5 +83,10 @@ export function socialLogin( context, next ) {
 		socialService,
 		socialServiceResponse,
 	} );
+	next();
+}
+
+export function sshKey( context, next ) {
+	context.primary = <SecuritySSHKey queryParams={ context.query } />;
 	next();
 }

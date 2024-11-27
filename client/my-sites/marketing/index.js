@@ -1,4 +1,4 @@
-import page from 'page';
+import page from '@automattic/calypso-router';
 import { makeLayout, render as clientRender } from 'calypso/controller';
 import { navigation, siteSelection, sites } from 'calypso/my-sites/controller';
 import {
@@ -8,16 +8,19 @@ import {
 	redirectConnections,
 	redirectDefaultConnectionsDomain,
 	redirectMarketingTools,
-	marketingBusinessTools,
+	redirectMarketingBusinessTools,
 	redirectSharingButtons,
 	sharingButtons,
 	traffic,
-	ultimateTrafficGuide,
 } from './controller';
 
 export default function () {
 	page( '/marketing/do-it-for-me*', function redirectToDIFMLandingPage() {
-		window.location.replace( 'https://wordpress.com/do-it-for-me' );
+		window.location.replace( 'https://wordpress.com/website-design-service/' );
+	} );
+
+	page( '/marketing/ultimate-traffic-guide*', function redirectToWPCoursesPage() {
+		window.location.replace( 'https://wordpress.com/learn/courses/intro-to-seo/' );
 	} );
 
 	const paths = [
@@ -26,10 +29,8 @@ export default function () {
 		'/marketing/sharing-buttons',
 		'/marketing/tools',
 		'/marketing/traffic',
-		'/marketing/ultimate-traffic-guide',
 		'/sharing',
 		'/sharing/buttons',
-		'/marketing/business-tools',
 	];
 
 	paths.forEach( ( path ) => page( path, ...[ siteSelection, sites, makeLayout, clientRender ] ) );
@@ -40,6 +41,7 @@ export default function () {
 	page( '/sharing/buttons/:domain', redirectSharingButtons );
 
 	page( '/marketing/:domain', redirectMarketingTools );
+	page( '/marketing/business-tools/:domain', redirectMarketingBusinessTools );
 
 	page(
 		'/marketing/connections/:domain',
@@ -76,27 +78,6 @@ export default function () {
 		siteSelection,
 		navigation,
 		marketingTools,
-		layout,
-		makeLayout,
-		clientRender
-	);
-
-	page(
-		'/marketing/business-tools/:domain',
-		siteSelection,
-		navigation,
-		marketingBusinessTools,
-		layout,
-		makeLayout,
-		clientRender
-	);
-
-	page(
-		'/marketing/ultimate-traffic-guide/:domain',
-		siteSelection,
-		sites,
-		navigation,
-		ultimateTrafficGuide,
 		layout,
 		makeLayout,
 		clientRender

@@ -1,0 +1,189 @@
+@import "@wordpress/base-styles/mixins";
+@import "@wordpress/base-styles/breakpoints";
+
+@keyframes components-modal__appear-animation {
+	from {
+		transform: translateY(32px);
+	}
+
+	to {
+		transform: translateY(0);
+	}
+}
+
+.notification-settings-title-light {
+	font-size: 0.75rem;
+	line-height: 14px;
+	color: var(--studio-gray-50);
+}
+
+.notification-settings__content {
+	margin-block-start: -16px;
+	padding-block-end: 120px;
+
+	@include break-mobile {
+		padding-block-end: 35px;
+	}
+}
+
+.notification-settings__content-heading-with-beta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.notification-settings__beta-tag {
+	background: var(--studio-gray-30);
+	border-radius: 4px;
+	font-style: normal;
+	font-weight: 700;
+	font-size: 0.75rem;
+	line-height: 17px;
+	display: flex;
+	color: var(--studio-white);
+	padding: 0 5px;
+	margin-block-end: 8px;
+}
+
+.notification-settings__content-heading {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+	font-size: 0.875rem;
+	line-height: 17px;
+	margin-block-end: 8px;
+}
+
+.notification-settings__content-sub-heading {
+	@extend .notification-settings-title-light;
+}
+
+.notification-settings__content-block {
+	margin-block-start: 24px;
+	position: relative;
+}
+
+.notification-settings__content-block .select-dropdown__item.is-disabled {
+	opacity: 1;
+
+	.select-dropdown__item-text {
+		color: var(--studio-gray-20);
+	}
+}
+
+.notification-settings__content-block .select-dropdown__item .badge {
+	margin-inline-start: 4px;
+}
+
+.notification-settings__link {
+	text-decoration: underline;
+}
+
+.select-dropdown .select-dropdown__container {
+	display: block;
+}
+
+.notification-settings__duration-icon {
+	position: relative;
+	inset-block-start: 5px;
+	inset-inline-end: 2px;
+	width: 20px;
+}
+
+.notification-settings__toggle {
+	width: 15%;
+	display: inline-flex;
+	justify-content: end;
+
+	.components-form-toggle {
+		margin-right: 0 !important;
+	}
+}
+
+.notification-settings__toggle-content {
+	width: 85%;
+	display: inline-flex;
+	flex-direction: column;
+}
+
+.notification-settings__modal {
+	max-height: 100%;
+	width: 480px;
+	animation: components-modal__appear-animation 0.1s ease-out;
+	animation-fill-mode: forwards;
+}
+
+.notification-settings__email-container {
+	margin-block-start: 8px;
+	width: 100%;
+
+	.token-field__suggestions-list {
+		display: none;
+	}
+
+	.token-field__remove-token {
+		display: none;
+	}
+
+	.token-field__input-container {
+		cursor: default;
+	}
+}
+
+.notification-settings__email-condition {
+	margin-block-start: 4px;
+	@extend .notification-settings-title-light;
+}
+
+.notification-settings__toggle-container {
+	@extend .notification-settings__content-block;
+	display: inline-flex;
+	flex-direction: row-reverse;
+	width: 100%;
+}
+
+.notification-settings__toggle-container .components-base-control__field .components-flex {
+	display: inline-flex;
+	flex-direction: row-reverse;
+}
+
+.notification-settings__large-screen {
+	display: none;
+}
+
+.notification-settings__small-screen {
+	display: inherit;
+}
+
+.notification-settings__warning {
+	font-weight: 500;
+	color: var(--color-scary-40);
+	padding: 10px 0;
+
+	.gridicon {
+		position: relative;
+		top: 2px;
+		margin-right: 7px;
+	}
+}
+
+// Visually hide the toggle control label by positioning
+// it far off-screen, making it effectively invisible.
+// It will be used by screen readers
+.notification-settings__toggle-control label {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+.notification-settings__sms-counter {
+	color: var(--studio-gray-50);
+	font-size: 0.75rem;
+	margin-block-start: 8px;
+
+	&.notification-settings__sms-counter-limit-reached {
+		color: var(--color-scary-40);
+	}
+}

@@ -144,9 +144,12 @@ class CommentReplyInput extends Component {
 
 		if ( event ) {
 			event.preventDefault();
+			event.stopPropagation();
 		}
 
-		if ( '' === this.state.value ) return;
+		if ( '' === this.state.value ) {
+			return;
+		}
 
 		this.props.global.toggleNavigation( false );
 

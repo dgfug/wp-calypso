@@ -9,11 +9,9 @@ const keys = { tab: 9, enter: 13, esc: 27, spaceBar: 32, upArrow: 38, downArrow:
  * addUserMentions is a higher-order component that adds user mention support to whatever input it wraps.
  *
  * Suggestions can be provided via the suggestions prop, or by the connectUserMentions higher-order component.
- *
  * @example addUserMentions( Component )
- *
- * @param {object} WrappedComponent - React component to wrap
- * @returns {object} the enhanced component
+ * @param {Object} WrappedComponent - React component to wrap
+ * @returns {Object} the enhanced component
  */
 export default ( WrappedComponent ) =>
 	class AddUserMentions extends Component {

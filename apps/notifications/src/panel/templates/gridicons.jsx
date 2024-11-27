@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 
@@ -15,7 +15,7 @@ export default class extends Component {
 		const { onClick, size = 24 } = this.props;
 		const icon = `gridicons-${ this.props.icon }`;
 		const sharedProps = {
-			className: classNames( 'gridicon', icon ),
+			className: clsx( 'gridicon', icon ),
 			height: size,
 			width: size,
 			onClick,
@@ -127,6 +127,16 @@ export default class extends Component {
 					</svg>
 				);
 
+			case 'gridicons-info-outline':
+				return (
+					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+						<title>Info</title>
+						<g>
+							<path d="M13 9h-2V7h2v2zm0 2h-2v6h2v-6zm-1-7c-4.411 0-8 3.589-8 8s3.589 8 8 8 8-3.589 8-8-3.589-8-8-8m0-2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z" />
+						</g>
+					</svg>
+				);
+
 			case 'gridicons-lock':
 				return (
 					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -149,7 +159,7 @@ export default class extends Component {
 
 			case 'gridicons-reblog':
 				return (
-					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
 						<title>Reblog</title>
 						<g>
 							<path d="M22.086 9.914L20 7.828V18c0 1.105-.895 2-2 2h-7v-2h7V7.828l-2.086 2.086L14.5 8.5 19 4l4.5 4.5-1.414 1.414zM6 16.172V6h7V4H6c-1.105 0-2 .895-2 2v10.172l-2.086-2.086L.5 15.5 5 20l4.5-4.5-1.414-1.414L6 16.172z" />
@@ -227,6 +237,16 @@ export default class extends Component {
 					</svg>
 				);
 
+			case 'gridicons-arrow-right':
+				return (
+					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+						<title>Arrow Left</title>
+						<g>
+							<path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z" />
+						</g>
+					</svg>
+				);
+
 			case 'gridicons-cross':
 				return (
 					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -276,6 +296,56 @@ export default class extends Component {
 		c-0.781-0.781-2.047-0.781-2.828,0L14,5l5,5l1.586-1.586C21.367,7.633,21.367,6.367,20.586,5.586z M3,18v3h3
 		C6,19.343,4.657,18,3,18z"
 							/>
+						</g>
+					</svg>
+				);
+
+			case 'gridicons-pinned':
+				return (
+					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+						<path
+							d="M9.23611 1.82L11.0933 0L17.583 6.35L15.7157 8.17C14.6443 7.49 13.1851 7.6 12.2361 8.53L11.4708 9.28C10.532 10.21 10.4096 11.63 11.1137 12.69L9.24632 14.51L6.78713 12.1L3.92999 14.89C3.50142 15.31 0.48101 17.6 0.0524386 17.18C-0.376133 16.76 1.9504 13.79 2.37897 13.37L5.22591 10.58L2.76672 8.16L4.63407 6.34C5.7055 7.03 7.16468 6.91 8.10346 5.98L8.86876 5.23C9.81774 4.31 9.94019 2.88 9.23611 1.82Z"
+							fill="#8D8F94"
+						/>
+					</svg>
+				);
+
+			case 'gridicons-bell-off':
+				return (
+					<svg { ...sharedProps } xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+						<g opacity="0.48">
+							<mask
+								id="mask0_766_4208"
+								style={ { maskType: 'alpha' } }
+								maskUnits="userSpaceOnUse"
+								x="7"
+								y="5"
+								width="14"
+								height="17"
+							>
+								<path
+									fillRule="evenodd"
+									clipRule="evenodd"
+									d="M20.8003 18.0896L20.8003 17.2575L20.0591 16.7013C19.5511 16.3206 19.1357 15.6341 19.1357 15.1769L19.1357 10.5984C19.1357 7.84064 16.8995 5.60442 14.1418 5.60442C11.384 5.60442 9.14782 7.84064 9.14782 10.5984L9.14723 15.1763C9.14723 15.6335 8.7318 16.32 8.22386 16.7007L7.48199 17.2575L7.48199 18.0896L20.8003 18.0896ZM15.2826 20.5232C15.6078 20.1979 15.7705 19.7713 15.7705 19.3447L12.4376 19.3447C12.4376 19.7713 12.6009 20.1973 12.9255 20.5232C13.5767 21.1743 14.6314 21.1743 15.2826 20.5232Z"
+									fill="white"
+								/>
+							</mask>
+							<g mask="url(#mask0_766_4208)">
+								<rect
+									y="14.1422"
+									width="20"
+									height="20"
+									transform="rotate(-45 0 14.1422)"
+									fill="#797C82"
+								/>
+							</g>
+							<path
+								className="bell"
+								d="M21.1406 6.14215L7.14062 20.1422"
+								stroke="#797C82"
+								strokeWidth="1.5"
+							/>
+							<path d="M20.1406 5.14215L5.14062 20.1421" stroke="white" strokeWidth="1.5" />
 						</g>
 					</svg>
 				);

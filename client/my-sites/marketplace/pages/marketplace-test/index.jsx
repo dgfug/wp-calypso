@@ -1,8 +1,8 @@
 // File used only for development and testing.
+import page from '@automattic/calypso-router';
 import { Button, Card, CompactCard } from '@automattic/components';
 import styled from '@emotion/styled';
 import { useTranslate } from 'i18n-calypso';
-import page from 'page';
 import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { getBlockingMessages } from 'calypso/blocks/eligibility-warnings/hold-list';
@@ -11,7 +11,14 @@ import { WarningList } from 'calypso/blocks/eligibility-warnings/warning-list';
 import CardHeading from 'calypso/components/card-heading';
 import QueryJetpackPlugins from 'calypso/components/data/query-jetpack-plugins';
 import Notice from 'calypso/components/notice';
-import { useWPCOMPlugins } from 'calypso/data/marketplace/use-wpcom-plugins-query';
+import { useESPluginsInfinite } from 'calypso/data/marketplace/use-es-query';
+import {
+	useMarketplaceReviewsQuery,
+	useCreateMarketplaceReviewMutation,
+	useUpdateMarketplaceReviewMutation,
+	useDeleteMarketplaceReviewMutation,
+} from 'calypso/data/marketplace/use-marketplace-reviews';
+import { useWPCOMPluginsList } from 'calypso/data/marketplace/use-wpcom-plugins-query';
 import PluginsBrowserList from 'calypso/my-sites/plugins/plugins-browser-list';
 import { PluginsBrowserListVariant } from 'calypso/my-sites/plugins/plugins-browser-list/types';
 import {
@@ -22,9 +29,9 @@ import { getAutomatedTransfer, getEligibility } from 'calypso/state/automated-tr
 import shouldUpgradeCheck from 'calypso/state/marketplace/selectors';
 import {
 	getPluginOnSite,
-	getPlugins,
+	getFilteredAndSortedPlugins,
 	isRequestingForSites,
-} from 'calypso/state/plugins/installed/selectors';
+} from 'calypso/state/plugins/installed/selectors-ts';
 import isSiteWpcomAtomic from 'calypso/state/selectors/is-site-wpcom-atomic';
 import {
 	getSelectedSite,
@@ -50,10 +57,25 @@ export default function MarketplaceTest() {
 	const selectedSiteId = useSelector( getSelectedSiteId );
 	const selectedSiteSlug = useSelector( getSelectedSiteSlug );
 	const isAtomicSite = useSelector( ( state ) => isSiteWpcomAtomic( state, selectedSiteId ?? 0 ) );
-	const pluginDetails = useSelector( ( state ) => getPlugins( state, [ selectedSiteId ] ) );
-	const { data = [], isFetching } = useWPCOMPlugins( 'all' );
+	const pluginDetails = useSelector( ( state ) =>
+		getFilteredAndSortedPlugins( state, [ selectedSiteId ] )
+	);
+	const { data = [], isFetching } = useWPCOMPluginsList( 'all' );
 
-	const shouldUpgrade = useSelector( ( state ) => shouldUpgradeCheck( state, selectedSite ) );
+	const {
+		data: dataSearch = [],
+		isFetching: isFetchingSearch,
+		fetchNextPage,
+	} = useESPluginsInfinite( {
+		category: 'all',
+		searchTerm: 'woocommerce',
+		pageSize: 20,
+	} );
+
+	// eslint-disable-next-line no-console
+	console.log( { dataSearch, isFetchingSearch } );
+
+	const shouldUpgrade = useSelector( ( state ) => shouldUpgradeCheck( state, selectedSiteId ) );
 
 	const isRequestingForSite = useSelector( ( state ) =>
 		isRequestingForSites( state, [ selectedSiteId ] )
@@ -68,6 +90,15 @@ export default function MarketplaceTest() {
 		getPluginOnSite( state, selectedSiteId, 'contact-form-7' )
 	);
 
+	const { data: marketplaceReviews, isLoading: isLoadingReviews } = useMarketplaceReviewsQuery( {
+		productType: 'plugin',
+		slug: 'woocommerce-bookings',
+	} );
+
+	const createReview = useCreateMarketplaceReviewMutation( {} );
+	const updateReview = useUpdateMarketplaceReviewMutation( {} );
+	const deleteReview = useDeleteMarketplaceReviewMutation( {} );
+
 	const dispatch = useDispatch();
 	const transferDetails = useSelector( ( state ) => getAutomatedTransfer( state, selectedSiteId ) );
 	const eligibilityDetails = useSelector( ( state ) => getEligibility( state, selectedSiteId ) );
@@ -77,14 +108,14 @@ export default function MarketplaceTest() {
 			name: 'Pay & Install Woocommerce Subscription',
 			path: `/checkout/${ selectedSiteSlug }/woocommerce_subscriptions_monthly${
 				shouldUpgrade ? ',business' : '' // or business-monthly if user has selected monthly pricing
-			}?redirect_to=/marketplace/thank-you/woocommerce-subscriptions/${ selectedSiteSlug }#step2`,
+			}`,
 		},
 		{
 			name: 'Pay & Install Yoast Premium',
-			path: `/checkout/${ selectedSiteSlug }/business,wordpress_seo_premium_monthly?redirect_to=/marketplace/thank-you/wordpress-seo-premium-monthly/${ selectedSiteSlug }#step2`,
+			path: `/checkout/${ selectedSiteSlug }/business,wordpress_seo_premium_monthly#step2`,
 		},
 		{ name: 'Install Page', path: `/marketplace/test/install/${ selectedSiteSlug }?` },
-		{ name: 'Thank You Page', path: '/marketplace/thank-you/woocommerce' },
+		{ name: 'Thank You Page', path: '/marketplace/thank-you?plugins=woocommerce' },
 		{ name: 'Domains Page', path: '/marketplace/domain' },
 	];
 
@@ -98,7 +129,7 @@ export default function MarketplaceTest() {
 		selectedSiteId && dispatch( requestEligibility( selectedSiteId ) );
 	};
 
-	const { ID, URL, domain, options = {} } = selectedSite;
+	const { ID, URL, domain, options = {} } = selectedSite || {};
 	const { is_wpcom_atomic, is_automated_transfer } = options;
 
 	const allBlockingMessages = getBlockingMessages( translate );
@@ -114,12 +145,122 @@ export default function MarketplaceTest() {
 
 	return (
 		<Container>
+			<button onClick={ fetchNextPage }>Fetch next page</button>
 			{ selectedSiteId && <QueryJetpackPlugins siteIds={ [ selectedSiteId ] } /> }
+			<Card key="marketplace-reviews">
+				<CardHeading tagName="h1" size={ 21 }>
+					Reviews for WooCommerce Bookings
+				</CardHeading>
+				<p>Creating/updating/deleting a review below should also refetch this query:</p>
+				<pre>{ isLoadingReviews ? 'Loading...' : JSON.stringify( marketplaceReviews ) }</pre>
+				<CardHeading tagName="h1">Add new review</CardHeading>
+				{ createReview.isError || createReview.isSuccess ? (
+					<pre>{ JSON.stringify( createReview.data || createReview.error ) }</pre>
+				) : (
+					<form
+						onSubmit={ ( e ) => {
+							e.preventDefault();
+							createReview.mutate( {
+								productType: e.target[ 0 ].value,
+								slug: e.target[ 1 ].value,
+								content: e.target[ 2 ].value,
+								rating: e.target[ 3 ].value,
+							} );
+						} }
+					>
+						<label>
+							Product type
+							<input type="text" defaultValue="plugin" />
+						</label>
+						<br />
+						<label>
+							Product slug
+							<input type="text" defaultValue="woocommerce-bookings" />
+						</label>
+						<br />
+						<label>
+							Comment
+							<input type="text" defaultValue="I like it" />
+						</label>
+						<br />
+						<label>
+							Rating
+							<input type="text" defaultValue="5" />
+						</label>
+						<br />
+						<Button type="submit">Add new review</Button>
+					</form>
+				) }
+				<CardHeading tagName="h1">Update review</CardHeading>
+				{ updateReview.isError || updateReview.isSuccess ? (
+					<pre>{ JSON.stringify( updateReview.data || updateReview.error ) }</pre>
+				) : (
+					<form
+						onSubmit={ ( e ) => {
+							e.preventDefault();
+							updateReview.mutate( {
+								reviewId: e.target[ 0 ].value,
+								productType: e.target[ 1 ].value,
+								slug: e.target[ 2 ].value,
+								content: e.target[ 3 ].value,
+								rating: e.target[ 4 ].value,
+							} );
+						} }
+					>
+						<label>
+							Review ID
+							<input type="text" />
+						</label>
+						<br />
+						<label>
+							Product type
+							<input type="text" defaultValue="plugin" />
+						</label>
+						<br />
+						<label>
+							Product slug
+							<input type="text" defaultValue="woocommerce-bookings" />
+						</label>
+						<br />
+						<label>
+							Comment
+							<input type="text" defaultValue="Updated review" />
+						</label>
+						<br />
+						<label>
+							Rating
+							<input type="text" defaultValue="3" />
+						</label>
+						<br />
+						<Button type="submit">Update review</Button>
+					</form>
+				) }
+				<CardHeading tagName="h1">Delete review</CardHeading>
+				{ deleteReview.isError || deleteReview.isSuccess ? (
+					<pre>{ JSON.stringify( deleteReview.data || deleteReview.error ) }</pre>
+				) : (
+					<form
+						onSubmit={ ( e ) => {
+							e.preventDefault();
+							deleteReview.mutate( {
+								reviewId: e.target[ 0 ].value,
+							} );
+						} }
+					>
+						<label>
+							Review ID
+							<input type="text" />
+						</label>
+						<br />
+						<Button type="submit">Delete review</Button>
+					</form>
+				) }
+			</Card>
 			<Card key="wpcom-plugins">
 				<PluginsBrowserList
 					plugins={ data }
-					listName={ 'paid' }
-					title={ 'Paid Plugins' }
+					listName="paid"
+					title="Premium Plugins"
 					site={ selectedSiteSlug }
 					showPlaceholders={ isFetching }
 					currentSites={ null }

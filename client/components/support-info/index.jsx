@@ -1,11 +1,11 @@
-import { localize } from 'i18n-calypso';
+import { useTranslate } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import ExternalLink from 'calypso/components/external-link';
 import InfoPopover from 'calypso/components/info-popover';
 
 import './style.scss';
 
-function makePrivacyLink( privacyLink, link ) {
+function makePrivacyLink( privacyLink = true, link = '' ) {
 	if ( privacyLink ) {
 		if ( typeof privacyLink === 'string' ) {
 			return privacyLink;
@@ -17,13 +17,27 @@ function makePrivacyLink( privacyLink, link ) {
 	return null;
 }
 
-function SupportInfo( { text, link, position, translate, privacyLink } ) {
+function SupportInfo( {
+	children,
+	text,
+	link,
+	position = 'left',
+	privacyLink,
+	popoverClassName = '',
+} ) {
+	const translate = useTranslate();
 	const filteredPrivacyLink = makePrivacyLink( privacyLink, link );
 
 	return (
 		<div className="support-info">
-			<InfoPopover position={ position || 'left' } screenReaderText={ translate( 'Learn more' ) }>
-				{ text + ' ' }
+			<InfoPopover
+				className={ popoverClassName }
+				position={ position }
+				screenReaderText={ translate( 'Learn more' ) }
+			>
+				{ text }
+				{ children }
+				{ link || filteredPrivacyLink ? ' ' : null }
 				{ link && (
 					<span className="support-info__learn-more">
 						<ExternalLink href={ link } target="_blank" rel="noopener noreferrer">
@@ -43,17 +57,12 @@ function SupportInfo( { text, link, position, translate, privacyLink } ) {
 	);
 }
 
-SupportInfo.defaultProps = {
-	text: '',
-	link: '',
-	privacyLink: true,
-};
-
 SupportInfo.propTypes = {
+	children: PropTypes.node,
 	text: PropTypes.string,
 	link: PropTypes.string,
 	position: PropTypes.string,
 	privacyLink: PropTypes.oneOfType( [ PropTypes.string, PropTypes.bool ] ),
 };
 
-export default localize( SupportInfo );
+export default SupportInfo;

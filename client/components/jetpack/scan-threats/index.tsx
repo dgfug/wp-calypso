@@ -1,8 +1,6 @@
-import { Button, Card } from '@automattic/components';
+import { Button, Card, FoldableCard } from '@automattic/components';
 import { numberFormat, translate } from 'i18n-calypso';
 import * as React from 'react';
-import { useDispatch } from 'react-redux';
-import FoldableCard from 'calypso/components/foldable-card';
 import InfoPopover from 'calypso/components/info-popover';
 import FixAllThreatsDialog from 'calypso/components/jetpack/fix-all-threats-dialog';
 import SecurityIcon from 'calypso/components/jetpack/security-icon';
@@ -14,6 +12,7 @@ import ThreatLowRiskItemHeader from 'calypso/components/jetpack/threat-low-risk-
 import contactSupportUrl from 'calypso/lib/jetpack/contact-support-url';
 import { triggerScanRun } from 'calypso/lib/jetpack/trigger-scan-run';
 import { useThreats } from 'calypso/lib/jetpack/use-threats';
+import { useDispatch } from 'calypso/state';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 
 import './style.scss';
@@ -114,13 +113,8 @@ const getThreatCountMessage = (
 };
 
 const ScanThreats = ( { error, site, threats }: Props ) => {
-	const {
-		updatingThreats,
-		selectedThreat,
-		setSelectedThreat,
-		fixThreats,
-		updateThreat,
-	} = useThreats( site.ID );
+	const { updatingThreats, selectedThreat, setSelectedThreat, fixThreats, updateThreat } =
+		useThreats( site.ID );
 	const [ showThreatDialog, setShowThreatDialog ] = React.useState( false );
 	const [ showFixAllThreatsDialog, setShowFixAllThreatsDialog ] = React.useState( false );
 	const [ actionToPerform, setActionToPerform ] = React.useState< ThreatAction >( 'fix' );
@@ -173,9 +167,9 @@ const ScanThreats = ( { error, site, threats }: Props ) => {
 	}, [ actionToPerform, closeDialog, updateThreat ] );
 
 	const confirmFixAllThreats = React.useCallback(
-		( fixableThreats ) => {
+		( fixableThreats: Threat[] ) => {
 			setShowFixAllThreatsDialog( false );
-			fixThreats( fixableThreats );
+			fixThreats( fixableThreats as FixableThreat[] );
 		},
 		[ fixThreats ]
 	);
@@ -217,7 +211,7 @@ const ScanThreats = ( { error, site, threats }: Props ) => {
 	let securityIcon = 'error';
 
 	if ( maxSeverity < 3 ) {
-		headerMessage = translate( 'Your site it not at risk' );
+		headerMessage = translate( 'Your site is not at risk' );
 		securityIcon = 'okay';
 	}
 
@@ -236,7 +230,7 @@ const ScanThreats = ( { error, site, threats }: Props ) => {
 					{ maxSeverity < 3 && (
 						<InfoPopover position="top" screenReaderText={ translate( 'Learn more' ) }>
 							{ translate(
-								"Low risk items don't have a negative impact on your site and can be safely ignored."
+								'Low risk items could have a negative impact on your site and should either be fixed or ignored at your convenience.'
 							) }
 						</InfoPopover>
 					) }
@@ -251,15 +245,23 @@ const ScanThreats = ( { error, site, threats }: Props ) => {
 								onClick={ openFixAllThreatsDialog }
 								disabled={ ! hasFixableThreats || updatingThreats.length > 0 }
 							>
-								{ translate( 'Auto fix all' ) }
+								{ translate( 'Show auto fixers' ) }
+							</Button>
+							<Button className="scan-threats__scan-secondary-button" onClick={ dispatchScanRun }>
+								{ translate( 'Scan now' ) }
 							</Button>
 						</div>
 					</>
 				) }
+				{ ! hasFixableThreats && (
+					<Button primary className="scan-threats__button" onClick={ dispatchScanRun }>
+						{ translate( 'Scan now' ) }
+					</Button>
+				) }
 			</Card>
 			<ThreatListHeader />
 			<div className="scan-threats__threats">
-				{ highSeverityThreats &&
+				{ highSeverityThreats.length > 0 &&
 					highSeverityThreats.map( ( threat ) => (
 						<ThreatItem
 							key={ threat.id }
@@ -271,8 +273,8 @@ const ScanThreats = ( { error, site, threats }: Props ) => {
 							isPlaceholder={ false }
 						/>
 					) ) }
-				{ ! highSeverityThreats &&
-					lowSeverityThreats &&
+				{ highSeverityThreats.length === 0 &&
+					lowSeverityThreats.length > 0 &&
 					lowSeverityThreats.map( ( threat ) => (
 						<ThreatItem
 							key={ threat.id }
@@ -284,25 +286,23 @@ const ScanThreats = ( { error, site, threats }: Props ) => {
 							isPlaceholder={ false }
 						/>
 					) ) }
-				{ lowSeverityThreats.length > 0 && (
+				{ highSeverityThreats.length > 0 && lowSeverityThreats.length > 0 && (
 					<div className="scan-threats__low-risk">
 						<FoldableCard
-							clickableHeader={ true }
+							clickableHeader
 							header={ <ThreatLowRiskItemHeader threatCount={ countMap.low } /> }
 						>
-							{ highSeverityThreats &&
-								lowSeverityThreats &&
-								lowSeverityThreats.map( ( threat ) => (
-									<ThreatItem
-										key={ threat.id }
-										threat={ threat }
-										onFixThreat={ () => openDialog( 'fix', threat ) }
-										onIgnoreThreat={ () => openDialog( 'ignore', threat ) }
-										isFixing={ isFixing( threat ) }
-										contactSupportUrl={ contactSupportUrl( site.URL ) }
-										isPlaceholder={ false }
-									/>
-								) ) }
+							{ lowSeverityThreats.map( ( threat ) => (
+								<ThreatItem
+									key={ threat.id }
+									threat={ threat }
+									onFixThreat={ () => openDialog( 'fix', threat ) }
+									onIgnoreThreat={ () => openDialog( 'ignore', threat ) }
+									isFixing={ isFixing( threat ) }
+									contactSupportUrl={ contactSupportUrl( site.URL ) }
+									isPlaceholder={ false }
+								/>
+							) ) }
 						</FoldableCard>
 					</div>
 				) }

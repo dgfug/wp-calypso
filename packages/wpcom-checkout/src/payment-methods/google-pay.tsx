@@ -1,35 +1,47 @@
-import { ProcessPayment } from '@automattic/composite-checkout';
+import { useTogglePaymentMethod } from '@automattic/composite-checkout';
 import debugFactory from 'debug';
-import { Fragment, useCallback } from 'react';
+import { Fragment, useCallback, useEffect } from 'react';
 import { GooglePayMark } from '../google-pay-mark';
 import { PaymentMethodLogos } from '../payment-method-logos';
 import PaymentRequestButton from '../payment-request-button';
-import { usePaymentRequestOptions, useStripePaymentRequest } from './web-pay-utils';
+import {
+	SubmitCompletePaymentMethodTransaction,
+	usePaymentRequestOptions,
+	useStripePaymentRequest,
+} from './web-pay-utils';
 import type { StripeConfiguration } from '@automattic/calypso-stripe';
-import type { PaymentMethod } from '@automattic/composite-checkout';
+import type { PaymentMethod, ProcessPayment } from '@automattic/composite-checkout';
+import type { CartKey } from '@automattic/shopping-cart';
 import type { Stripe } from '@stripe/stripe-js';
 
 const debug = debugFactory( 'wpcom-checkout:google-pay-payment-method' );
 
 export function createGooglePayMethod(
 	stripe: Stripe,
-	stripeConfiguration: StripeConfiguration
+	stripeConfiguration: StripeConfiguration,
+	cartKey: CartKey
 ): PaymentMethod {
 	return {
 		id: 'google-pay',
+		paymentProcessorId: 'google-pay',
 		label: <GooglePayLabel />,
 		submitButton: (
-			<GooglePaySubmitButton stripe={ stripe } stripeConfiguration={ stripeConfiguration } />
+			<GooglePaySubmitButton
+				stripe={ stripe }
+				stripeConfiguration={ stripeConfiguration }
+				cartKey={ cartKey }
+			/>
 		),
 		inactiveContent: <GooglePaySummary />,
 		getAriaLabel: () => 'Google Pay',
+		isInitiallyDisabled: true,
 	};
 }
 
-export function GooglePayLabel(): JSX.Element {
+export function GooglePayLabel() {
 	return (
 		<Fragment>
-			<span>{ 'Google Pay' }</span>
+			<span>Google Pay</span>
 			<PaymentMethodLogos className="google-pay__logo payment-logos">
 				<GooglePayMark fill="#3C4043" />
 			</PaymentMethodLogos>
@@ -42,14 +54,17 @@ export function GooglePaySubmitButton( {
 	onClick,
 	stripe,
 	stripeConfiguration,
+	cartKey,
 }: {
 	disabled?: boolean;
 	onClick?: ProcessPayment;
 	stripe: Stripe;
 	stripeConfiguration: StripeConfiguration;
-} ): JSX.Element {
-	const paymentRequestOptions = usePaymentRequestOptions( stripeConfiguration );
-	const onSubmit = useCallback(
+	cartKey: CartKey;
+} ) {
+	const togglePaymentMethod = useTogglePaymentMethod();
+	const paymentRequestOptions = usePaymentRequestOptions( stripeConfiguration, cartKey );
+	const onSubmit = useCallback< SubmitCompletePaymentMethodTransaction >(
 		( { name, paymentMethodToken } ) => {
 			debug( 'submitting stripe payment with key', paymentMethodToken );
 			if ( ! onClick ) {
@@ -57,7 +72,7 @@ export function GooglePaySubmitButton( {
 					'Missing onClick prop; GooglePaySubmitButton must be used as a payment button in CheckoutSubmitButton'
 				);
 			}
-			onClick( 'google-pay', {
+			onClick( {
 				stripe,
 				paymentMethodToken,
 				name,
@@ -66,17 +81,20 @@ export function GooglePaySubmitButton( {
 		},
 		[ onClick, stripe, stripeConfiguration ]
 	);
-	const { paymentRequest, canMakePayment, isLoading } = useStripePaymentRequest( {
-		webPaymentType: 'google-pay',
+	const { paymentRequest, allowedPaymentTypes, isLoading } = useStripePaymentRequest( {
 		paymentRequestOptions,
 		onSubmit,
 		stripe,
 	} );
 
-	if ( ! isLoading && ! canMakePayment ) {
-		// This should never occur because we should not display this payment
-		// method as an option if it is not supported.
-		throw new Error( 'This payment type is not supported' );
+	useEffect( () => {
+		if ( ! isLoading ) {
+			togglePaymentMethod( 'google-pay', allowedPaymentTypes.googlePay );
+		}
+	}, [ isLoading, allowedPaymentTypes.googlePay, togglePaymentMethod ] );
+
+	if ( ! allowedPaymentTypes.googlePay ) {
+		return null;
 	}
 
 	return (
@@ -88,6 +106,6 @@ export function GooglePaySubmitButton( {
 	);
 }
 
-export function GooglePaySummary(): JSX.Element {
-	return <Fragment>{ 'Google Pay' }</Fragment>;
+export function GooglePaySummary() {
+	return <Fragment>Google Pay</Fragment>;
 }

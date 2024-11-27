@@ -1,10 +1,9 @@
 import { CheckboxControl, SelectControl, TextControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { without } from 'lodash';
-import { ReactElement } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { LoadingEllipsis } from 'calypso/components/loading-ellipsis';
 import StepWrapper from 'calypso/signup/step-wrapper';
+import { useDispatch, useSelector } from 'calypso/state';
 import { submitSignupStep } from 'calypso/state/signup/progress/actions';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import { ActionSection, StyledNextButton } from '..';
@@ -18,7 +17,7 @@ import { getRevenueOptions } from './revenue-options';
 import type { WooCommerceInstallProps } from '..';
 import './style.scss';
 
-export default function StepBusinessInfo( props: WooCommerceInstallProps ): ReactElement | null {
+export default function StepBusinessInfo( props: WooCommerceInstallProps ) {
 	const { goToNextStep, isReskinned } = props;
 	const { __ } = useI18n();
 
@@ -238,7 +237,7 @@ export default function StepBusinessInfo( props: WooCommerceInstallProps ): Reac
 	return (
 		<StepWrapper
 			flowName="woocommerce-install"
-			hideSkip={ true }
+			hideSkip
 			headerText={ __( 'Tell us a bit about your business' ) }
 			fallbackHeaderText={ __( 'Tell us a bit about your business' ) }
 			subHeaderText={ __( 'We will guide you to get started based on your responses.' ) }

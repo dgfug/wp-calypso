@@ -34,7 +34,6 @@ module.exports = {
  * @param {Object} _ options
  * @param {AllowedImportsMap} _.allowedImports Allowed imports
  * @param {import('eslint').Rule.RuleContext} _.context Context
- *
  * @returns {(node: Node) => void} Listener function
  */
 function makeListener( { allowedImports, context } ) {
@@ -74,7 +73,7 @@ function makeListener( { allowedImports, context } ) {
 			}
 
 			context.report( {
-				message: `Usage of \`${ importedName }\` from \`${ sourceModule }\` is not allowed`,
+				message: `Warning: Using \`${ importedName }\` from \`${ sourceModule }\` could lead to unexpected issues - experimental and unstable features are prone to future breaking changes.`,
 				node: specifierNode,
 			} );
 		} );

@@ -2,14 +2,23 @@ import { useLocale } from '@automattic/i18n-utils';
 import { Popover } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import classNames from 'classnames';
+import clsx from 'clsx';
+import { useState } from 'react';
 import * as React from 'react';
 import SegmentedControl from '../segmented-control';
 import type { Plans } from '@automattic/data-stores';
 
 import './style.scss';
 
-export const PopupMessages: React.FunctionComponent = ( { children } ) => {
+interface PopupMessagesProps {
+	anchorRect?: DOMRect;
+	children: React.ReactNode;
+}
+
+export const PopupMessages: React.FunctionComponent< PopupMessagesProps > = ( {
+	anchorRect,
+	children,
+} ) => {
 	const variants: Record< string, React.ComponentProps< typeof Popover >[ 'position' ] > = {
 		desktop: 'middle right',
 		mobile: 'bottom center',
@@ -20,12 +29,13 @@ export const PopupMessages: React.FunctionComponent = ( { children } ) => {
 			{ Object.keys( variants ).map( ( variant ) => (
 				<Popover
 					key={ variant }
-					className={ classNames(
+					className={ clsx(
 						'plans-interval-toggle__popover',
 						`plans-interval-toggle__popover--${ variant }`
 					) }
 					position={ variants[ variant ] }
 					noArrow={ false }
+					anchorRect={ anchorRect }
 				>
 					{ children }
 				</Popover>
@@ -34,11 +44,12 @@ export const PopupMessages: React.FunctionComponent = ( { children } ) => {
 	);
 };
 
-interface PlansIntervalToggleProps {
+export interface PlansIntervalToggleProps {
 	intervalType: Plans.PlanBillingPeriod;
 	onChange: ( selectedValue: Plans.PlanBillingPeriod ) => void;
 	maxMonthlyDiscountPercentage?: number;
 	className?: string;
+	children?: React.ReactNode;
 }
 
 const PlansIntervalToggle: React.FunctionComponent< PlansIntervalToggleProps > = ( {
@@ -50,6 +61,7 @@ const PlansIntervalToggle: React.FunctionComponent< PlansIntervalToggleProps > =
 } ) => {
 	const { __, _x, hasTranslation } = useI18n();
 	const locale = useLocale();
+	const [ spanRef, setSpanRef ] = useState< HTMLSpanElement >();
 
 	const fallbackMonthlyLabel = __( 'Pay monthly', __i18n_text_domain__ );
 	// Translators: intended as "pay monthly", as opposed to "pay annually"
@@ -71,7 +83,7 @@ const PlansIntervalToggle: React.FunctionComponent< PlansIntervalToggleProps > =
 
 	return (
 		<div
-			className={ classNames(
+			className={ clsx(
 				'plans-interval-toggle',
 				{ 'plans-interval-toggle--monthly': intervalType === 'MONTHLY' },
 				className
@@ -89,7 +101,10 @@ const PlansIntervalToggle: React.FunctionComponent< PlansIntervalToggleProps > =
 					selected={ intervalType === 'ANNUALLY' }
 					onClick={ () => onChange( 'ANNUALLY' ) }
 				>
-					<span className="plans-interval-toggle__label">
+					<span
+						className="plans-interval-toggle__label"
+						ref={ ( ref ) => ref && setSpanRef( ref ) }
+					>
 						{ annuallyLabel } { children }
 					</span>
 
@@ -98,7 +113,7 @@ const PlansIntervalToggle: React.FunctionComponent< PlansIntervalToggleProps > =
 					 * not being undefined and not being 0
 					 */ }
 					{ intervalType === 'MONTHLY' && maxMonthlyDiscountPercentage && (
-						<PopupMessages>
+						<PopupMessages anchorRect={ spanRef?.getBoundingClientRect() }>
 							{ sprintf(
 								// translators: will be like "Save up to 30% by paying annually...". Please keep "%%" for the percent sign
 								__(

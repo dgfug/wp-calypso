@@ -2,9 +2,8 @@ import { localize } from 'i18n-calypso';
 import { find } from 'lodash';
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import QueryUserDevices from 'calypso/components/data/query-user-devices';
-import FormattedHeader from 'calypso/components/formatted-header';
 import Main from 'calypso/components/main';
+import NavigationHeader from 'calypso/components/navigation-header';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import twoStepAuthorization from 'calypso/lib/two-step-authorization';
 import ReauthRequired from 'calypso/me/reauth-required';
@@ -16,6 +15,7 @@ import {
 import BlogsSettings from './blogs-settings';
 import Navigation from './navigation';
 import PushNotificationSettings from './push-notification-settings';
+import SubscriptionManagementBackButton from './subscription-management-back-button';
 
 class NotificationSettings extends Component {
 	componentDidMount() {
@@ -53,12 +53,12 @@ class NotificationSettings extends Component {
 		return (
 			<Main wideLayout className="notification-settings">
 				<PageViewTracker path="/me/notifications" title="Me > Notifications" />
-				<QueryUserDevices />
 				<ReauthRequired twoStepAuthorization={ twoStepAuthorization } />
-				<FormattedHeader
-					brandFont
-					headerText={ this.props.translate( 'Notification Settings' ) }
-					align="left"
+
+				<SubscriptionManagementBackButton />
+				<NavigationHeader
+					navigationItems={ [] }
+					title={ this.props.translate( 'Notification Settings' ) }
 				/>
 
 				<Navigation path={ this.props.path } />

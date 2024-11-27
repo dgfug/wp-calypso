@@ -8,8 +8,10 @@ const allowedKeys = [
 	'avatar_URL',
 	'site_count',
 	'jetpack_site_count',
+	'atomic_site_count',
 	'visible_site_count',
 	'jetpack_visible_site_count',
+	'atomic_visible_site_count',
 	'date',
 	'has_unseen_notes',
 	'newest_note_type',
@@ -21,6 +23,8 @@ const allowedKeys = [
 	'logout_URL',
 	'primary_blog',
 	'primary_blog_is_jetpack',
+	'has_jetpack_partner_access',
+	'jetpack_partner_types',
 	'primary_blog_url',
 	'meta',
 	'is_new_reader',
@@ -29,6 +33,9 @@ const allowedKeys = [
 	'lasagna_jwt',
 	'i18n_empathy_mode',
 	'use_fallback_for_incomplete_languages',
+	'is_google_domain_owner',
+	'had_hosting_trial',
+	'is_subscription_only',
 ];
 const requiredKeys = [ 'ID' ];
 const decodedKeys = [ 'display_name', 'description', 'user_URL' ];

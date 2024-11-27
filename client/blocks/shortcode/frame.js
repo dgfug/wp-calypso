@@ -1,5 +1,5 @@
-import classNames from 'classnames';
-import { isEqual, omit } from 'lodash';
+import clsx from 'clsx';
+import { omit } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import ResizableIframe from 'calypso/components/resizable-iframe';
@@ -20,36 +20,15 @@ export default class ShortcodeFrame extends Component {
 		allowSameOrigin: false,
 	};
 
-	state = {
-		html: '',
-	};
-
-	componentDidMount() {
-		this.updateHtmlState( this.props );
+	shouldComponentUpdate( nextProps ) {
+		return generateEmbedFrameMarkup( this.props ) !== generateEmbedFrameMarkup( nextProps );
 	}
-
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( nextProps ) {
-		if ( ! isEqual( this.props, nextProps ) ) {
-			this.updateHtmlState( nextProps );
-		}
-	}
-
-	shouldComponentUpdate( nextProps, nextState ) {
-		return nextState.html !== this.state.html;
-	}
-
-	updateHtmlState = ( props ) => {
-		this.setState( {
-			html: generateEmbedFrameMarkup( props ),
-		} );
-	};
 
 	onFrameLoad = ( event ) => {
 		// Transmit message to assign frame markup
 		event.target.contentWindow.postMessage(
 			JSON.stringify( {
-				content: this.state.html,
+				content: generateEmbedFrameMarkup( this.props ),
 			} ),
 			'*'
 		);
@@ -58,9 +37,9 @@ export default class ShortcodeFrame extends Component {
 	};
 
 	render() {
-		const classes = classNames( 'shortcode-frame', this.props.className );
+		const classes = clsx( 'shortcode-frame', this.props.className );
 
-		if ( ! this.state.html ) {
+		if ( ! generateEmbedFrameMarkup( this.props ) ) {
 			return null;
 		}
 
@@ -69,7 +48,7 @@ export default class ShortcodeFrame extends Component {
 		// `shouldComponentUpdate`
 		const key = Math.random();
 
-		const sandbox = classNames( {
+		const sandbox = clsx( {
 			'allow-scripts': true,
 			'allow-same-origin': this.props.allowSameOrigin,
 		} );

@@ -39,15 +39,8 @@ const FollowersList = ( { site, search, type = 'wpcom' } ) => {
 	const fetchOptions = { search };
 	const listKey = [ 'followers', site.ID, type, search ].join( '-' );
 
-	const {
-		data,
-		isLoading,
-		fetchNextPage,
-		isFetchingNextPage,
-		hasNextPage,
-		refetch,
-		error,
-	} = useFollowersQuery( site.ID, type, fetchOptions );
+	const { data, isLoading, fetchNextPage, isFetchingNextPage, hasNextPage, refetch, error } =
+		useFollowersQuery( site.ID, type, fetchOptions );
 	const { removeFollower } = useRemoveFollowerMutation();
 
 	useErrorNotice( type, error, refetch );
@@ -59,6 +52,7 @@ const FollowersList = ( { site, search, type = 'wpcom' } ) => {
 			isFetching={ isLoading }
 			isFetchingNextPage={ isFetchingNextPage }
 			totalFollowers={ data?.total }
+			refetch={ refetch }
 			fetchNextPage={ fetchNextPage }
 			hasNextPage={ hasNextPage }
 			removeFollower={ removeFollower }

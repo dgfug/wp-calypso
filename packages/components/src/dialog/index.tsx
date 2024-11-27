@@ -1,26 +1,31 @@
-import classnames from 'classnames';
+import { Icon, close as closeIcon } from '@wordpress/icons';
+import clsx from 'clsx';
 import { useCallback } from 'react';
 import Modal from 'react-modal';
 import ButtonBar from './button-bar';
-import type { Button, BaseButton } from './button-bar';
-import type { ReactNode } from 'react';
+import type { BaseButton } from './button-bar';
+import type { PropsWithChildren } from 'react';
 
 import './style.scss';
 
 type Props = {
-	additionalClassNames?: Parameters< typeof classnames >[ 0 ];
-	additionalOverlayClassNames?: Parameters< typeof classnames >[ 0 ];
+	additionalClassNames?: Parameters< typeof clsx >[ 0 ];
+	additionalOverlayClassNames?: Parameters< typeof clsx >[ 0 ];
 	baseClassName?: string;
-	buttons?: Button[];
+	buttons?: ( React.ReactElement | BaseButton )[];
 	className?: string;
-	children: ReactNode;
 	isBackdropVisible?: boolean;
 	isFullScreen?: boolean;
 	isVisible: boolean;
 	label?: string;
 	leaveTimeout?: number;
-	onClose: ( action?: string ) => void;
+	onClose?: ( action?: string ) => void;
 	shouldCloseOnEsc?: boolean;
+	showCloseIcon?: boolean;
+	shouldCloseOnOverlayClick?: boolean;
+	labelledby?: string;
+	describedby?: string;
+	bodyOpenClassName?: string;
 };
 
 const Dialog = ( {
@@ -37,7 +42,12 @@ const Dialog = ( {
 	leaveTimeout = 200,
 	onClose,
 	shouldCloseOnEsc,
-}: Props ): JSX.Element => {
+	showCloseIcon = false,
+	shouldCloseOnOverlayClick = true,
+	labelledby,
+	describedby,
+	bodyOpenClassName,
+}: PropsWithChildren< Props > ) => {
 	const close = useCallback( () => onClose?.(), [ onClose ] );
 	const onButtonClick = useCallback(
 		( button: BaseButton ) => {
@@ -51,17 +61,18 @@ const Dialog = ( {
 	);
 
 	// Previous implementation used a `<Card />`, styling still relies on the 'card' class being present
-	const dialogClassName = classnames( baseClassName, 'card', additionalClassNames );
+	const dialogClassName = clsx( baseClassName, 'card', additionalClassNames );
 
-	const backdropClassName = classnames( baseClassName + '__backdrop', additionalOverlayClassNames, {
+	const backdropClassName = clsx( baseClassName + '__backdrop', additionalOverlayClassNames, {
 		'is-full-screen': isFullScreen,
 		'is-hidden': ! isBackdropVisible,
 	} );
 
-	const contentClassName = classnames( baseClassName + '__content', className );
+	const contentClassName = clsx( baseClassName + '__content', className );
 
 	return (
 		<Modal
+			aria={ { labelledby, describedby } }
 			isOpen={ isVisible }
 			onRequestClose={ close }
 			closeTimeoutMS={ leaveTimeout }
@@ -71,7 +82,18 @@ const Dialog = ( {
 			htmlOpenClassName="ReactModal__Html--open"
 			role="dialog"
 			shouldCloseOnEsc={ shouldCloseOnEsc }
+			shouldCloseOnOverlayClick={ shouldCloseOnOverlayClick }
+			bodyOpenClassName={ bodyOpenClassName }
 		>
+			{ showCloseIcon && (
+				<button
+					aria-label="Close"
+					className="dialog__action-buttons-close"
+					onClick={ () => onClose?.( this ) }
+				>
+					<Icon icon={ closeIcon } size={ 24 } />
+				</button>
+			) }
 			<div className={ contentClassName } tabIndex={ -1 }>
 				{ children }
 			</div>

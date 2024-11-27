@@ -49,14 +49,8 @@ class ConciergeCancel extends Component {
 	}
 
 	getDisplayComponent = () => {
-		const {
-			appointmentId,
-			appointmentDetails,
-			scheduleId,
-			siteSlug,
-			signupForm,
-			translate,
-		} = this.props;
+		const { appointmentId, appointmentDetails, scheduleId, siteSlug, signupForm, translate } =
+			this.props;
 
 		switch ( signupForm.status ) {
 			case CONCIERGE_STATUS_CANCELLED:
@@ -68,7 +62,7 @@ class ConciergeCancel extends Component {
 						<Button
 							className="cancel__schedule-button"
 							href={ `/me/quickstart/${ siteSlug }/book` }
-							primary={ true }
+							primary
 						>
 							{ translate( 'Schedule', {
 								context: 'Concierge session',
@@ -128,8 +122,8 @@ class ConciergeCancel extends Component {
 										className="cancel__confirmation-button"
 										disabled={ disabledCancelling }
 										onClick={ this.cancelAppointment }
-										primary={ true }
-										scary={ true }
+										primary
+										scary
 									>
 										{ translate( 'Cancel session' ) }
 									</Button>

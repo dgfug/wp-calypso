@@ -1,7 +1,6 @@
 /* eslint-disable wpcalypso/jsx-classname-namespace */
 
-import { Card } from '@automattic/components';
-import { CURRENCIES } from '@automattic/format-currency';
+import { Card, FormInputValidation, FormLabel } from '@automattic/components';
 import { ToggleControl } from '@wordpress/components';
 import PropTypes from 'prop-types';
 import { PureComponent } from 'react';
@@ -13,8 +12,6 @@ import FormCheckbox from 'calypso/components/forms/form-checkbox';
 import FormCountrySelect from 'calypso/components/forms/form-country-select';
 import FormCurrencyInput from 'calypso/components/forms/form-currency-input';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormLegend from 'calypso/components/forms/form-legend';
 import FormPasswordInput from 'calypso/components/forms/form-password-input';
 import FormPhoneInput from 'calypso/components/forms/form-phone-input';
@@ -32,6 +29,93 @@ import FormTextarea from 'calypso/components/forms/form-textarea';
 import FormStateSelector from 'calypso/components/forms/us-state-selector';
 import PhoneInput from 'calypso/components/phone-input';
 import getCountries from 'calypso/state/selectors/get-countries';
+
+export const CURRENCIES = {
+	ALL: {
+		symbol: 'Lek',
+		grouping: '.',
+		decimal: ',',
+		precision: 2,
+	},
+	BDT: {
+		symbol: '৳',
+		grouping: ',',
+		decimal: '.',
+		precision: 0,
+	},
+	GIP: {
+		symbol: '£',
+		grouping: ',',
+		decimal: '.',
+		precision: 2,
+	},
+	KGS: {
+		symbol: 'сом',
+		grouping: ' ',
+		decimal: '-',
+		precision: 2,
+	},
+	MOP: {
+		symbol: 'MOP$',
+		grouping: ',',
+		decimal: '.',
+		precision: 2,
+	},
+	UZS: {
+		symbol: 'сўм',
+		grouping: ' ',
+		decimal: ',',
+		precision: 2,
+	},
+	VEB: {
+		symbol: 'Bs.',
+		grouping: ',',
+		decimal: '.',
+		precision: 2,
+	},
+	VEF: {
+		symbol: 'Bs. F.',
+		grouping: '.',
+		decimal: ',',
+		precision: 2,
+	},
+	VND: {
+		symbol: '₫',
+		grouping: '.',
+		decimal: ',',
+		precision: 1,
+	},
+	VUV: {
+		symbol: 'VT',
+		grouping: ',',
+		decimal: '.',
+		precision: 0,
+	},
+	WST: {
+		symbol: 'WS$',
+		grouping: ',',
+		decimal: '.',
+		precision: 2,
+	},
+	XAF: {
+		symbol: 'F',
+		grouping: ',',
+		decimal: '.',
+		precision: 2,
+	},
+	XCD: {
+		symbol: '$',
+		grouping: ',',
+		decimal: '.',
+		precision: 2,
+	},
+	XOF: {
+		symbol: 'F',
+		grouping: ' ',
+		decimal: ',',
+		precision: 2,
+	},
+};
 
 const currencyList = Object.entries( CURRENCIES ).map( ( [ code ] ) => ( { code } ) );
 const visualCurrencyList = Object.entries( CURRENCIES ).map( ( [ code, { symbol } ] ) => ( {
@@ -205,7 +289,7 @@ class FormFields extends PureComponent {
 					<br />
 					<ToggleControl checked={ false } disabled />
 					<br />
-					<ToggleControl checked={ true } disabled />
+					<ToggleControl checked disabled />
 					<br />
 
 					<FormButtonsBar>
@@ -274,7 +358,7 @@ class FormFields extends PureComponent {
 						/>
 						<br />
 						<FormRadiosBarExample
-							isThumbnail={ true }
+							isThumbnail
 							checked={ this.state.checkedRadio }
 							onChange={ this.handleRadioChange }
 						/>
@@ -319,8 +403,10 @@ class FormFields extends PureComponent {
 					<FormFieldset>
 						<FormLabel>Form Media Phone Input</FormLabel>
 						<PhoneInput
-							countryCode={ this.state.phoneInput.countryCode }
-							value={ this.state.phoneInput.value }
+							value={ {
+								phoneNumber: this.state.phoneInput.value,
+								countryCode: this.state.phoneInput.countryCode,
+							} }
 							countriesList={ this.props.countriesList }
 							onChange={ this.handlePhoneInputChange }
 						/>

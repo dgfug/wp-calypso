@@ -130,7 +130,8 @@ class DomainConnectAuthorize extends Component {
 
 	render() {
 		const { params, translate } = this.props;
-		const { domain } = params;
+		const { domain: rootDomain, host } = params;
+		const domain = host ? `${ host }.${ rootDomain }` : rootDomain;
 
 		return (
 			<Main className="domain-connect__main">
@@ -143,9 +144,10 @@ class DomainConnectAuthorize extends Component {
 						} ) }
 					</h2>
 					<DomainConnectAuthorizeDescription
+						dnsTemplateError={ this.state.dnsTemplateError }
 						isPlaceholder={ ! this.state.dnsTemplateRecordsRetrieved }
 						providerId={ this.props.providerId }
-						dnsTemplateError={ this.state.dnsTemplateError }
+						serviceId={ this.props.serviceId }
 					/>
 					<DomainConnectAuthorizeRecords
 						domain={ domain }

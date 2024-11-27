@@ -46,8 +46,7 @@ export default function transformer( file, api ) {
 
 	/**
 	 * Is an import external
-	 *
-	 * @param  {object}  importNode Node object
+	 * @param  {Object}  importNode Node object
 	 * @returns {boolean}            True if import is external
 	 */
 	const isExternal = ( importNode ) =>
@@ -56,7 +55,6 @@ export default function transformer( file, api ) {
 	/**
 	 * Removes the extra newlines between two import statements
 	 * caused by `insertAfter()`:
-	 *
 	 * @see {@link https://github.com/benjamn/recast/issues/371}
 	 * @param  {string} str String
 	 * @returns {string}     Cleaned string
@@ -68,7 +66,6 @@ export default function transformer( file, api ) {
 	/**
 	 * Check if `parameters` has `param` either as a string or as a name of
 	 * an object, which could be e.g. an `Identifier`.
-	 *
 	 * @param  {Array}   params     Parameters to look from. Could be an array of strings or Identifier objects.
 	 * @param  {string}  paramValue Parameter value
 	 * @returns {boolean}            True if parameter is present
@@ -81,8 +78,7 @@ export default function transformer( file, api ) {
 
 	/**
 	 * Removes imports maintaining any comments above them
-	 *
-	 * @param {object} collection Collection containing at least one node. Comments are preserved only from first node.
+	 * @param {Object} collection Collection containing at least one node. Comments are preserved only from first node.
 	 */
 	function removeImport( collection ) {
 		const node = collection.nodes()[ 0 ];
@@ -114,7 +110,6 @@ export default function transformer( file, api ) {
 
 	/**
 	 * Catch simple redirect middlewares by looking for `page.redirect()`
-	 *
 	 * @example
 	 * // Middleware could look like this:
 	 * () => page.redirect('/foo')
@@ -130,7 +125,7 @@ export default function transformer( file, api ) {
 	 *      page.redirect('/bar');
 	 *   }
 	 * }
-	 * @param  {object}  node AST Node
+	 * @param  {Object}  node AST Node
 	 * @returns {boolean}      True if any `page.redirect()` exist inside the function node, otherwise False
 	 */
 	function isRedirectMiddleware( node ) {
@@ -152,9 +147,8 @@ export default function transformer( file, api ) {
 
 	/**
 	 * Ensure `context` is among params
-	 *
-	 * @param {object} path Path object that wraps a single node
-	 * @returns {object} Single node object
+	 * @param {Object} path Path object that wraps a single node
+	 * @returns {Object} Single node object
 	 */
 	function ensureContextMiddleware( path ) {
 		// `context` param is already in
@@ -169,9 +163,8 @@ export default function transformer( file, api ) {
 
 	/**
 	 * Ensure `next` is among params and `next()` is in the block's body
-	 *
-	 * @param {object} path Path object that wraps a single node
-	 * @returns {object} Single node object
+	 * @param {Object} path Path object that wraps a single node
+	 * @returns {Object} Single node object
 	 */
 	function ensureNextMiddleware( path ) {
 		// `next` param is already in
@@ -204,7 +197,6 @@ export default function transformer( file, api ) {
 
 	/**
 	 * Transform `renderWithReduxStore()` CallExpressions.
-	 *
 	 * @example
 	 * Input
 	 * ```
@@ -219,8 +211,8 @@ export default function transformer( file, api ) {
 	 * ```
 	 * context.primary = <Example />;
 	 * ```
-	 * @param {object} path Path object that wraps a single node
-	 * @returns {object} Single node object
+	 * @param {Object} path Path object that wraps a single node
+	 * @returns {Object} Single node object
 	 */
 	function transformRenderWithReduxStore( path ) {
 		const expressionCallee = {
@@ -232,7 +224,6 @@ export default function transformer( file, api ) {
 
 	/**
 	 * Transform `ReactDom.render()` CallExpressions.
-	 *
 	 * @example
 	 * Input
 	 * ```
@@ -246,8 +237,8 @@ export default function transformer( file, api ) {
 	 * ```
 	 * context.primary = <Example />;
 	 * ```
-	 * @param {object} path Path object that wraps a single node
-	 * @returns {object} Single node object
+	 * @param {Object} path Path object that wraps a single node
+	 * @returns {Object} Single node object
 	 */
 	function transformReactDomRender( path ) {
 		const expressionCallee = {
@@ -267,7 +258,6 @@ export default function transformer( file, api ) {
 	 * Transform CallExpressions.
 	 * What kind of CallExpressions this replaces depends on `expressionCallee`
 	 * parameter.
-	 *
 	 * @example
 	 * Input
 	 * ```
@@ -281,9 +271,9 @@ export default function transformer( file, api ) {
 	 * ```
 	 * context.primary = <Example />;
 	 * ```
-	 * @param {object} path Path object that wraps a single node
-	 * @param {object} expressionCallee `callee` parameter for finding `CallExpression` nodes.
-	 * @returns {object} Single node object
+	 * @param {Object} path Path object that wraps a single node
+	 * @param {Object} expressionCallee `callee` parameter for finding `CallExpression` nodes.
+	 * @returns {Object} Single node object
 	 */
 	function transformToContextLayout( path, expressionCallee ) {
 		if ( path.value.params.length !== 2 ) {

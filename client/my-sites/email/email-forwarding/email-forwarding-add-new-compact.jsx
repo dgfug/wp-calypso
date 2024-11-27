@@ -1,11 +1,9 @@
-import { Button, Gridicon } from '@automattic/components';
+import { Button, FormInputValidation, FormLabel, Gridicon } from '@automattic/components';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import FormTextInputWithAffixes from 'calypso/components/forms/form-text-input-with-affixes';
 import { validateAllFields } from 'calypso/lib/domains/email-forwarding';
@@ -22,11 +20,12 @@ class EmailForwardingAddNewCompact extends Component {
 		emailForwards: PropTypes.array,
 	};
 
+	isMounted = false;
+
 	constructor( props ) {
 		super( props );
 
 		this.state = {
-			formSubmitting: false,
 			fields: this.props.fields,
 		};
 
@@ -39,12 +38,22 @@ class EmailForwardingAddNewCompact extends Component {
 		} );
 	}
 
+	componentDidMount() {
+		this.isMounted = true;
+	}
+
+	componentWillUnmount() {
+		this.isMounted = false;
+	}
+
 	getInitialFields() {
 		return this.props.fields;
 	}
 
 	setFormState = ( fields ) => {
-		this.setState( { fields } );
+		if ( this.isMounted ) {
+			this.setState( { fields } );
+		}
 	};
 
 	renderAddButton() {
@@ -92,28 +101,26 @@ class EmailForwardingAddNewCompact extends Component {
 				<FormFieldset>
 					<FormLabel>{ translate( 'Emails sent to' ) }</FormLabel>
 					<FormTextInputWithAffixes
-						disabled={ this.state.formSubmitting }
+						disabled={ this.props.disabled }
 						name="mailbox"
 						onChange={ ( event ) => this.onChange( event, index ) }
 						isError={ ! isValidMailbox }
 						suffix={ '@' + selectedDomainName }
 						value={ mailbox }
 					/>
-					{ ! isValidMailbox && <FormInputValidation text={ mailboxError } isError={ true } /> }
+					{ ! isValidMailbox && <FormInputValidation text={ mailboxError } isError /> }
 				</FormFieldset>
 
 				<FormFieldset>
 					<FormLabel>{ translate( 'Will be forwarded to this email address' ) }</FormLabel>
 					<FormTextInput
-						disabled={ this.state.formSubmitting }
+						disabled={ this.props.disabled }
 						name="destination"
 						onChange={ ( event ) => this.onChange( event, index ) }
 						isError={ ! isValidDestination }
 						value={ destination }
 					/>
-					{ ! isValidDestination && (
-						<FormInputValidation text={ destinationError } isError={ true } />
-					) }
+					{ ! isValidDestination && <FormInputValidation text={ destinationError } isError /> }
 				</FormFieldset>
 			</div>
 		);

@@ -26,6 +26,23 @@ class StatsDownloadCsv extends Component {
 		borderless: PropTypes.bool,
 	};
 
+	processExportData = ( data ) => {
+		const { statType } = this.props;
+		if ( statType !== 'statsReferrers' ) {
+			return data;
+		}
+		// Work-around for a bug in the referrers data.
+		// Can include unexpected elements in the data array.
+		// Results in "[object Object]" in the CSV output.
+		// To avoid this, we only include the first two elements of each row.
+		return data.map( ( row ) => {
+			if ( Array.isArray( row ) ) {
+				return row.slice( 0, 2 );
+			}
+			return row;
+		} );
+	};
+
 	downloadCsv = ( event ) => {
 		event.preventDefault();
 		const { siteSlug, path, period, data } = this.props;
@@ -37,13 +54,19 @@ class StatsDownloadCsv extends Component {
 				period.period,
 				period.startOf.format( 'L' ),
 				period.endOf.format( 'L' ),
-			].join( '_' ) + '.csv';
+			].join( '-' ) + '.csv';
 
 		this.props.recordGoogleEvent( 'Stats', 'CSV Download ' + titlecase( path ) );
 
-		const csvData = data
+		const csvData = this.processExportData( data )
 			.map( ( row ) => {
-				return row.join( ',' );
+				if ( Array.isArray( row ) ) {
+					return row.join( ',' );
+				}
+
+				return Object.values( row )
+					.map( ( value ) => `"${ value.toString().replace( /"/g, '""' ) }"` )
+					.join( ',' );
 			} )
 			.join( '\n' );
 
@@ -53,7 +76,8 @@ class StatsDownloadCsv extends Component {
 	};
 
 	render() {
-		const { data, siteId, statType, query, translate, isLoading, borderless } = this.props;
+		const { data, siteId, statType, query, translate, isLoading, borderless, skipQuery } =
+			this.props;
 		try {
 			new Blob(); // eslint-disable-line no-new
 		} catch ( e ) {
@@ -69,7 +93,7 @@ class StatsDownloadCsv extends Component {
 				disabled={ disabled }
 				borderless={ borderless }
 			>
-				{ siteId && statType && (
+				{ ! skipQuery && siteId && statType && query && (
 					<QuerySiteStats statType={ statType } siteId={ siteId } query={ query } />
 				) }
 				<Gridicon icon="cloud-download" />{ ' ' }
@@ -83,9 +107,14 @@ class StatsDownloadCsv extends Component {
 
 const connectComponent = connect(
 	( state, ownProps ) => {
-		const { statType, query } = ownProps;
 		const siteId = getSelectedSiteId( state );
 		const siteSlug = getSiteSlug( state, siteId );
+
+		if ( ownProps.data ) {
+			return { data: ownProps.data, siteSlug, siteId, isLoading: false };
+		}
+
+		const { statType, query } = ownProps;
 		const data = getSiteStatsCSVData( state, siteId, statType, query );
 		const isLoading = isRequestingSiteStatsForQuery( state, siteId, statType, query );
 

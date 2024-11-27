@@ -1,5 +1,7 @@
+import { getTracksAnonymousUserId } from '@automattic/calypso-analytics';
 import config from '@automattic/calypso-config';
 import { get } from 'lodash';
+import getToSAcceptancePayload from 'calypso/lib/tos-acceptance-tracking';
 import {
 	SOCIAL_LOGIN_REQUEST,
 	SOCIAL_LOGIN_REQUEST_FAILURE,
@@ -17,8 +19,7 @@ import 'calypso/state/login/init';
 
 /**
  * Logs a user in from a third-party social account (Google ...).
- *
- * @param  {object}   socialInfo     Object containing { service, access_token, id_token }
+ * @param  {Object}   socialInfo     Object containing { service, access_token, id_token }
  *           {string}   service      The external social service name
  *           {string}   access_token OAuth2 access token provided by the social service
  *           {string}   id_token     JWT ID token such as the one provided by Google OpenID Connect.
@@ -33,6 +34,8 @@ export const loginSocialUser = ( socialInfo, redirectTo ) => ( dispatch ) => {
 		redirect_to: redirectTo,
 		client_id: config( 'wpcom_signup_id' ),
 		client_secret: config( 'wpcom_signup_key' ),
+		tos: JSON.stringify( getToSAcceptancePayload() ),
+		anon_id: getTracksAnonymousUserId(),
 	} )
 		.then( ( response ) => {
 			if ( get( response, 'body.data.two_step_notification_sent' ) === 'sms' ) {

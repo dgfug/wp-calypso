@@ -14,10 +14,11 @@ import './style.scss';
 
 const DnsDetails = ( {
 	dns,
+	selectedDomain,
 	selectedDomainName,
 	currentRoute,
 	selectedSite,
-}: DnsDetailsProps ): JSX.Element => {
+}: DnsDetailsProps ) => {
 	const showPlaceholder = ! dns.hasLoadedFromServer;
 	const translate = useTranslate();
 
@@ -42,7 +43,7 @@ const DnsDetails = ( {
 
 		return (
 			<DnsRecordItem
-				key={ 'domain-connect-record' }
+				key="domain-connect-record"
 				dnsRecord={ record }
 				selectedDomainName={ selectedDomainName }
 			/>
@@ -51,14 +52,20 @@ const DnsDetails = ( {
 
 	const renderDomains = () => {
 		let domainConnectRecordIsEnabled = false;
+
 		const domains = dns.records.map( ( dnsRecord, index ) => {
-			if ( 'NS' === dnsRecord.type ) {
+			const isRootRecord = dnsRecord.name === `${ selectedDomainName }.`;
+
+			// We want to hide root NS records for root domains, but not for subdomains
+			if ( 'NS' === dnsRecord.type && ! selectedDomain.isSubdomain && isRootRecord ) {
 				return;
 			}
+
 			if ( isDomainConnectRecord( dnsRecord ) ) {
 				domainConnectRecordIsEnabled = true;
 				return;
 			}
+
 			return (
 				<DnsRecordItem
 					key={ index }
@@ -67,6 +74,7 @@ const DnsDetails = ( {
 				/>
 			);
 		} );
+
 		return (
 			<>
 				{ domains }

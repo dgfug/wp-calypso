@@ -1,20 +1,17 @@
 import { createHigherOrderComponent } from '@wordpress/compose';
 import useRouteModal, { RouteModalData } from './use-route-modal';
+import type { ComponentType } from 'react';
 
-interface WithRouteModalProps {
-	routeModalData: RouteModalData;
-}
-
-export default function withRouteModal< ComponentProps >(
-	queryKey: string,
-	defaultValue?: unknown
-) {
-	return createHigherOrderComponent< ComponentProps, ComponentProps & WithRouteModalProps >(
-		( WrappedComponent ) => ( props ) => {
-			const routeModalData = useRouteModal( queryKey, defaultValue );
-
-			return <WrappedComponent { ...props } routeModalData={ routeModalData } />;
-		},
+export default function withRouteModal( queryKey: string, defaultValue?: string ) {
+	return createHigherOrderComponent(
+		< OuterProps, >(
+			InnerComponent: ComponentType< OuterProps & { routeModalData: RouteModalData } >
+		) =>
+			( props: OuterProps ) => {
+				const routeModalData = useRouteModal( queryKey, defaultValue );
+				const innerProps = { ...props, routeModalData };
+				return <InnerComponent { ...innerProps } />;
+			},
 		'WithRouteModal'
 	);
 }

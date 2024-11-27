@@ -1,10 +1,10 @@
 import { Dialog, Gridicon } from '@automattic/components';
 import { jetpackComLocales, useLocale } from '@automattic/i18n-utils';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
 import { useState, useCallback } from 'react';
-import { useSelector } from 'react-redux';
 import QueryLanguageNames from 'calypso/components/data/query-language-names';
+import { useSelector } from 'calypso/state';
 import getLocalizedLanguageNames from 'calypso/state/selectors/get-localized-language-names';
 import translations from './translations';
 import './style.scss';
@@ -45,11 +45,14 @@ const LocaleSwitcher: React.FC< Props > = ( { isVisible, onClose } ) => {
 					.replace( new RegExp( `^(/${ defaultLocale }/)` ), '/' )
 			: '/pricing';
 
-	const onMouseOver = useCallback( ( code ) => setSelectedLocale( code ), [ setSelectedLocale ] );
-	const onMouseLeave = useCallback( () => setSelectedLocale( defaultLocale ), [
-		defaultLocale,
-		setSelectedLocale,
-	] );
+	const onMouseOver = useCallback(
+		( code: string ) => setSelectedLocale( code ),
+		[ setSelectedLocale ]
+	);
+	const onMouseLeave = useCallback(
+		() => setSelectedLocale( defaultLocale ),
+		[ defaultLocale, setSelectedLocale ]
+	);
 
 	return (
 		<Dialog
@@ -65,7 +68,16 @@ const LocaleSwitcher: React.FC< Props > = ( { isVisible, onClose } ) => {
 					{ ( translations as Translations )[ selectedLocale ]?.translation ||
 						translate( 'Language' ) }
 				</h1>
-				<button className="locale-switcher__close-btn" onClick={ onClose }>
+				<button
+					className="locale-switcher__close-btn"
+					onClick={ onClose }
+					aria-label={
+						translate( 'Close language selector', {
+							comment:
+								'Text read by screen readers when the close button of the language selector gets focus.',
+						} ) as string
+					}
+				>
 					<Gridicon icon="cross" size={ 36 } />
 				</button>
 			</div>
@@ -73,7 +85,7 @@ const LocaleSwitcher: React.FC< Props > = ( { isVisible, onClose } ) => {
 				{ languages.map( ( { label, code } ) => (
 					<li key={ code }>
 						<a
-							className={ classNames( 'locale-switcher__link', {
+							className={ clsx( 'locale-switcher__link', {
 								'is-active': code === defaultLocale,
 							} ) }
 							href={ '/' + code + absoluteHref }

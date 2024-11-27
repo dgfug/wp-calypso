@@ -1,11 +1,11 @@
 import { Card } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { includes } from 'lodash';
 import PropTypes from 'prop-types';
 import { PureComponent } from 'react';
 import { connect } from 'react-redux';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
-import { startImport } from 'calypso/state/imports/actions';
+import { startImport, cancelImport } from 'calypso/state/imports/actions';
 import { appStates } from 'calypso/state/imports/constants';
 import ErrorPane from './error-pane';
 import ImporterHeader from './importer-header';
@@ -39,6 +39,7 @@ class FileImporter extends PureComponent {
 			icon: PropTypes.string.isRequired,
 			description: PropTypes.node.isRequired,
 			uploadDescription: PropTypes.node,
+			acceptedFileTypes: PropTypes.array,
 		} ).isRequired,
 		importerStatus: PropTypes.shape( {
 			errorData: PropTypes.shape( {
@@ -52,6 +53,8 @@ class FileImporter extends PureComponent {
 		site: PropTypes.shape( {
 			ID: PropTypes.number.isRequired,
 		} ),
+		fromSite: PropTypes.string,
+		hideActionButtons: PropTypes.bool,
 	};
 
 	handleClick = ( shouldStartImport ) => {
@@ -78,12 +81,13 @@ class FileImporter extends PureComponent {
 			overrideDestination,
 			uploadDescription,
 			optionalUrl,
+			acceptedFileTypes,
 		} = this.props.importerData;
-		const { importerStatus, site } = this.props;
+		const { importerStatus, site, fromSite, hideActionButtons } = this.props;
 		const { errorData, importerState } = importerStatus;
 		const isEnabled = appStates.DISABLED !== importerState;
 		const showStart = includes( compactStates, importerState );
-		const cardClasses = classNames( 'importer__file-importer-card', {
+		const cardClasses = clsx( 'importer__file-importer-card', {
 			'is-compact': showStart,
 			'is-disabled': ! isEnabled,
 		} );
@@ -99,7 +103,9 @@ class FileImporter extends PureComponent {
 			 *
 			 * This is used for the new Migration logic for the moment.
 			 */
-			cardProps.href = overrideDestination.replace( '%SITE_SLUG%', site.slug );
+			cardProps.href = overrideDestination
+				.replace( '%SITE_SLUG%', site.slug )
+				.replace( '%SITE_ID%', site.ID );
 			cardProps.onClick = this.handleClick.bind( this, false );
 		}
 
@@ -111,7 +117,17 @@ class FileImporter extends PureComponent {
 					title={ title }
 					description={ description }
 				/>
-				{ errorData && <ErrorPane type={ errorData.type } description={ errorData.description } /> }
+				{ errorData && (
+					<ErrorPane
+						type={ errorData.type }
+						description={ errorData.description }
+						siteSlug={ site.slug }
+						code={ errorData.code }
+						retryImport={ () => {
+							this.props.cancelImport( site.ID, importerStatus.importerId );
+						} }
+					/>
+				) }
 				{ includes( importingStates, importerState ) && (
 					<ImportingPane importerStatus={ importerStatus } sourceType={ title } site={ site } />
 				) }
@@ -122,6 +138,9 @@ class FileImporter extends PureComponent {
 						importerStatus={ importerStatus }
 						site={ site }
 						optionalUrl={ optionalUrl }
+						fromSite={ fromSite }
+						acceptedFileTypes={ acceptedFileTypes }
+						hideActionButtons={ hideActionButtons }
 					/>
 				) }
 			</Card>
@@ -129,4 +148,4 @@ class FileImporter extends PureComponent {
 	}
 }
 
-export default connect( null, { recordTracksEvent, startImport } )( FileImporter );
+export default connect( null, { recordTracksEvent, startImport, cancelImport } )( FileImporter );

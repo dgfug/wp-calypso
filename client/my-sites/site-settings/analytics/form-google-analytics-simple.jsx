@@ -2,19 +2,23 @@ import {
 	findFirstSimilarPlanKey,
 	FEATURE_GOOGLE_ANALYTICS,
 	TYPE_PREMIUM,
+	getPlan,
+	PLAN_PREMIUM,
 } from '@automattic/calypso-products';
-import { CompactCard } from '@automattic/components';
+import {
+	FormInputValidation as FormTextValidation,
+	FormLabel,
+	Button,
+} from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
 import { ToggleControl } from '@wordpress/components';
 import { useEffect } from 'react';
 import googleIllustration from 'calypso/assets/images/illustrations/google-analytics-logo.svg';
 import UpsellNudge from 'calypso/blocks/upsell-nudge';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormTextValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import InlineSupportLink from 'calypso/components/inline-support-link';
-import { localizeUrl } from 'calypso/lib/i18n-utils';
-import SettingsSectionHeader from 'calypso/my-sites/site-settings/settings-section-header';
+import { PanelHeading, PanelSection } from 'calypso/components/panel';
 
 import './style.scss';
 
@@ -40,9 +44,9 @@ const GoogleAnalyticsSimpleForm = ( {
 } ) => {
 	const analyticsSupportUrl = localizeUrl( 'https://wordpress.com/support/google-analytics/' );
 	const nudgeTitle = translate(
-		'Connect your site to Google Analytics in seconds with the Premium plan'
+		'Connect your site to Google Analytics in seconds with the %(premiumPlanName)s plan',
+		{ args: { premiumPlanName: getPlan( PLAN_PREMIUM )?.getTitle() } }
 	);
-
 	useEffect( () => {
 		if ( fields?.wga?.code ) {
 			setDisplayForm( true );
@@ -72,38 +76,30 @@ const GoogleAnalyticsSimpleForm = ( {
 				description={ translate(
 					"Add your unique Measurement ID to monitor your site's performance in Google Analytics."
 				) }
-				event={ 'google_analytics_settings' }
+				event="google_analytics_settings"
 				feature={ FEATURE_GOOGLE_ANALYTICS }
 				plan={ plan }
-				showIcon={ true }
+				showIcon
 				title={ nudgeTitle }
 			/>
 		);
 		return (
-			<form id="analytics" onSubmit={ handleSubmitForm }>
-				<SettingsSectionHeader
-					disabled={ isSubmitButtonDisabled }
-					isSaving={ isSavingSettings }
-					onButtonClick={ handleSubmitForm }
-					showButton
-					title={ translate( 'Google' ) }
-				/>
-
-				<CompactCard>
+			<form
+				aria-label="Google Analytics Site Settings"
+				id="analytics"
+				onSubmit={ handleSubmitForm }
+			>
+				<>
+					<PanelHeading>{ translate( 'Google Analytics' ) }</PanelHeading>
 					<div className="analytics site-settings__analytics">
 						<div className="analytics site-settings__analytics-illustration">
 							<img src={ googleIllustration } alt="" />
 						</div>
 						<div className="analytics site-settings__analytics-text">
-							<p className="analytics site-settings__analytics-title">
-								{ translate( 'Google Analytics' ) }
-							</p>
 							<p>
 								{ translate(
 									'A free analytics tool that offers additional insights into your site.'
-								) }
-							</p>
-							<p>
+								) }{ ' ' }
 								<a
 									onClick={ recordSupportLinkClick }
 									href={ analyticsSupportUrl }
@@ -134,7 +130,7 @@ const GoogleAnalyticsSimpleForm = ( {
 								/>
 								{ ! isCodeValid && (
 									<FormTextValidation
-										isError={ true }
+										isError
 										text={ translate( 'Invalid Google Analytics Measurement ID.' ) }
 									/>
 								) }
@@ -145,7 +141,7 @@ const GoogleAnalyticsSimpleForm = ( {
 							<p>
 								{ translate(
 									'Google Analytics is a free service that complements our {{a}}built-in stats{{/a}} ' +
-										'with different insights into your traffic. WordPress.com stats and Google Analytics ' +
+										'with different insights into your traffic. Jetpack Stats and Google Analytics ' +
 										'use different methods to identify and track activity on your site, so they will ' +
 										'normally show slightly different totals for your visits, views, etc.',
 									{
@@ -169,11 +165,11 @@ const GoogleAnalyticsSimpleForm = ( {
 							</p>
 						</div>
 					) }
-				</CompactCard>
+				</>
 				{ showUpgradeNudge && site && site.plan ? (
 					nudge
 				) : (
-					<CompactCard>
+					<>
 						<div className="analytics site-settings__analytics">
 							<ToggleControl
 								checked={ displayForm }
@@ -182,9 +178,16 @@ const GoogleAnalyticsSimpleForm = ( {
 								label={ translate( 'Add Google' ) }
 							/>
 						</div>
-					</CompactCard>
+						<Button
+							className="is-primary"
+							disabled={ isSubmitButtonDisabled }
+							busy={ isSavingSettings }
+							onClick={ handleSubmitForm }
+						>
+							{ translate( 'Save' ) }
+						</Button>
+					</>
 				) }
-				<div className="analytics site-settings__analytics-spacer" />
 			</form>
 		);
 	};
@@ -194,7 +197,7 @@ const GoogleAnalyticsSimpleForm = ( {
 	if ( ! site ) {
 		return null;
 	}
-	return renderForm();
+	return <PanelSection>{ renderForm() }</PanelSection>;
 };
 
 export default GoogleAnalyticsSimpleForm;

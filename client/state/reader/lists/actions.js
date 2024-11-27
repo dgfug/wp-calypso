@@ -35,9 +35,8 @@ import 'calypso/state/reader/init';
 
 /**
  * Returns an action object to signal that list objects have been received.
- *
  * @param  {Array}  lists Lists received
- * @returns {object}       Action object
+ * @returns {Object}       Action object
  */
 export function receiveLists( lists ) {
 	return {
@@ -48,8 +47,7 @@ export function receiveLists( lists ) {
 
 /**
  * Request the current user's subscribed lists.
- *
- * @returns {object}       Action object
+ * @returns {Object}       Action object
  */
 export function requestSubscribedLists() {
 	return {
@@ -63,10 +61,9 @@ export function createReaderList( list ) {
 
 /**
  * Request a single Reader list.
- *
  * @param  {string}  listOwner List owner
  * @param  {string}  listSlug List slug
- * @returns {object}       Action object
+ * @returns {Object}       Action object
  */
 export function requestList( listOwner, listSlug ) {
 	return { type: READER_LIST_REQUEST, listOwner, listSlug };
@@ -90,10 +87,9 @@ export function handleReaderListRequestFailure( errorInfo ) {
 
 /**
  * Follow a list.
- *
  * @param  {string}  listOwner List owner
  * @param  {string}  listSlug List slug
- * @returns {object}       Action object
+ * @returns {Object}       Action object
  */
 export function followList( listOwner, listSlug ) {
 	return {
@@ -105,9 +101,8 @@ export function followList( listOwner, listSlug ) {
 
 /**
  * Receive a successful list follow.
- *
- * @param  {object} list Followed list
- * @returns {object} Action object
+ * @param  {Object} list Followed list
+ * @returns {Object} Action object
  */
 export function receiveFollowList( list ) {
 	return {
@@ -118,10 +113,9 @@ export function receiveFollowList( list ) {
 
 /**
  * Unfollow a list.
- *
  * @param  {string}  listOwner List owner
  * @param  {string}  listSlug List slug
- * @returns {object}       Action object
+ * @returns {Object}       Action object
  */
 export function unfollowList( listOwner, listSlug ) {
 	return {
@@ -133,9 +127,8 @@ export function unfollowList( listOwner, listSlug ) {
 
 /**
  * Receive a successful list unfollow.
- *
- * @param  {object} list Unfollowed list
- * @returns {object}    Action object
+ * @param  {Object} list Unfollowed list
+ * @returns {Object}    Action object
  */
 export function receiveUnfollowList( list ) {
 	return {
@@ -146,9 +139,8 @@ export function receiveUnfollowList( list ) {
 
 /**
  * Triggers a network request to update a list's details.
- *
- * @param   {object} list List details to save
- * @returns {object} Action object
+ * @param   {Object} list List details to save
+ * @returns {Object} Action object
  */
 export function updateReaderList( list ) {
 	if ( ! list || ! list.owner || ! list.slug || ! list.title ) {
@@ -163,9 +155,8 @@ export function updateReaderList( list ) {
 
 /**
  * Handle updated list object from the API.
- *
- * @param   {object} data List to save
- * @returns {object} Action object
+ * @param   {Object} data List to save
+ * @returns {Object} Action object
  */
 export function receiveUpdatedListDetails( data ) {
 	return {
@@ -176,10 +167,9 @@ export function receiveUpdatedListDetails( data ) {
 
 /**
  * Handle an error from the list update API.
- *
  * @param   {Error}  error Error during the list update process
- * @param   {object} list List details to save
- * @returns {object} Action object
+ * @param   {Object} list List details to save
+ * @returns {Object} Action object
  */
 export function handleUpdateListDetailsError( error, list ) {
 	return {

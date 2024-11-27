@@ -6,10 +6,9 @@ const debug_res = debugFactory( 'wpcom:send-request:res' );
 
 /**
  * Request to WordPress REST API
- *
- * @param {string|object} params - params object
- * @param {object} [query] - query object parameter
- * @param {object} [body] - body object parameter
+ * @param {string | Object} params - params object
+ * @param {Object} [query] - query object parameter
+ * @param {Object} [body] - body object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -70,6 +69,12 @@ export default function sendRequest( params, query, body, fn ) {
 	if ( body ) {
 		params.body = body;
 	}
+
+	// OAuth token
+	if ( this.token ) {
+		params.token = this.token;
+	}
+
 	debug( 'params: %o', params );
 
 	// if callback is provided, behave traditionally

@@ -1,22 +1,22 @@
 import { isEnabled } from '@automattic/calypso-config';
+import { englishLocales, i18nDefaultLocaleSlug } from '@automattic/i18n-utils';
 import { SelectItem, SelectItemAlt } from '@automattic/onboarding';
 import { useTranslate } from 'i18n-calypso';
-import { build, write, tip } from 'calypso/signup/icons';
-import type { IntentFlag } from './types';
+import { build, write, shoppingCart } from 'calypso/signup/icons';
 
-type Intent = SelectItem< IntentFlag >;
-type IntentAlt = SelectItemAlt< IntentFlag >;
+type Intent = SelectItem< string >;
+type IntentAlt = SelectItemAlt< string >;
 
 export const useIntents = (): Intent[] => {
 	const translate = useTranslate();
 
 	const intents: Intent[] = [
 		{
-			key: 'options',
+			key: 'write',
 			title: translate( 'Write' ),
 			description: <p>{ translate( 'Share your ideas with the world' ) }</p>,
 			icon: write,
-			value: 'options',
+			value: 'write',
 			actionText: translate( 'Start writing' ),
 		},
 		{
@@ -34,7 +34,7 @@ export const useIntents = (): Intent[] => {
 			key: 'sell',
 			title: translate( 'Sell' ),
 			description: <p>{ translate( 'Set up an online store' ) }</p>,
-			icon: tip,
+			icon: shoppingCart,
 			value: 'sell',
 			actionText: translate( 'Start selling' ),
 		} );
@@ -47,15 +47,6 @@ export const useIntentsAlt = ( canImport: boolean ): IntentAlt[] => {
 	const translate = useTranslate();
 
 	return [
-		{
-			show: true,
-			key: 'wpadmin',
-			description: translate( "Know what you're doing?" ),
-			value: 'wpadmin',
-			disable: false,
-			disableText: '',
-			actionText: translate( 'Start from scratch / wp-admin' ),
-		},
 		{
 			show: isEnabled( 'onboarding/import' ),
 			key: 'import',
@@ -71,6 +62,15 @@ export const useIntentsAlt = ( canImport: boolean ): IntentAlt[] => {
 					},
 				}
 			),
+		},
+		{
+			show: englishLocales.includes( translate.localeSlug || i18nDefaultLocaleSlug ),
+			key: 'difm',
+			description: translate( 'Hire our experts to create your dream site' ),
+			value: 'difm',
+			actionText: translate( 'Get Started' ),
+			disable: false,
+			disableText: <></>,
 		},
 	];
 };

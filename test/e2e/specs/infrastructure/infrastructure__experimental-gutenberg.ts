@@ -6,31 +6,31 @@ import {
 	envVariables,
 	TestAccount,
 	DataHelper,
-	GutenbergEditorPage,
+	EditorPage,
+	getTestAccountByFeature,
+	envToFeatureKey,
 } from '@automattic/calypso-e2e';
 import { Page, Browser } from 'playwright';
 
 declare const browser: Browser;
 
 describe( DataHelper.createSuiteTitle( 'Gutenberg: Experimental Features' ), function () {
-	const accountName = envVariables.GUTENBERG_EDGE
-		? 'gutenbergSimpleSiteEdgeUser'
-		: 'gutenbergSimpleSiteUser';
+	const features = envToFeatureKey( envVariables );
+	const accountName = getTestAccountByFeature( features );
 
 	let page: Page;
-	let gutenbergEditorPage: GutenbergEditorPage;
+	let editorPage: EditorPage;
 
 	beforeAll( async () => {
 		page = await browser.newPage();
-		gutenbergEditorPage = new GutenbergEditorPage( page );
+		editorPage = new EditorPage( page );
 
 		const testAccount = new TestAccount( accountName );
 		await testAccount.authenticate( page );
 	} );
 
 	it( 'Go to the new post page', async function () {
-		gutenbergEditorPage = new GutenbergEditorPage( page );
-		await gutenbergEditorPage.visit( 'post' );
+		await editorPage.visit( 'post' );
 	} );
 
 	it.each( [
@@ -41,14 +41,17 @@ describe( DataHelper.createSuiteTitle( 'Gutenberg: Experimental Features' ), fun
 	] )(
 		'Experimental package %s and feature %s are available',
 		async function ( packageName, feature, featureType ) {
-			const frame = await gutenbergEditorPage.getEditorFrame();
-			const packageAvailable = await frame.evaluate( `typeof window[ "wp" ]["${ packageName }"]` );
+			const editorParent = await editorPage.getEditorParent();
+
+			const packageAvailable = await editorParent.evaluate(
+				`typeof window[ "wp" ]["${ packageName }"]`
+			);
 
 			expect( packageAvailable ).not.toStrictEqual( 'undefined' );
 			// It should always be an object.
 			expect( packageAvailable ).toStrictEqual( 'object' );
 
-			const featureAvailable = await frame.evaluate(
+			const featureAvailable = await editorParent.evaluate(
 				`typeof window[ "wp" ]["${ packageName }"]["${ feature }"]`
 			);
 			expect( featureAvailable ).not.toStrictEqual( 'undefined' );
@@ -58,8 +61,8 @@ describe( DataHelper.createSuiteTitle( 'Gutenberg: Experimental Features' ), fun
 	);
 
 	it( 'Experimental data is available', async function () {
-		const frame = await gutenbergEditorPage.getEditorFrame();
-		const blockPatterns = await frame.evaluate(
+		const editorParent = await editorPage.getEditorParent();
+		const blockPatterns = await editorParent.evaluate(
 			`Array.isArray( window.wp.data.select( 'core/editor' ).getEditorSettings().__experimentalBlockPatterns )`
 		);
 		// If this test fails, please contact #team-ganon to update premium pattern highlighting.
@@ -78,11 +81,34 @@ describe( DataHelper.createSuiteTitle( 'Gutenberg: Experimental Features' ), fun
 		// patterns will be added than removed. This also means if we see a dramatic
 		// change in the number to the lower end, then something is probably wrong.
 		const expectedBlockPatternCount = 50;
-		const frame = await gutenbergEditorPage.getEditorFrame();
-		const actualBlockPatternCount = await frame.evaluate(
-			`window.wp.data.select( 'core/editor' ).getEditorSettings().__experimentalBlockPatterns.length`
-		);
+		const editorParent = await editorPage.getEditorParent();
+		const actualBlockPatternCount = await editorParent.evaluate(
+			() =>
+				/* eslint-disable @typescript-eslint/ban-ts-comment */
+				new Promise( ( resolve ) => {
+					let hasTimedOut = false;
 
+					// This needs to be done in a loop until patterns request
+					// returns anything as initially the data is not there yet,
+					// and it returns an empty array, making this case a false
+					// positive.
+					const wait = setInterval( () => {
+						// @ts-ignore
+						const patterns = window.wp.data.select( 'core' ).getBlockPatterns();
+						if ( patterns.length > 0 || hasTimedOut ) {
+							clearInterval( wait );
+							resolve( patterns.length );
+						}
+					}, 100 );
+
+					// Timeout after 10 seconds. No need to wait for the full
+					// jest (2 minutes) timeout.
+					setTimeout( () => {
+						hasTimedOut = true;
+					}, 10000 );
+				} )
+			/* eslint-enable @typescript-eslint/ban-ts-comment */
+		);
 		expect( actualBlockPatternCount ).toBeGreaterThanOrEqual( expectedBlockPatternCount );
 	} );
 } );

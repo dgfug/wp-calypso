@@ -1,6 +1,6 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
-import { useSelector } from 'react-redux';
+import { useSelector } from 'calypso/state';
 import { getCurrentUserCurrencyCode } from 'calypso/state/currency-code/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import { INTRO_PRICING_DISCOUNT_PERCENTAGE } from '../constants';
@@ -8,8 +8,8 @@ import ProductCard from '../product-card';
 import ProductGridSection from '../product-grid/section';
 import slugToSelectorProduct from '../slug-to-selector-product';
 import { getItemSlugByDuration } from './utils';
-import type { Duration, PurchaseCallback, PurchaseURLCallback, SelectorProduct } from '../types';
 import type { PlanRecommendation } from './types';
+import type { Duration, PurchaseCallback, PurchaseURLCallback, SelectorProduct } from '../types';
 import './style.scss';
 import type { ReactNode, FC } from 'react';
 
@@ -65,7 +65,7 @@ const PlanUpgradeSection: FC< Props > = ( {
 					),
 				},
 			} ) }
-			className={ classNames( { 'with-single-reco': newItemCount === 1 } ) }
+			className={ clsx( { 'with-single-reco': newItemCount === 1 } ) }
 		>
 			<p className="plan-upgrade__description">
 				{ translate(
@@ -94,7 +94,7 @@ const PlanUpgradeSection: FC< Props > = ( {
 					/>
 				</li>
 				<li className="plan-upgrade__separator">
-					<span className="plan-upgrade__arrow">{ '→' }</span>
+					<span className="plan-upgrade__arrow">→</span>
 				</li>
 				<li className="plan-upgrade__new-items">
 					<ul className="plan-upgrade__new-items-list">

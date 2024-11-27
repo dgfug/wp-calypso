@@ -11,10 +11,9 @@ import 'calypso/state/plugins/init';
 
 /**
  * Upload a plugin to a site.
- *
  * @param {number} siteId site ID
  * @param {window.File} file the plugin zip to upload
- * @returns {object} action object
+ * @returns {Object} action object
  */
 export function uploadPlugin( siteId, file ) {
 	return {
@@ -26,10 +25,9 @@ export function uploadPlugin( siteId, file ) {
 
 /**
  * Update progress for an uploading plugin.
- *
  * @param {number} siteId site ID
  * @param {number} progress percentage of file uploaded
- * @returns {object} action object
+ * @returns {Object} action object
  */
 export function updatePluginUploadProgress( siteId, progress ) {
 	return {
@@ -41,10 +39,9 @@ export function updatePluginUploadProgress( siteId, progress ) {
 
 /**
  * Mark a plugin upload as complete.
- *
  * @param {number} siteId site ID
  * @param {string} pluginId plugin id
- * @returns {object} action object
+ * @returns {Object} action object
  */
 export function completePluginUpload( siteId, pluginId ) {
 	return {
@@ -56,10 +53,9 @@ export function completePluginUpload( siteId, pluginId ) {
 
 /**
  * Set an error from a plugin upload.
- *
  * @param {number} siteId site ID
- * @param {object} error the error
- * @returns {object} action object
+ * @param {Object} error the error
+ * @returns {Object} action object
  */
 export function pluginUploadError( siteId, error ) {
 	return {
@@ -71,9 +67,8 @@ export function pluginUploadError( siteId, error ) {
 
 /**
  * Clear any plugin upload data for a site.
- *
  * @param {number} siteId site ID
- * @returns {object} action object
+ * @returns {Object} action object
  */
 export function clearPluginUpload( siteId ) {
 	return {

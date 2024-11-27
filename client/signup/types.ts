@@ -5,7 +5,13 @@ export interface Dependencies {
 export interface Flow {
 	name: string;
 	steps: string[];
-	destination: string | ( ( dependencies: Dependencies, localeSlug: string ) => string );
+	destination:
+		| string
+		| ( (
+				dependencies: Dependencies,
+				localeSlug: string,
+				goesThroughCheckout?: boolean
+		  ) => string );
 	description: string;
 	lastModified: string;
 	pageTitle?: string;
@@ -14,6 +20,10 @@ export interface Flow {
 	disallowResume?: boolean;
 	showRecaptcha?: boolean;
 	enableBranchSteps?: boolean;
+	hideProgressIndicator?: boolean;
+	enablePresales?: boolean;
+	enableHotjar?: boolean;
+	onEnterFlow?: ( flowName: string ) => void;
 }
 
 export type GoToStep = ( stepName: string, stepSectionName?: string, flowName?: string ) => void;

@@ -5,8 +5,11 @@ const selectors = {
 	blockInserterSearch: 'input[placeholder="Search"]',
 	blockInserterResultItem: '.block-editor-block-types-list__list-item',
 
+	// First paragraph in the editor
+	firstParagraph: 'p[role="document"].is-selected',
+
 	// Publish
-	postButton: 'a:text("Post")',
+	postButton: 'button:text("Publish")',
 };
 /**
  * Represents an instance of the WPCOM's Gutenberg editor page.
@@ -26,7 +29,7 @@ export class IsolatedBlockEditorComponent {
 	/**
 	 * Given a block name, insert a matching block to the editor.
 	 *
-	 * This method is nearly identical to the method also named `addBlock` in `GutenbergEditorPage`.
+	 * This method is nearly identical to the method also named `addBlock` in `EditorPage`.
 	 * However, the major distinction is the use of `Page` vs `Frame`.
 	 *
 	 * This is because a P2 frontend (or inline) editor is not a part of an embedded iframe.
@@ -40,6 +43,7 @@ export class IsolatedBlockEditorComponent {
 		// Click on the editor title. This has the effect of dismissing the block inserter
 		// if open, and restores focus back to the editor root container, allowing insertion
 		// of blocks.
+		await this.page.waitForSelector( selectors.firstParagraph );
 		await this.page.click( selectors.blockInserterToggle );
 		await this.page.fill( selectors.blockInserterSearch, blockName );
 		await this.page.click( `${ selectors.blockInserterResultItem } span:text("${ blockName }")` );

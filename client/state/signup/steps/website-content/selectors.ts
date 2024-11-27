@@ -1,11 +1,11 @@
 import 'calypso/state/signup/init';
-import { IMAGE_UPLOAD_STATES } from './reducer';
-import { initialState, WebsiteContentCollection } from './schema';
+import { initialState, MEDIA_UPLOAD_STATES } from './constants';
+import type { WebsiteContentCollectionState } from './types';
 
-export interface WebsiteContentStateModel {
+export interface WebsiteContentStateModel extends Record< string, unknown > {
 	signup: {
 		steps: {
-			websiteContentCollection: WebsiteContentCollection;
+			websiteContentCollection: WebsiteContentCollectionState;
 		};
 	};
 }
@@ -15,21 +15,26 @@ export function getWebsiteContent( state: WebsiteContentStateModel ) {
 		state.signup?.steps?.websiteContentCollection?.websiteContent || initialState.websiteContent
 	);
 }
+
 export function getWebsiteContentDataCollectionIndex( state: WebsiteContentStateModel ) {
 	return state.signup?.steps?.websiteContentCollection?.currentIndex || initialState.currentIndex;
 }
 
-export function getImageUploadStates( state: WebsiteContentStateModel ) {
+export function getMediaUploadStates( state: WebsiteContentStateModel ) {
 	return (
-		state.signup?.steps?.websiteContentCollection?.imageUploadStates ||
-		initialState.imageUploadStates
+		state.signup?.steps?.websiteContentCollection?.mediaUploadStates ||
+		initialState.mediaUploadStates
 	);
 }
 
-export function isImageUploadInProgress( state: WebsiteContentStateModel ) {
-	const imageUploadStates = getImageUploadStates( state );
-	const allStates = Object.values( imageUploadStates ).flatMap( ( pageImages ) =>
+export function isMediaUploadInProgress( state: WebsiteContentStateModel ) {
+	const mediaUploadStates = getMediaUploadStates( state );
+	const allStates = Object.values( mediaUploadStates ).flatMap( ( pageImages ) =>
 		Object.values( pageImages )
 	);
-	return allStates.some( ( s ) => IMAGE_UPLOAD_STATES.UPLOAD_STARTED === s );
+	return allStates.some( ( s ) => MEDIA_UPLOAD_STATES.UPLOAD_STARTED === s );
+}
+
+export function hasUnsavedChanges( state: WebsiteContentStateModel ): boolean {
+	return state.signup?.steps?.websiteContentCollection?.hasUnsavedChanges;
 }

@@ -1,8 +1,10 @@
-import { SITE_LAUNCH } from 'calypso/state/action-types';
+import { addQueryArgs } from 'calypso/lib/url';
+import { SITE_LAUNCH, SITE_LAUNCH_FAILURE, SITE_LAUNCH_SUCCESS } from 'calypso/state/action-types';
 import 'calypso/state/data-layer/wpcom/sites/launch';
 import isUnlaunchedSite from 'calypso/state/selectors/is-unlaunched-site';
 import { getDomainsBySiteId } from 'calypso/state/sites/domains/selectors';
 import { getSiteSlug, isCurrentPlanPaid, getSiteOption } from 'calypso/state/sites/selectors';
+import { isSiteOnHostingTrial } from '../plans/selectors';
 
 export const launchSite = ( siteId ) => ( {
 	type: SITE_LAUNCH,
@@ -15,22 +17,42 @@ export const launchSite = ( siteId ) => ( {
 	},
 } );
 
-export const launchSiteOrRedirectToLaunchSignupFlow = ( siteId ) => ( dispatch, getState ) => {
-	if ( ! isUnlaunchedSite( getState(), siteId ) ) {
-		return;
-	}
+export const launchSiteSuccess = ( siteId ) => ( {
+	type: SITE_LAUNCH_SUCCESS,
+	siteId,
+} );
 
-	const isAnchorPodcast = getSiteOption( getState(), siteId, 'anchor_podcast' );
-	const isPaidWithDomain =
-		isCurrentPlanPaid( getState(), siteId ) && getDomainsBySiteId( getState(), siteId ).length > 1;
+export const launchSiteFailure = ( siteId ) => ( {
+	type: SITE_LAUNCH_FAILURE,
+	siteId,
+} );
 
-	if ( isPaidWithDomain || isAnchorPodcast ) {
-		dispatch( launchSite( siteId ) );
-		return;
-	}
+/**
+ * @param {number} siteId
+ * @param {string?} source
+ */
+export const launchSiteOrRedirectToLaunchSignupFlow =
+	( siteId, source = null ) =>
+	( dispatch, getState ) => {
+		if ( ! isUnlaunchedSite( getState(), siteId ) ) {
+			return;
+		}
 
-	const siteSlug = getSiteSlug( getState(), siteId );
+		const isAnchorPodcast = getSiteOption( getState(), siteId, 'anchor_podcast' );
+		const isPaidWithDomain =
+			isCurrentPlanPaid( getState(), siteId ) &&
+			getDomainsBySiteId( getState(), siteId ).length > 1;
 
-	// TODO: consider using the `page` library instead of calling using `location.href` here
-	window.location.href = `/start/launch-site?siteSlug=${ siteSlug }`;
-};
+		if ( isPaidWithDomain || isAnchorPodcast || isSiteOnHostingTrial( getState(), siteId ) ) {
+			dispatch( launchSite( siteId ) );
+			return;
+		}
+
+		const siteSlug = getSiteSlug( getState(), siteId );
+
+		// TODO: consider using the `page` library instead of calling using `location.href` here
+		window.location.href = addQueryArgs(
+			{ siteSlug, source, hide_initial_query: 'yes' },
+			'/start/launch-site'
+		);
+	};

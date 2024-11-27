@@ -8,9 +8,64 @@
 .sidebar .profile-gravatar {
 	flex-shrink: 0;
 	margin-top: 16px;
+
+	.profile-gravatar__user-secondary-info {
+		color: var(--color-sidebar-text-alternative);
+	}
 }
 
-// Hide Support Chat link, the item intentionally only exists for mobile users, and is accessible from the footer
-.is-group-me .sidebar__menu-happychat {
-	display: none;
+.sidebar {
+	.sidebar__me-signout-button {
+		.gridicons-popout {
+			display: none;
+		}
+	}
+
+	.sidebar__menu-link {
+		svg.sidebar__menu-icon {
+			fill: var(--color-sidebar-text);
+
+			&.gridicons-plans {
+				height: 20px;
+			}
+		}
+
+		&:hover,
+		&:focus {
+			svg.sidebar__menu-icon {
+				fill: var(--color-sidebar-gridicon-fill);
+			}
+		}
+	}
+
+	.selected .sidebar__menu-link svg.sidebar__menu-icon {
+		fill: var(--color-sidebar-menu-selected-text);
+	}
+}
+
+.is-sidebar-collapsed .sidebar {
+	.gravatar {
+		width: 20px;
+		height: 20px;
+		border: 2px solid var(--color-border-inverted);
+		position: relative;
+		left: 1px;
+	}
+	.sidebar__me-signout-button {
+		padding: 3px;
+		margin-top: 15px;
+		.sidebar__me-signout-text {
+			display: none;
+		}
+		.gridicons-popout {
+			display: inline-block;
+		}
+	}
+	.profile-gravatar__user-display-name,
+	.profile-gravatar__user-secondary-info {
+		display: none;
+	}
+	.sidebar__menu-link .gridicons-external {
+		display: none;
+	}
 }

@@ -1,12 +1,10 @@
 /**
  * @group gutenberg
- * @group coblocks
  */
 import {
 	envVariables,
-	DataHelper,
 	MediaHelper,
-	GutenbergEditorPage,
+	EditorPage,
 	TestFile,
 	ClicktoTweetBlock,
 	DynamicHRBlock,
@@ -14,25 +12,31 @@ import {
 	LogosBlock,
 	PricingTableBlock,
 	TestAccount,
+	getTestAccountByFeature,
+	envToFeatureKey,
 } from '@automattic/calypso-e2e';
 import { Page, Browser } from 'playwright';
 import { TEST_IMAGE_PATH } from '../constants';
 
-let accountName: string;
-if ( envVariables.COBLOCKS_EDGE ) {
-	accountName = 'coBlocksSimpleSiteEdgeUser';
-} else if ( envVariables.GUTENBERG_EDGE ) {
-	accountName = 'gutenbergSimpleSiteEdgeUser';
-} else {
-	accountName = 'gutenbergSimpleSiteUser';
-}
-
 declare const browser: Browser;
 
-describe( DataHelper.createSuiteTitle( 'CoBlocks: Blocks' ), () => {
+const features = envToFeatureKey( envVariables );
+// For this spec, all Atomic testing is always edge.
+// See https://github.com/Automattic/wp-calypso/pull/73052
+if ( envVariables.TEST_ON_ATOMIC ) {
+	features.coblocks = 'edge';
+}
+
+/**
+ * This spec requires the following:
+ * 	- theme: a non-block-based theme (eg. Twenty-Twenty One)
+ */
+describe( 'CoBlocks: Blocks', function () {
+	const accountName = getTestAccountByFeature( features );
+
 	let page: Page;
 	let testAccount: TestAccount;
-	let gutenbergEditorPage: GutenbergEditorPage;
+	let editorPage: EditorPage;
 	let pricingTableBlock: PricingTableBlock;
 	let logoImage: TestFile;
 
@@ -45,34 +49,45 @@ describe( DataHelper.createSuiteTitle( 'CoBlocks: Blocks' ), () => {
 		page = await browser.newPage();
 		logoImage = await MediaHelper.createTestFile( TEST_IMAGE_PATH );
 		testAccount = new TestAccount( accountName );
-		gutenbergEditorPage = new GutenbergEditorPage( page );
+		editorPage = new EditorPage( page );
 
 		await testAccount.authenticate( page );
 	} );
 
 	it( 'Go to the new post page', async () => {
-		await gutenbergEditorPage.visit( 'post' );
+		await editorPage.visit( 'post' );
 	} );
 
 	it( `Insert ${ PricingTableBlock.blockName } block and enter prices`, async function () {
-		const blockHandle = await gutenbergEditorPage.addBlock(
+		const blockHandle = await editorPage.addBlockFromSidebar(
 			PricingTableBlock.blockName,
 			PricingTableBlock.blockEditorSelector
 		);
-		pricingTableBlock = new PricingTableBlock( blockHandle );
+		pricingTableBlock = new PricingTableBlock( page, blockHandle );
 		await pricingTableBlock.enterPrice( 1, pricingTableBlockPrices[ 0 ] );
 		await pricingTableBlock.enterPrice( 2, pricingTableBlockPrices[ 1 ] );
 	} );
 
 	it( `Insert ${ DynamicHRBlock.blockName } block`, async function () {
-		await gutenbergEditorPage.addBlock(
-			DynamicHRBlock.blockName,
-			DynamicHRBlock.blockEditorSelector
-		);
+		// Manual override of the Dyanmic HR/Separator block that comes with CoBlocks.
+		// On AT, the block is called Dynamic Separator.
+		// On Simple, the block is called Dynamic HR.
+		// See: https://github.com/Automattic/wp-calypso/issues/75092
+		if ( features.siteType === 'atomic' ) {
+			await editorPage.addBlockFromSidebar(
+				'Dynamic Separator',
+				'[aria-label="Block: Dynamic Separator"]'
+			);
+		} else {
+			await editorPage.addBlockFromSidebar(
+				DynamicHRBlock.blockName,
+				DynamicHRBlock.blockEditorSelector
+			);
+		}
 	} );
 
 	it( `Insert ${ HeroBlock.blockName } block and enter heading`, async function () {
-		const blockHandle = await gutenbergEditorPage.addBlock(
+		const blockHandle = await editorPage.addBlockFromSidebar(
 			HeroBlock.blockName,
 			HeroBlock.blockEditorSelector
 		);
@@ -81,7 +96,7 @@ describe( DataHelper.createSuiteTitle( 'CoBlocks: Blocks' ), () => {
 	} );
 
 	it( `Insert ${ ClicktoTweetBlock.blockName } block and enter tweet content`, async function () {
-		const blockHandle = await gutenbergEditorPage.addBlock(
+		const blockHandle = await editorPage.addBlockFromSidebar(
 			ClicktoTweetBlock.blockName,
 			ClicktoTweetBlock.blockEditorSelector
 		);
@@ -90,7 +105,7 @@ describe( DataHelper.createSuiteTitle( 'CoBlocks: Blocks' ), () => {
 	} );
 
 	it( `Insert ${ LogosBlock.blockName } block and set image`, async function () {
-		const blockHandle = await gutenbergEditorPage.addBlock(
+		const blockHandle = await editorPage.addBlockFromSidebar(
 			LogosBlock.blockName,
 			LogosBlock.blockEditorSelector
 		);
@@ -99,7 +114,7 @@ describe( DataHelper.createSuiteTitle( 'CoBlocks: Blocks' ), () => {
 	} );
 
 	it( 'Publish and visit the post', async function () {
-		await gutenbergEditorPage.publish( { visit: true } );
+		await editorPage.publish( { visit: true } );
 	} );
 
 	// Pass in a 1D array of values or text strings to validate each block.

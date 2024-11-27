@@ -9,6 +9,8 @@ class WpcomTaskList {
 		return this.tasks;
 	}
 
+	getAllSorted = memoize( ( comparator ) => [ ...this.tasks ].sort( comparator ) );
+
 	get( taskId ) {
 		return this.tasks.find( ( task ) => task.id === taskId );
 	}
@@ -60,13 +62,7 @@ class WpcomTaskList {
 export const getTaskList = memoize(
 	( params ) => new WpcomTaskList( params?.taskStatuses ),
 	( params ) => {
-		const key = pick( params, [
-			'taskStatuses',
-			'designType',
-			'siteIsUnlaunched',
-			'siteSegment',
-			'siteVerticals',
-		] );
+		const key = pick( params, [ 'taskStatuses', 'designType', 'siteIsUnlaunched', 'siteSegment' ] );
 		return JSON.stringify( key );
 	}
 );

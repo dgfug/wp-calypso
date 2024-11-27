@@ -1,5 +1,6 @@
 import { filter } from 'lodash';
 import { stringify } from 'qs';
+import { addQueryArgs } from 'calypso/lib/url';
 import { isUnderEmailManagementAll } from 'calypso/my-sites/email/paths';
 
 function resolveRootPath( relativeTo = null ) {
@@ -16,7 +17,13 @@ function resolveRootPath( relativeTo = null ) {
 	return domainManagementRoot();
 }
 
-function domainManagementEditBase( siteName, domainName, slug, relativeTo = null ) {
+function domainManagementEditBase(
+	siteName,
+	domainName,
+	slug,
+	relativeTo = null,
+	queryArgs = null
+) {
 	slug = slug || 'edit';
 
 	// Encodes only real domain names and not parameter placeholders
@@ -26,7 +33,13 @@ function domainManagementEditBase( siteName, domainName, slug, relativeTo = null
 		domainName = encodeURIComponent( encodeURIComponent( domainName ) );
 	}
 
-	return resolveRootPath( relativeTo ) + '/' + domainName + '/' + slug + '/' + siteName;
+	const baseUrl = resolveRootPath( relativeTo ) + '/' + domainName + '/' + slug + '/' + siteName;
+
+	if ( queryArgs ) {
+		return addQueryArgs( queryArgs, baseUrl );
+	}
+
+	return baseUrl;
 }
 
 function domainManagementTransferBase(
@@ -74,27 +87,34 @@ export function domainManagementRoot() {
 }
 
 /**
- * @param {string?} siteName
- * @param {string?} relativeTo
+ * @param {string|undefined} siteName
+ * @param {string|undefined} relativeTo
+ * @param {boolean|undefined} isDomainOnlySite
  */
-export function domainManagementList( siteName, relativeTo = null ) {
-	if ( isUnderDomainManagementAll( relativeTo ) || isUnderEmailManagementAll( relativeTo ) ) {
+export function domainManagementList( siteName, relativeTo = null, isDomainOnlySite = false ) {
+	if (
+		isDomainOnlySite ||
+		isUnderDomainManagementAll( relativeTo ) ||
+		isUnderEmailManagementAll( relativeTo )
+	) {
 		return domainManagementRoot();
 	}
-	return domainManagementRoot() + '/' + siteName;
-}
-
-export function domainManagementEdit( siteName, domainName, relativeTo ) {
-	return domainManagementEditBase( siteName, domainName, 'edit', relativeTo );
+	return domainManagementRoot() + '/' + siteName ?? '';
 }
 
 /**
  * @param {string} siteName
  * @param {string} domainName
  * @param {string?} relativeTo
+ * @param {Object | null} expandSections Which accordion to expand automattically, e.g. { 'nameservers': true }
  */
-export function domainManagementContactsPrivacy( siteName, domainName, relativeTo = null ) {
-	return domainManagementEditBase( siteName, domainName, 'contacts-privacy', relativeTo );
+export function domainManagementEdit(
+	siteName,
+	domainName,
+	relativeTo = null,
+	expandSections = null
+) {
+	return domainManagementEditBase( siteName, domainName, 'edit', relativeTo, expandSections );
 }
 
 /**
@@ -108,6 +128,17 @@ export function domainManagementEditContactInfo( siteName, domainName, relativeT
 
 export function domainManagementAllEditContactInfo() {
 	return domainManagementAllRoot() + '/edit-contact-info';
+}
+
+export function domainManagementAllEditSelectedContactInfo() {
+	return domainManagementAllRoot() + '/edit-selected-contact-info';
+}
+
+/**
+ * @param {string} siteName
+ */
+export function domainManagementEditSelectedContactInfo( siteName ) {
+	return domainManagementRoot() + '/edit-selected-contact-info/' + siteName;
 }
 
 /**
@@ -138,15 +169,6 @@ export function domainManagementEmail( siteName, domainName ) {
  * @param {string} domainName
  * @param {string?} relativeTo
  */
-export function domainManagementNameServers( siteName, domainName, relativeTo = null ) {
-	return domainManagementEditBase( siteName, domainName, 'name-servers', relativeTo );
-}
-
-/**
- * @param {string} siteName
- * @param {string} domainName
- * @param {string?} relativeTo
- */
 export function domainManagementDns( siteName, domainName, relativeTo = null ) {
 	return domainManagementEditBase( siteName, domainName, 'dns', relativeTo );
 }
@@ -160,7 +182,12 @@ export function domainManagementDnsAddRecord( siteName, domainName, relativeTo =
 	return domainManagementEditBase( siteName, domainName, 'add-dns-record', relativeTo );
 }
 
-export function domainManagementDnsEditRecord( siteName, domainName, recordId, relativeTo = null ) {
+export function domainManagementDnsEditRecord(
+	siteName,
+	domainName,
+	relativeTo = null,
+	recordId = null
+) {
 	let path = domainManagementEditBase( siteName, domainName, 'edit-dns-record', relativeTo );
 	if ( recordId ) {
 		path += '?recordId=' + encodeURI( recordId );
@@ -245,6 +272,15 @@ export function domainManagementTransferToAnotherUser( siteName, domainName, rel
  * @param {string} domainName
  * @param {string?} relativeTo
  */
+export function domainManagementTransferToAnyUser( siteName, domainName, relativeTo = null ) {
+	return domainManagementTransferBase( siteName, domainName, 'any-user', relativeTo );
+}
+
+/**
+ * @param {string} siteName
+ * @param {string} domainName
+ * @param {string?} relativeTo
+ */
 export function domainManagementTransferToOtherSite( siteName, domainName, relativeTo = null ) {
 	return domainManagementTransferBase( siteName, domainName, 'other-site', relativeTo );
 }
@@ -299,7 +335,6 @@ export function domainMappingSetup(
 
 /**
  * Return the path to start an inbound domain transfer to WordPress.com.
- *
  * @param { string } siteName         The slug for the site.
  * @param { string } domain           The domain name.
  * @param { boolean } useStandardBack Flag to indicate whether the "Back" button in the
@@ -335,7 +370,19 @@ export function domainUseYourDomain( siteName, domain ) {
 	return path;
 }
 
-export function domainUseMyDomain( siteName, domain, initialMode ) {
+/**
+ * @typedef {Object} QueryArgs - query args for the domainUseMyDomain function.
+ * @property {string} [domain] - the domain name to search.
+ * @property {string} [initialMode] - useMyDomainInputMode.
+ * @property {string} [redirectTo] - the page to redirect on pressing back.
+ */
+
+/**
+ * @param {string} siteName - The slug for the site.
+ * @param {QueryArgs} [options] - The query args for the function.
+ * @returns {string} The resulting URL for the use my domain page.
+ */
+export function domainUseMyDomain( siteName, { domain, initialMode, redirectTo } = {} ) {
 	const path = `/domains/add/use-my-domain/${ siteName }`;
 	const queryArgs = [];
 	if ( domain ) {
@@ -344,6 +391,9 @@ export function domainUseMyDomain( siteName, domain, initialMode ) {
 		if ( initialMode ) {
 			queryArgs.push( `initialMode=${ initialMode }` );
 		}
+	}
+	if ( redirectTo ) {
+		queryArgs.push( `redirect_to=${ redirectTo }` );
 	}
 
 	return path + ( queryArgs.length ? `?${ queryArgs.join( '&' ) }` : '' );

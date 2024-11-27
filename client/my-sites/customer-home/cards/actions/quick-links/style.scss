@@ -1,22 +1,17 @@
-@import '@wordpress/base-styles/breakpoints';
-@import '@wordpress/base-styles/mixins';
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
 
 .quick-links.foldable-card.card {
 	box-shadow: none;
-	@include breakpoint-deprecated( '>660px' ) {
-		/* stylelint-disable-next-line scales/radii */
+	@include breakpoint-deprecated( ">660px" ) {
 		border-radius: 3px;
-	}
-
-	&:not( .is-expanded ) {
-		box-shadow: 0 0 0 1px var( --color-border-subtle );
 	}
 
 	.foldable-card__header {
 		padding: 16px;
 		min-height: auto;
 
-		@include breakpoint-deprecated( '>660px' ) {
+		@include breakpoint-deprecated( ">660px" ) {
 			padding: 16px 24px 14px;
 		}
 	}
@@ -25,7 +20,7 @@
 		margin-right: 8px;
 
 		&:focus-visible {
-			box-shadow: inset 0 0 0 2px var( --color-primary );
+			box-shadow: inset 0 0 0 2px var(--color-primary);
 			outline: 0;
 		}
 	}
@@ -34,6 +29,11 @@
 		border: 0;
 		padding-bottom: 0;
 		padding-top: 0;
+	}
+
+	// Fix for alignment issue in Safari.
+	.foldable-card__expand .gridicon {
+		width: auto;
 	}
 }
 
@@ -50,7 +50,7 @@
 	padding-bottom: 8px;
 	padding-left: 16px;
 	box-shadow: none;
-	@include breakpoint-deprecated( '>660px' ) {
+	@include breakpoint-deprecated( ">660px" ) {
 		padding-left: 24px;
 	}
 
@@ -65,8 +65,12 @@
 	.quick-links__action-box-icon {
 		width: 24px;
 		height: 24px;
-		fill: var( --color-neutral-60 );
+		fill: var(--color-neutral-60);
 		transition: all 0.1s;
+
+		&.dashicons {
+			color: var(--color-neutral-80);
+		}
 	}
 
 	.quick-links__action-box-text {
@@ -74,22 +78,22 @@
 	}
 
 	.quick-links__action-box-label {
-		color: var( --color-text );
+		color: var(--color-text);
 		font-size: $font-body-small;
 	}
 
 	.quick-links__action-box-subtitle {
-		color: var( --color-text-subtle );
+		color: var(--color-text-subtle);
 		font-size: $font-body-small;
 		display: none;
 
-		@include breakpoint-deprecated( '>480px' ) {
+		@include breakpoint-deprecated( ">480px" ) {
 			display: block;
 		}
 	}
 
 	.card__link-indicator {
-		fill: var( --color-neutral-20 );
+		fill: var(--color-neutral-20);
 		right: 20px;
 	}
 
@@ -100,15 +104,19 @@
 	}
 
 	&:hover {
-		background: var( --color-neutral-0 );
+		background: var(--color-neutral-0);
 
 		.quick-links__action-box-icon {
-			fill: var( --color-neutral-80 );
+			fill: var(--color-neutral-80);
+
+			&.dashicons {
+				color: var(--color-neutral-80);
+			}
 		}
 	}
 
 	&:focus-visible {
-		box-shadow: inset 0 0 0 2px var( --color-primary );
+		box-shadow: inset 0 0 0 2px var(--color-primary);
 		outline: 0;
 	}
 
@@ -119,4 +127,10 @@
 
 .quick-links__action-box-label {
 	font-size: $font-body-small;
+}
+
+.quick-links__boxes .jetpack-logo {
+	width: 16px;
+	height: 16px;
+	margin-left: 2px;
 }

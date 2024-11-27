@@ -1,87 +1,116 @@
 /**
- * @group calypso-pr
+ * @group calypso-release
  */
 
 import {
 	DataHelper,
 	EmailClient,
 	SidebarComponent,
-	InvitePeoplePage,
 	PeoplePage,
 	TestAccount,
+	SecretsManager,
+	RestAPIClient,
 } from '@automattic/calypso-e2e';
 import { Page, Browser } from 'playwright';
 
 declare const browser: Browser;
 
 describe( DataHelper.createSuiteTitle( `Invite: Revoke` ), function () {
-	const newUsername = `e2eflowtestingviewer${ DataHelper.getTimestamp() }`;
-	const inboxId = DataHelper.config.get( 'inviteInboxId' ) as string;
+	const newUsername = `e2eflowtestinginvite${ DataHelper.getTimestamp() }`;
+	const inboxId = SecretsManager.secrets.mailosaur.inviteInboxId;
 	const testEmailAddress = DataHelper.getTestEmailAddress( {
 		inboxId: inboxId,
 		prefix: newUsername,
 	} );
 	const role = 'Editor';
+	const inviteMessage = `Test invite for role of ${ role }`;
+	const credentials = SecretsManager.secrets.testAccounts.defaultUser;
 
-	let adjustedInviteLink: string;
-	let sidebarComponent: SidebarComponent;
+	let acceptInviteLink: string;
 	let peoplePage: PeoplePage;
 	let page: Page;
+	let restAPIClient: RestAPIClient;
+	let revoked = false;
+	let userManagementRevampFeature = false;
 
-	beforeAll( async () => {
-		page = await browser.newPage();
+	describe( 'Setup', function () {
+		beforeAll( async () => {
+			restAPIClient = new RestAPIClient( credentials );
 
-		const testAccount = new TestAccount( 'defaultUser' );
-		await testAccount.authenticate( page );
-	} );
+			await restAPIClient.createInvite( credentials.testSites?.primary?.id as number, {
+				email: [ testEmailAddress ],
+				role: role,
+				message: inviteMessage,
+			} );
+		} );
 
-	it( 'Navigate to Users > All Users', async function () {
-		sidebarComponent = new SidebarComponent( page );
-		await sidebarComponent.navigate( 'Users', 'All Users' );
-	} );
-
-	it( 'Invite test user to the site', async function () {
-		peoplePage = new PeoplePage( page );
-		await peoplePage.clickInviteUser();
-
-		const invitePeoplePage = new InvitePeoplePage( page );
-		await invitePeoplePage.invite( {
-			email: testEmailAddress,
-			role: role,
-			message: `Test invite for role of ${ role }`,
+		it( 'Invite email was received for test user', async function () {
+			const emailClient = new EmailClient();
+			const message = await emailClient.getLastMatchingMessage( {
+				inboxId: inboxId,
+				sentTo: testEmailAddress,
+			} );
+			const links = await emailClient.getLinksFromMessage( message );
+			acceptInviteLink = links.find( ( link: string ) =>
+				link.includes( 'accept-invite' )
+			) as string;
 		} );
 	} );
 
-	it( 'Invite email was received for test user', async function () {
-		const emailClient = new EmailClient();
-		const message = await emailClient.getLastEmail( {
-			inboxId: inboxId,
-			emailAddress: testEmailAddress,
+	describe( 'Revoke pending invite', function () {
+		beforeAll( async function () {
+			page = await browser.newPage();
+			const testAccount = new TestAccount( 'defaultUser' );
+			await testAccount.authenticate( page );
+			userManagementRevampFeature = await page.evaluate(
+				`configData.features['user-management-revamp']`
+			);
 		} );
-		const links = await emailClient.getLinksFromMessage( message );
-		const acceptInviteLink = links.find( ( link: string ) =>
-			link.includes( 'accept-invite' )
-		) as string;
 
-		expect( acceptInviteLink ).toBeDefined();
+		it( 'Navigate to User > All Users', async function () {
+			const sidebarComponent = new SidebarComponent( page );
+			await sidebarComponent.navigate( 'Users', 'All Users' );
+		} );
 
-		adjustedInviteLink = DataHelper.adjustInviteLink( acceptInviteLink );
+		it( 'View pending invites', async function () {
+			peoplePage = new PeoplePage( page );
+
+			if ( userManagementRevampFeature ) {
+				await peoplePage.clickTab( 'Team' );
+			} else {
+				await peoplePage.clickTab( 'Invites' );
+			}
+		} );
+
+		it( 'Revoke the invite for test user', async function () {
+			await peoplePage.selectInvitedUser( testEmailAddress );
+			await peoplePage.revokeInvite();
+			revoked = true;
+		} );
+
+		it( `Ensure invite link is no longer valid`, async function () {
+			const newPage = await browser.newPage();
+			await newPage.goto( acceptInviteLink );
+
+			// Text selector will suffice for now.
+			await newPage.waitForSelector( `:text("Oops, that invite is not valid")` );
+		} );
 	} );
 
-	it( 'Revoke the invite for test user', async function () {
-		await sidebarComponent.navigate( 'Users', 'All Users' );
-		await peoplePage.clickTab( 'Invites' );
-		await peoplePage.selectInvitedUser( testEmailAddress );
-		await peoplePage.revokeInvite();
-	} );
+	afterAll( async function () {
+		if ( revoked ) {
+			return;
+		}
 
-	it( 'Close current page', async () => {
-		await page.close();
-	} );
+		const response = await restAPIClient.deleteInvite(
+			credentials.testSites?.primary.id as number,
+			testEmailAddress
+		);
 
-	it( `Ensure invite link is no longer valid`, async function () {
-		page = await browser.newPage();
-		await page.goto( adjustedInviteLink );
-		await page.waitForSelector( `:text("Oops, that invite is not valid")` );
+		if ( response ) {
+			console.log( 'Successfully cleaned up after invite.' );
+		} else {
+			console.warn( `Failed to clean up test invite for user ${ testEmailAddress }` );
+		}
 	} );
 } );

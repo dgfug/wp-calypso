@@ -1,53 +1,185 @@
 import '@automattic/calypso-polyfills';
 import accessibleFocus from '@automattic/accessible-focus';
 import { initializeAnalytics } from '@automattic/calypso-analytics';
+import { CurrentUser } from '@automattic/calypso-analytics/dist/types/utils/current-user';
 import config from '@automattic/calypso-config';
-import ReactDom from 'react-dom';
-import { BrowserRouter } from 'react-router-dom';
+import { User as UserStore } from '@automattic/data-stores';
+import { geolocateCurrencySymbol } from '@automattic/format-currency';
+import {
+	HOSTED_SITE_MIGRATION_FLOW,
+	MIGRATION_FLOW,
+	MIGRATION_SIGNUP_FLOW,
+	SITE_MIGRATION_FLOW,
+} from '@automattic/onboarding';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { useDispatch } from '@wordpress/data';
+import defaultCalypsoI18n from 'i18n-calypso';
+import { createRoot } from 'react-dom/client';
+import { Provider } from 'react-redux';
+import { BrowserRouter, matchPath } from 'react-router-dom';
 import { requestAllBlogsAccess } from 'wpcom-proxy-request';
-import { LocaleContext } from '../gutenboarding/components/locale-context';
-import { WindowLocaleEffectManager } from '../gutenboarding/components/window-locale-effect-manager';
-import { setupWpDataDebug } from '../gutenboarding/devtools';
-// import { exampleFlow } from './declarative-flow/example-flow';
+import { setupErrorLogger } from 'calypso/boot/common';
+import { setupLocale } from 'calypso/boot/locale';
+import AsyncLoad from 'calypso/components/async-load';
+import CalypsoI18nProvider from 'calypso/components/calypso-i18n-provider';
+import { addHotJarScript } from 'calypso/lib/analytics/hotjar';
+import getSuperProps from 'calypso/lib/analytics/super-props';
+import { initializeCurrentUser } from 'calypso/lib/user/shared-utils';
+import { onDisablePersistence } from 'calypso/lib/user/store';
+import { createReduxStore } from 'calypso/state';
+import { setCurrentUser } from 'calypso/state/current-user/actions';
+import { getInitialState, getStateFromCache, persistOnChange } from 'calypso/state/initial-state';
+import { createQueryClient } from 'calypso/state/query-client';
+import initialReducer from 'calypso/state/reducer';
+import { setStore } from 'calypso/state/redux-store';
+import { setCurrentFlowName } from 'calypso/state/signup/flow/actions';
+import { setSelectedSiteId } from 'calypso/state/ui/actions';
 import { FlowRenderer } from './declarative-flow/internals';
-import { siteSetupFlow } from './declarative-flow/site-setup-flow';
+import { AsyncHelpCenter } from './declarative-flow/internals/components';
 import 'calypso/components/environment-badge/style.scss';
-
-function generateGetSuperProps() {
-	return () => ( {
-		environment: process.env.NODE_ENV,
-		environment_id: config( 'env_id' ),
-		site_id_label: 'wpcom',
-		client: config( 'client_slug' ),
-	} );
-}
-
-interface AppWindow extends Window {
-	BUILD_TARGET?: string;
-}
+import 'calypso/assets/stylesheets/style.scss';
+import availableFlows from './declarative-flow/registered-flows';
+import { USER_STORE } from './stores';
+import { setupWpDataDebug } from './utils/devtools';
+import { enhanceFlowWithAuth } from './utils/enhanceFlowWithAuth';
+import redirectPathIfNecessary from './utils/flow-redirect-handler';
+import { startStepperPerformanceTracking } from './utils/performance-tracking';
+import { WindowLocaleEffectManager } from './utils/window-locale-effect-manager';
+import type { Flow } from './declarative-flow/internals/types';
+import type { AnyAction } from 'redux';
 
 declare const window: AppWindow;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function initializeCalypsoUserStore( reduxStore: any, user: CurrentUser ) {
+	reduxStore.dispatch( setCurrentUser( user ) );
+}
+
+function determineFlow() {
+	const flowNameFromPathName = window.location.pathname.split( '/' )[ 2 ];
+
+	return availableFlows[ flowNameFromPathName ] || availableFlows[ 'site-setup' ];
+}
+
+/**
+ * TODO: this is no longer a switch and should be removed
+ */
+const FlowSwitch: React.FC< { user: UserStore.CurrentUser | undefined; flow: Flow } > = ( {
+	user,
+	flow,
+} ) => {
+	const { receiveCurrentUser } = useDispatch( USER_STORE );
+	user && receiveCurrentUser( user as UserStore.CurrentUser );
+
+	return <FlowRenderer flow={ flow } />;
+};
+interface AppWindow extends Window {
+	BUILD_TARGET: string;
+}
+
+const DEFAULT_FLOW = 'site-setup';
+
+const getFlowFromURL = () => {
+	const fromPath = matchPath( { path: '/setup/:flow/*' }, window.location.pathname )?.params?.flow;
+	// backward support the old Stepper URL structure (?flow=something)
+	const fromQuery = new URLSearchParams( window.location.search ).get( 'flow' );
+	return fromPath || fromQuery;
+};
+
+const HOTJAR_ENABLED_FLOWS = [
+	MIGRATION_FLOW,
+	SITE_MIGRATION_FLOW,
+	HOSTED_SITE_MIGRATION_FLOW,
+	MIGRATION_SIGNUP_FLOW,
+];
+
+const initializeHotJar = ( flowName: string ) => {
+	if ( HOTJAR_ENABLED_FLOWS.includes( flowName ) ) {
+		addHotJarScript();
+	}
+};
+
 window.AppBoot = async () => {
+	const { pathname, search } = window.location;
+
+	// Before proceeding we redirect the user if necessary.
+	if ( redirectPathIfNecessary( pathname, search ) ) {
+		return null;
+	}
+
+	const flowName = getFlowFromURL();
+
+	if ( ! flowName ) {
+		// Stop the boot process if we can't determine the flow, reducing the number of edge cases
+		return ( window.location.href = `/setup/${ DEFAULT_FLOW }${ window.location.search }` );
+	}
+
+	// Start tracking performance, bearing in mind this is a full page load.
+	startStepperPerformanceTracking( { fullPageLoad: true } );
+
+	initializeHotJar( flowName );
 	// put the proxy iframe in "all blog access" mode
 	// see https://github.com/Automattic/wp-calypso/pull/60773#discussion_r799208216
 	requestAllBlogsAccess();
 
 	setupWpDataDebug();
-	// User is left undefined here because the user account will not be created
-	// until after the user has completed the flow.
-	// This also saves us from having to pull in lib/user/user and it's dependencies.
-	initializeAnalytics( undefined, generateGetSuperProps() );
+
 	// Add accessible-focus listener.
 	accessibleFocus();
 
-	ReactDom.render(
-		<LocaleContext>
-			<WindowLocaleEffectManager />
-			<BrowserRouter basename="stepper">
-				<FlowRenderer flow={ siteSetupFlow } />
-			</BrowserRouter>
-		</LocaleContext>,
-		document.getElementById( 'wpcom' )
+	const user = ( await initializeCurrentUser() ) as unknown;
+	const userId = ( user as CurrentUser ).ID;
+
+	const { queryClient } = await createQueryClient( userId );
+
+	const initialState = getInitialState( initialReducer, userId );
+	const reduxStore = createReduxStore( initialState, initialReducer );
+	setStore( reduxStore, getStateFromCache( userId ) );
+	onDisablePersistence( persistOnChange( reduxStore, userId ) );
+	setupLocale( user, reduxStore );
+
+	user && initializeCalypsoUserStore( reduxStore, user as CurrentUser );
+
+	initializeAnalytics( user, getSuperProps( reduxStore ) );
+
+	setupErrorLogger( reduxStore );
+
+	const flowLoader = determineFlow();
+	const { default: rawFlow } = await flowLoader();
+	const flow = rawFlow.__experimentalUseBuiltinAuth ? enhanceFlowWithAuth( rawFlow ) : rawFlow;
+
+	// When re-using steps from /start, we need to set the current flow name in the redux store, since some depend on it.
+	reduxStore.dispatch( setCurrentFlowName( flow.name ) );
+	// Reset the selected site ID when the stepper is loaded.
+	reduxStore.dispatch( setSelectedSiteId( null ) as unknown as AnyAction );
+
+	await geolocateCurrencySymbol();
+
+	const root = createRoot( document.getElementById( 'wpcom' ) as HTMLElement );
+
+	root.render(
+		<CalypsoI18nProvider i18n={ defaultCalypsoI18n }>
+			<Provider store={ reduxStore }>
+				<QueryClientProvider client={ queryClient }>
+					<WindowLocaleEffectManager />
+					<BrowserRouter basename="setup">
+						<FlowSwitch user={ user as UserStore.CurrentUser } flow={ flow } />
+						{ config.isEnabled( 'cookie-banner' ) && (
+							<AsyncLoad require="calypso/blocks/cookie-banner" placeholder={ null } />
+						) }
+						<AsyncLoad
+							require="calypso/components/global-notices"
+							placeholder={ null }
+							id="notices"
+						/>
+					</BrowserRouter>
+					<AsyncHelpCenter />
+
+					{ 'development' === process.env.NODE_ENV && (
+						<AsyncLoad require="calypso/components/webpack-build-monitor" placeholder={ null } />
+					) }
+				</QueryClientProvider>
+			</Provider>
+		</CalypsoI18nProvider>
 	);
 };

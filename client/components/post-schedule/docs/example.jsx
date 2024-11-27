@@ -1,10 +1,9 @@
 /* eslint-disable wpcalypso/jsx-classname-namespace */
 
-import { Card, Gridicon } from '@automattic/components';
+import { Card, FormLabel, Gridicon } from '@automattic/components';
 import { localize } from 'i18n-calypso';
 import { PureComponent } from 'react';
 import EventsTooltip from 'calypso/components/date-picker/events-tooltip';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import { withLocalizedMoment } from 'calypso/components/localized-moment';
 import PostSchedule from 'calypso/components/post-schedule';
@@ -54,13 +53,9 @@ const PostScheduleExample = localize(
 					eventsByDay: [],
 					showTooltip: false,
 					tooltipContext: null,
-				};
-			}
 
-			UNSAFE_componentWillMount() {
-				this.setState( {
 					isFuture: true,
-				} );
+				};
 			}
 
 			setDate = ( date ) => {
@@ -173,7 +168,6 @@ const PostScheduleExample = localize(
 											position: 'relative',
 										} }
 										onClick={ this.clearState.bind( this, 'timezone' ) }
-										href="#"
 									>
 										clean timezone
 									</button>
@@ -192,7 +186,6 @@ const PostScheduleExample = localize(
 									<button
 										className="card__property-action"
 										onClick={ this.clearState.bind( this, 'gmtOffset' ) }
-										href="#"
 									>
 										clean gmtOffset
 									</button>
@@ -209,7 +202,6 @@ const PostScheduleExample = localize(
 									<button
 										className="card__property-action"
 										onClick={ this.clearState.bind( this, 'date' ) }
-										href="#"
 									>
 										clean selectedDay
 									</button>

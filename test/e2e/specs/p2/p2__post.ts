@@ -34,7 +34,7 @@ describe( DataHelper.createSuiteTitle( 'P2: Post' ), function () {
 
 	it( 'Add a Paragraph block', async function () {
 		p2Page = new P2Page( page );
-		await p2Page.focusInlineEditor();
+		await p2Page.clickNewPost();
 
 		isolatedBlockEditorComponent = new IsolatedBlockEditorComponent( page );
 		blockHandle = await isolatedBlockEditorComponent.addBlock(
@@ -49,6 +49,8 @@ describe( DataHelper.createSuiteTitle( 'P2: Post' ), function () {
 	} );
 
 	it( 'Submit post', async function () {
+		await isolatedBlockEditorComponent.submitPost();
+		// Click twice since the first "Publish" click will open the publish confirmation sidebar
 		await isolatedBlockEditorComponent.submitPost();
 	} );
 

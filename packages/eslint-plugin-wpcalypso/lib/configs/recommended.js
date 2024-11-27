@@ -10,6 +10,15 @@ module.exports = {
 	},
 	extends: [ 'eslint:recommended', 'plugin:jsdoc/recommended' ],
 	plugins: [ 'jsdoc', 'wpcalypso', 'inclusive-language' ],
+	settings: {
+		jsdoc: {
+			preferredTypes: {
+				// Enforce capitalized "Object" types to align with WordPress
+				// standards and to provide auto-fix.
+				object: 'Object',
+			},
+		},
+	},
 	rules: {
 		'array-bracket-spacing': [ 'error', 'always' ],
 		'brace-style': [ 'error', '1tbs' ],
@@ -112,11 +121,14 @@ module.exports = {
 		'jsdoc/check-alignment': 'error',
 		'jsdoc/check-param-names': 'error',
 		'jsdoc/check-tag-names': 'off',
-		'jsdoc/check-types': 'error',
+		// Without unifyParentAndChildTypeChecks, "{object<string, string>}" or
+		// "{object|number}" would be allowed. Since preferredTypes should rewrite
+		// "object" to "Object", we need this setting to be true to also apply to
+		// scenarios like unions and generics.
+		'jsdoc/check-types': [ 'error', { unifyParentAndChildTypeChecks: true } ],
 		'jsdoc/check-values': 'error',
 		'jsdoc/empty-tags': 'error',
 		'jsdoc/implements-on-classes': 'error',
-		'jsdoc/newline-after-description': 'error',
 		'jsdoc/no-undefined-types': 'error',
 		'jsdoc/require-jsdoc': 'off',
 		'jsdoc/require-param': 'error',
@@ -137,14 +149,24 @@ module.exports = {
 		'wpcalypso/i18n-no-this-translate': 'error',
 		'wpcalypso/i18n-mismatched-placeholders': 'error',
 		'wpcalypso/i18n-named-placeholders': 'error',
+		'wpcalypso/i18n-translate-identifier': 'error',
+		'wpcalypso/i18n-unlocalized-url': 'error',
 		'wpcalypso/jsx-gridicon-size': 'error',
 		'wpcalypso/jsx-classname-namespace': 'error',
 		'wpcalypso/redux-no-bound-selectors': 'error',
-		'wpcalypso/no-unsafe-wp-apis': 'error',
+		'wpcalypso/no-unsafe-wp-apis': 'warn',
 
 		yoda: 'off',
 
 		// Ensure our codebases use inclusive language
 		'inclusive-language/use-inclusive-words': 'error',
 	},
+	overrides: [
+		{
+			files: [ '**/test/*', '*.json', '*.md' ],
+			rules: {
+				'wpcalypso/i18n-unlocalized-url': 'off',
+			},
+		},
+	],
 };

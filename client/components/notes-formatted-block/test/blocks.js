@@ -1,29 +1,32 @@
-import { shallow } from 'enzyme';
+/**
+ * @jest-environment jsdom
+ */
+
+import { render, screen } from '@testing-library/react';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 import * as Blocks from '../blocks';
 
+const EXAMPLE_SITE_ID = 123;
+
 jest.mock( 'calypso/lib/jetpack/is-jetpack-cloud' );
+jest.mock( 'react-redux', () => ( {
+	...jest.requireActual( 'react-redux' ),
+	useSelector: jest.fn( ( func ) => func() ),
+	useDispatch: () => jest.fn(),
+} ) );
+jest.mock( 'calypso/state/ui/selectors', () => ( {
+	getSelectedSiteId: jest.fn().mockImplementation( () => EXAMPLE_SITE_ID ),
+} ) );
 
 // NOTE: There's a repeating pattern in these tests that links to WordPress.com
 //       aren't rendered in the context of Jetpack Cloud. Best I can tell, this
 //       is to keep people inside the Jetpack Cloud experience, as opposed to
 //       "booting" them back into Calypso.
 
-expect.extend( {
-	toBeTextNodeWithValue( received, val ) {
-		const pass = received.type() === undefined && received.debug() === val;
-
-		return pass
-			? {
-					message: () => `expected not to be a text node with value '${ val }'`,
-					pass: true,
-			  }
-			: {
-					message: () => `expected to be a text node with value '${ val }'`,
-					pass: false,
-			  };
-	},
-} );
+// @todo the `meta` prop is only used for the `data-activity` attribute in the
+// <a> el for some components, and this aspect is not being tested at the moment.
+// It was being tested in `index.js` but was testing if the React prop was passed,
+// but it wasn't a very useful test.
 
 describe( 'Link block', () => {
 	beforeEach( () => jest.resetAllMocks() );
@@ -33,26 +36,34 @@ describe( 'Link block', () => {
 
 		const pathAbsoluteUrl = '/my/test/link?with=params&more=stuff+plus%20junk';
 		const text = 'my link text';
-		const link = shallow(
+
+		render(
 			<Blocks.Link
 				content={ { url: `https://wordpress.com${ pathAbsoluteUrl }` } }
 				children={ text }
 			/>
 		);
 
-		expect( link.prop( 'href' ) ).toEqual( pathAbsoluteUrl );
-		expect( link.text() ).toEqual( text );
+		const link = screen.getByRole( 'link' );
+
+		expect( link ).toHaveAttribute( 'href', pathAbsoluteUrl );
+		expect( link ).toHaveTextContent( text );
 	} );
 
 	test( 'on Jetpack Cloud, does not render links to WordPress.com', () => {
 		isJetpackCloud.mockImplementation( () => true );
 
 		const text = 'link text';
-		const link = shallow(
+
+		render(
 			<Blocks.Link content={ { url: 'https://wordpress.com/my/test/link' } } children={ text } />
 		);
 
-		expect( link ).toBeTextNodeWithValue( text );
+		const unlinkedText = screen.getByText( text );
+		const link = screen.queryByRole( 'link' );
+
+		expect( link ).not.toBeInTheDocument();
+		expect( unlinkedText ).toBeVisible();
 	} );
 
 	test.each( [ false, true ] )(
@@ -62,10 +73,12 @@ describe( 'Link block', () => {
 
 			const arbitraryUrl = 'http://iscalypsofastyet.com/p/buildlog?test1=test1';
 			const text = 'my link text';
-			const link = shallow( <Blocks.Link content={ { url: arbitraryUrl } } children={ text } /> );
+			render( <Blocks.Link content={ { url: arbitraryUrl } } children={ text } /> );
 
-			expect( link.prop( 'href' ) ).toEqual( arbitraryUrl );
-			expect( link.text() ).toEqual( text );
+			const link = screen.getByRole( 'link' );
+
+			expect( link ).toHaveAttribute( 'href', arbitraryUrl );
+			expect( link ).toHaveTextContent( text );
 		}
 	);
 } );
@@ -81,11 +94,17 @@ describe( 'Post block', () => {
 			isTrashed: true,
 		};
 
-		const text = 'this is a post';
-		const post = shallow( <Blocks.Post content={ content } children={ text } /> );
+		const meta = {
+			published: null,
+		};
 
-		expect( post.prop( 'href' ) ).toEqual( `/posts/${ content.siteId }/trash` );
-		expect( post.text() ).toEqual( text );
+		const text = 'this is a post';
+		render( <Blocks.Post content={ content } children={ text } meta={ meta } /> );
+
+		const link = screen.getByRole( 'link' );
+
+		expect( link ).toHaveAttribute( 'href', `/posts/${ content.siteId }/trash` );
+		expect( link ).toHaveTextContent( text );
 	} );
 
 	test( 'on Jetpack Cloud, if the post is in the trash, shows text but does not link', () => {
@@ -96,10 +115,18 @@ describe( 'Post block', () => {
 			isTrashed: true,
 		};
 
-		const text = 'this is a post';
-		const post = shallow( <Blocks.Post content={ content } children={ text } /> );
+		const meta = {
+			published: null,
+		};
 
-		expect( post ).toBeTextNodeWithValue( text );
+		const text = 'this is a post';
+		render( <Blocks.Post content={ content } children={ text } meta={ meta } /> );
+
+		const unlinkedText = screen.getByText( text );
+		const link = screen.queryByRole( 'link' );
+
+		expect( link ).not.toBeInTheDocument();
+		expect( unlinkedText ).toBeVisible();
 	} );
 
 	test( 'on Calypso, if the post is not trashed, links to the post itself', () => {
@@ -111,16 +138,23 @@ describe( 'Post block', () => {
 			isTrashed: false,
 		};
 
-		const text = 'another post';
-		const post = shallow( <Blocks.Post content={ content } children={ text } /> );
+		const meta = {
+			published: null,
+		};
 
-		expect( post.prop( 'href' ) ).toEqual(
+		const text = 'another post';
+		render( <Blocks.Post content={ content } children={ text } meta={ meta } /> );
+
+		const link = screen.getByRole( 'link' );
+
+		expect( link ).toHaveAttribute(
+			'href',
 			`/read/blogs/${ content.siteId }/posts/${ content.postId }`
 		);
-		expect( post.text() ).toEqual( text );
+		expect( link ).toHaveTextContent( text );
 	} );
 
-	test( 'on Jetpack Cloud, if the post is not trashed, shows emphasized text but does not link', () => {
+	test( 'on Jetpack Cloud, if the post is not trashed, shows the text but does not link', () => {
 		isJetpackCloud.mockImplementation( () => true );
 
 		const content = {
@@ -129,11 +163,16 @@ describe( 'Post block', () => {
 			isTrashed: false,
 		};
 
-		const text = 'another post';
-		const post = shallow( <Blocks.Post content={ content } children={ text } /> );
+		const meta = {
+			published: null,
+		};
 
-		expect( post.type() ).toEqual( 'em' );
-		expect( post.text() ).toEqual( text );
+		const text = 'another post';
+		const unlinkedPost = render(
+			<Blocks.Post content={ content } children={ text } meta={ meta } />
+		).container.firstChild;
+
+		expect( unlinkedPost ).toHaveTextContent( text );
 	} );
 } );
 
@@ -149,12 +188,15 @@ describe( 'Comment block', () => {
 		};
 
 		const text = 'what a cool comment';
-		const comment = shallow( <Blocks.Comment content={ content } children={ text } /> );
+		render( <Blocks.Comment content={ content } children={ text } /> );
 
-		expect( comment.prop( 'href' ) ).toEqual(
+		const link = screen.getByRole( 'link' );
+
+		expect( link ).toHaveAttribute(
+			'href',
 			`/read/blogs/${ content.siteId }/posts/${ content.postId }#comment-${ content.commentId }`
 		);
-		expect( comment.text() ).toEqual( text );
+		expect( link ).toHaveTextContent( text );
 	} );
 
 	test( 'on Jetpack Cloud, shows text but does not link', () => {
@@ -167,9 +209,11 @@ describe( 'Comment block', () => {
 		};
 
 		const text = 'what a cool comment';
-		const comment = shallow( <Blocks.Comment content={ content } children={ text } /> );
+		render( <Blocks.Comment content={ content } children={ text } /> );
 
-		expect( comment ).toBeTextNodeWithValue( text );
+		const comment = screen.getByText( text );
+
+		expect( comment ).toBeVisible();
 	} );
 } );
 
@@ -185,10 +229,12 @@ describe( 'Person block', () => {
 		};
 
 		const text = 'what a unique and wonderful person';
-		const person = shallow( <Blocks.Person content={ content } children={ text } meta={ {} } /> );
+		render( <Blocks.Person content={ content } children={ text } meta={ {} } /> );
 
-		expect( person.prop( 'href' ) ).toEqual( `/people/edit/${ content.siteId }/${ content.name }` );
-		expect( person.text() ).toEqual( text );
+		const link = screen.getByRole( 'link' );
+
+		expect( link ).toHaveAttribute( 'href', `/people/edit/${ content.siteId }/${ content.name }` );
+		expect( link ).toHaveTextContent( text );
 	} );
 
 	test( 'on Jetpack Cloud, shows text but does not link', () => {
@@ -200,10 +246,12 @@ describe( 'Person block', () => {
 		};
 
 		const text = 'what a unique and wonderful person';
-		const person = shallow( <Blocks.Person content={ content } children={ text } meta={ {} } /> );
+		const unlinkedPerson = render(
+			<Blocks.Person content={ content } children={ text } meta={ {} } />
+		).container.firstChild;
 
-		expect( person.type() ).toEqual( 'strong' );
-		expect( person.text() ).toEqual( text );
+		expect( unlinkedPerson.tagName ).toEqual( 'STRONG' );
+		expect( unlinkedPerson ).toHaveTextContent( text );
 	} );
 } );
 
@@ -219,12 +267,15 @@ describe( 'Plugin block', () => {
 		};
 
 		const text = 'nifty plugin';
-		const plugin = shallow( <Blocks.Plugin content={ content } children={ text } meta={ {} } /> );
+		render( <Blocks.Plugin content={ content } children={ text } meta={ {} } /> );
 
-		expect( plugin.prop( 'href' ) ).toEqual(
+		const link = screen.getByRole( 'link' );
+
+		expect( link ).toHaveAttribute(
+			'href',
 			`/plugins/${ content.pluginSlug }/${ content.siteSlug }`
 		);
-		expect( plugin.text() ).toEqual( text );
+		expect( link ).toHaveTextContent( text );
 	} );
 
 	test( 'on Jetpack Cloud, shows text but does not link', () => {
@@ -236,9 +287,11 @@ describe( 'Plugin block', () => {
 		};
 
 		const text = 'nifty plugin';
-		const plugin = shallow( <Blocks.Plugin content={ content } children={ text } meta={ {} } /> );
+		render( <Blocks.Plugin content={ content } children={ text } meta={ {} } /> );
 
-		expect( plugin ).toBeTextNodeWithValue( text );
+		const unlinkedText = screen.getByText( text );
+
+		expect( unlinkedText ).toBeVisible();
 	} );
 } );
 
@@ -255,10 +308,12 @@ describe( 'Theme block', () => {
 		};
 
 		const text = 'oh neato a theme';
-		const theme = shallow( <Blocks.Theme content={ content } meta={ {} } children={ text } /> );
+		render( <Blocks.Theme content={ content } meta={ {} } children={ text } /> );
 
-		expect( theme.prop( 'href' ) ).toEqual( `/theme/${ content.themeSlug }/${ content.siteSlug }` );
-		expect( theme.text() ).toEqual( text );
+		const link = screen.getByRole( 'link' );
+
+		expect( link ).toHaveAttribute( 'href', `/theme/${ content.themeSlug }/${ content.siteSlug }` );
+		expect( link ).toHaveTextContent( text );
 	} );
 
 	test( 'on Jetpack Cloud, if the theme URI is WordPress.com, does not render a link', () => {
@@ -271,9 +326,11 @@ describe( 'Theme block', () => {
 		};
 
 		const text = 'oh neato a theme';
-		const theme = shallow( <Blocks.Theme content={ content } meta={ {} } children={ text } /> );
+		render( <Blocks.Theme content={ content } meta={ {} } children={ text } /> );
 
-		expect( theme ).toBeTextNodeWithValue( text );
+		const unlinkedText = screen.getByText( text );
+
+		expect( unlinkedText ).toBeVisible();
 	} );
 
 	test.each( [ false, true ] )(
@@ -288,19 +345,23 @@ describe( 'Theme block', () => {
 			};
 
 			const text = 'themes are pretty';
-			const theme = shallow( <Blocks.Theme content={ content } meta={ {} } children={ text } /> );
+			render( <Blocks.Theme content={ content } meta={ {} } children={ text } /> );
 
-			expect( theme.prop( 'href' ) ).toEqual( content.themeUri );
-			expect( theme.prop( 'target' ) ).toEqual( '_blank' );
-			expect( theme.prop( 'rel' ) ).toEqual( 'noopener noreferrer' );
-			expect( theme.text() ).toEqual( text );
+			const link = screen.getByRole( 'link' );
+
+			expect( link ).toHaveAttribute( 'href', content.themeUri );
+			expect( link ).toHaveAttribute( 'target', '_blank' );
+			expect( link ).toHaveAttribute( 'rel', 'noopener noreferrer' );
+			expect( link ).toHaveTextContent( text );
 		}
 	);
 
 	test( 'if no theme URI is present, renders text but no link', () => {
 		const text = 'oh no, no url';
-		const theme = shallow( <Blocks.Theme content={ {} } children={ text } /> );
+		render( <Blocks.Theme content={ {} } children={ text } /> );
 
-		expect( theme ).toBeTextNodeWithValue( text );
+		const unlinkedText = screen.getByText( text );
+
+		expect( unlinkedText ).toBeVisible();
 	} );
 } );

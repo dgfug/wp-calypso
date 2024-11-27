@@ -1,11 +1,10 @@
-import { CompactCard } from '@automattic/components';
-import classNames from 'classnames';
+import { CompactCard, Count } from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { uniqBy } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import Count from 'calypso/components/count';
 import FormInputCheckbox from 'calypso/components/forms/form-checkbox';
 import { withLocalizedMoment } from 'calypso/components/localized-moment';
 import Notice from 'calypso/components/notice';
@@ -22,6 +21,7 @@ import PluginAutoupdateToggle from 'calypso/my-sites/plugins/plugin-autoupdate-t
 import PluginIcon from 'calypso/my-sites/plugins/plugin-icon/plugin-icon';
 import { siteObjectsToSiteIds } from 'calypso/my-sites/plugins/utils';
 import { getPluginOnSites } from 'calypso/state/plugins/installed/selectors';
+import { isMarketplaceProduct } from 'calypso/state/products-list/selectors';
 
 import './style.scss';
 
@@ -142,7 +142,7 @@ class PluginItem extends Component {
 					isCompact
 					icon="checkmark"
 					status="is-success"
-					inline={ true }
+					inline
 					text={ translate( 'Updated' ) }
 				/>
 			);
@@ -159,7 +159,7 @@ class PluginItem extends Component {
 			<Notice
 				isCompact
 				icon="sync"
-				inline={ true }
+				inline
 				text={ translate( 'Version %(newPluginVersion)s is available', {
 					args: { newPluginVersion: updated_versions[ 0 ] },
 				} ) }
@@ -181,7 +181,7 @@ class PluginItem extends Component {
 		if ( progress.length ) {
 			const message = this.doing();
 			if ( message ) {
-				return <Notice isCompact status="is-info" text={ message } inline={ true } />;
+				return <Notice isCompact status="is-info" text={ message } inline />;
 			}
 		}
 		if ( this.props.isAutoManaged ) {
@@ -210,16 +210,13 @@ class PluginItem extends Component {
 	}
 
 	renderActions() {
-		const {
-			activation: canToggleActivation,
-			autoupdate: canToggleAutoupdate,
-		} = this.props.allowedActions;
+		const { activation: canToggleActivation, autoupdate: canToggleAutoupdate } =
+			this.props.allowedActions;
 
 		return (
 			<div className="plugin-item__actions">
 				{ canToggleActivation && (
 					<PluginActivateToggle
-						isMock={ this.props.isMock }
 						plugin={ this.props.plugin }
 						disabled={ this.props.isSelectable }
 						site={ this.props.selectedSite }
@@ -227,11 +224,11 @@ class PluginItem extends Component {
 				) }
 				{ canToggleAutoupdate && (
 					<PluginAutoupdateToggle
-						isMock={ this.props.isMock }
 						plugin={ this.props.plugin }
 						disabled={ this.props.isSelectable }
 						site={ this.props.selectedSite }
 						wporg={ !! this.props.plugin.wporg }
+						isMarketplaceProduct={ this.props.isMarketplaceProduct }
 					/>
 				) }
 			</div>
@@ -288,7 +285,7 @@ class PluginItem extends Component {
 			pluginActions = this.renderActions();
 		}
 
-		const pluginItemClasses = classNames( 'plugin-item', 'plugin-item-' + plugin.slug );
+		const pluginItemClasses = clsx( 'plugin-item', 'plugin-item-' + plugin.slug );
 
 		return (
 			<CompactCard className={ pluginItemClasses }>
@@ -296,9 +293,10 @@ class PluginItem extends Component {
 					<FormInputCheckbox
 						className="plugin-item__checkbox"
 						id={ plugin.slug }
+						title={ plugin.name }
 						onClick={ this.props.onClick }
 						checked={ this.props.isSelected }
-						readOnly={ true }
+						readOnly
 					/>
 				) }
 				<a
@@ -323,5 +321,6 @@ export default connect( ( state, { plugin, sites } ) => {
 
 	return {
 		pluginsOnSites: getPluginOnSites( state, siteIds, plugin?.slug ),
+		isMarketplaceProduct: isMarketplaceProduct( state, plugin?.slug ),
 	};
 } )( localize( withLocalizedMoment( PluginItem ) ) );

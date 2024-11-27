@@ -33,7 +33,7 @@ class SecurityCheckupConnectedApplications extends Component {
 
 		return (
 			<SecurityCheckupNavigationItem
-				path={ '/me/security/connected-applications' }
+				path="/me/security/connected-applications"
 				materialIcon="power"
 				materialIconStyle="filled"
 				text={ translate( 'Connected Apps' ) }
@@ -46,7 +46,7 @@ class SecurityCheckupConnectedApplications extends Component {
 		const { connectedApps } = this.props;
 		let content;
 		if ( connectedApps === null ) {
-			content = <SecurityCheckupNavigationItem isPlaceholder={ true } />;
+			content = <SecurityCheckupNavigationItem isPlaceholder />;
 		} else {
 			content = this.renderConnectedApplications();
 		}

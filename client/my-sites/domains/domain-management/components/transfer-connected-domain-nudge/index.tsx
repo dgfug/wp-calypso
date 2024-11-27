@@ -12,7 +12,7 @@ const TransferConnectedDomainNudge = ( {
 	domain,
 	location,
 	siteSlug,
-}: TransferConnectedDomainNudgeProps ): JSX.Element | null => {
+}: TransferConnectedDomainNudgeProps ) => {
 	const translate = useTranslate();
 
 	const domainRegistryExpiryDate = moment( domain.registryExpiryDate );
@@ -40,7 +40,10 @@ const TransferConnectedDomainNudge = ( {
 		components: {
 			a: (
 				<a
-					href={ domainUseMyDomain( siteSlug, domain.name, useMyDomainInputMode.transferDomain ) }
+					href={ domainUseMyDomain( siteSlug, {
+						domain: domain.name,
+						initialMode: useMyDomainInputMode.transferDomain,
+					} ) }
 					onClick={ trackNudgeLinkClick }
 				/>
 			),

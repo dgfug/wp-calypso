@@ -1,0 +1,38 @@
+@import "@automattic/typography/styles/variables";
+@import "@wordpress/base-styles/breakpoints";
+
+/**
+ * Styling for '/' route.
+ */
+.inline-help__search {
+	padding: 16px;
+
+	// Search Bar
+	.card.search-card {
+		border: 1px solid var(--studio-gray-10);
+		border-radius: 2px;
+		box-shadow: none;
+		margin-bottom: 30px;
+
+		.search[role="search"] {
+			height: 40px;
+			border: 1px;
+
+			input.search__input {
+				font-size: $font-body-small;
+				min-height: 40px;
+			}
+
+			&.has-focus {
+				outline: var(--color-primary-light) solid 2px;
+				transition: none;
+
+				&.is-open {
+					border: 1px var(--studio-gray-50);
+					box-shadow: none;
+				}
+			}
+		}
+	}
+}
+

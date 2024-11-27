@@ -1,10 +1,13 @@
-import { Page } from 'playwright';
+import { Locator, Page, Frame } from 'playwright';
 import envVariables from './env-variables';
+
+const navTabParent = 'div.section-nav';
 
 const selectors = {
 	// clickNavTab
-	navTab: ( tab: string ) => `.section-nav-tab:has-text("${ tab }")`,
-	mobileNavTabsToggle: 'button.section-nav__mobile-header',
+	navTabItem: ( { name = '', selected = false }: { name?: string; selected?: boolean } = {} ) =>
+		`${ navTabParent } a[aria-current="${ selected }"]:has(span:has-text("${ name }"))`,
+	navTabMobileToggleButton: `${ navTabParent } button.section-nav__mobile-header`,
 };
 
 /**
@@ -34,47 +37,70 @@ export async function waitForElementEnabled(
 	const elementHandle = await page.waitForSelector( selector, options );
 	await Promise.all( [
 		elementHandle.waitForElementState( 'enabled', options ),
-		page.waitForFunction( ( element: any ) => element.ariaDisabled !== 'true', elementHandle ),
+		page.waitForFunction(
+			( element: SVGElement | HTMLElement ) => element.ariaDisabled !== 'true',
+			elementHandle
+		),
 	] );
 }
 
 /**
  * Locates and clicks on a specified tab on the NavTab.
  *
- * NavTabs are used throughout calypso to contain multiple related but separate pages within the same
- * overall page. For instance, on the Media gallery page a NavTab is used to filter the gallery to
+ * NavTabs are used throughout calypso to contain sub-pages within the parent page.
+ * For instance, on the Media gallery page a NavTab is used to filter the gallery to
  * show a specific category of gallery items.
  *
  * @param {Page} page Underlying page on which interactions take place.
  * @param {string} name Name of the tab to be clicked.
+ * @throws {Error} If the tab name is not the active tab.
  */
-export async function clickNavTab( page: Page, name: string ): Promise< void > {
-	// Mobile view - navtabs become a dropdown.
-	if ( envVariables.VIEWPORT_NAME === 'mobile' ) {
-		const navTabsButtonLocator = page.locator( selectors.mobileNavTabsToggle );
-		await navTabsButtonLocator.click();
-		const navPanelLocator = page.locator( '.section-nav__panel' );
-		await navPanelLocator.waitFor( { state: 'visible' } );
-	}
-
-	// Get the current active tab, then check against the intended target.
-	// If active tab and intended tab are same, short circuit the operation.
-	// If target device is mobile, close the NavTab dropdown.
-	const currentTab = await page
-		.waitForSelector( 'a[aria-current="true"]' )
-		.then( ( element ) => element.innerText() );
-
-	if ( currentTab === name ) {
-		if ( envVariables.VIEWPORT_NAME === 'mobile' ) {
-			await page.click( selectors.mobileNavTabsToggle );
-		}
+export async function clickNavTab(
+	page: Page,
+	name: string,
+	{ force }: { force?: boolean } = {}
+): Promise< void > {
+	// Short circuit operation if the active tab and target tabs are the same.
+	// Strip numerals from the extracted tab name to account for the slightly
+	// different implementation in PostsPage.
+	const selectedTabLocator = page.locator( selectors.navTabItem( { selected: true } ) );
+	const selectedTabName = await selectedTabLocator.innerText();
+	if ( selectedTabName.replace( /[0-9]|,/g, '' ) === name ) {
 		return;
 	}
 
-	// Click on the intended NavTab and wait for navigation to finish.
-	// This implicitly checks whether the intended tab is now active.
-	const elementHandle = await page.waitForSelector( selectors.navTab( name ) );
-	await Promise.all( [ page.waitForNavigation(), elementHandle.click() ] );
+	// If force option is specified, force click using a `dispatchEvent`.
+	if ( force ) {
+		return await page.dispatchEvent( selectors.navTabItem( { name: name } ), 'click' );
+	}
+
+	// Mobile view - navtabs become a dropdown and thus it must be opened first.
+	if ( envVariables.VIEWPORT_NAME === 'mobile' ) {
+		// Open the Navtabs which now act as a pseudo-dropdown menu.
+		const navTabsButtonLocator = page.locator( selectors.navTabMobileToggleButton );
+		await navTabsButtonLocator.click( { noWaitAfter: true } );
+
+		const navTabIsOpenLocator = page.locator( `${ navTabParent }.is-open` );
+		await navTabIsOpenLocator.waitFor();
+	}
+
+	// Click on the intended item and wait for navigation to finish.
+	const navTabItem = page.locator( selectors.navTabItem( { name: name, selected: false } ) );
+
+	const regex = new RegExp( `.*/${ name.toLowerCase() }/.*` );
+	await Promise.all( [ page.waitForURL( regex ), navTabItem.click() ] );
+
+	// Final verification, check that we are now on the expected navtab.
+	const newSelectedTabLocator = page.locator(
+		selectors.navTabItem( { name: name, selected: true } )
+	);
+	const newSelectedTabName = await newSelectedTabLocator.innerText();
+
+	if ( newSelectedTabName.replace( /[0-9]|,/g, '' ) !== name ) {
+		throw new Error(
+			`Failed to confirm NavTab is active: expected ${ name }, got ${ newSelectedTabName }`
+		);
+	}
 }
 
 /**
@@ -108,4 +134,111 @@ export async function reloadAndRetry(
 		}
 	}
 	return;
+}
+
+/**
+ * Gets and validates the block ID from a Locator to a parent Block element in the editor.
+ *
+ * @param {Locator} block A frame-safe Loccator to the top of a block.
+ * @returns A block ID that can be used to identify the block in the DOM later.
+ */
+export async function getIdFromBlock( block: Locator ): Promise< string > {
+	const blockId = await block.getAttribute( 'id' );
+	const blockIdRegex = /^block-[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/;
+	if ( ! blockId || ! blockIdRegex.test( blockId ) ) {
+		throw new Error( `Unable to find valid block ID from Locator. ID was "${ blockId }"` );
+	}
+
+	return blockId;
+}
+
+/**
+ * Waits until DOM mutations for given target element become idle. Can be used
+ * in situations where Playwright auto-waiting is not working for some reason.
+ *
+ * @example
+ * await Promise.all( [
+ *   waitForMutations( page, '.foobars-wrapper' ),
+ *   page.click( 'button.load-foobars' ),
+ * ] );
+ * const foobarsText = await page.innerText( '.foobars' );
+ * @param {Page} page Page object.
+ * @param {string} selector Observer target selector.
+ * @param {Object} options
+ * @param {number} options.timeout Maximum time in milliseconds, defaults to 10
+ * seconds, pass 0 to disable timeout.
+ * @param {number} options.debounce Maximum time to wait between consecutive
+ * mutations, defaults to 1 second.
+ * @param {Object} options.observe Mutation observation options.
+ */
+export async function waitForMutations(
+	page: Page | Frame,
+	selector: string,
+	options?: {
+		timeout?: number;
+		debounce?: number;
+		observe?: MutationObserverInit;
+	}
+): Promise< void > {
+	const timeout = options?.timeout || 10000;
+	const debounce = options?.debounce || 1000;
+	const observe = options?.observe || { attributes: true, subtree: true, childList: true };
+	const target = await page.waitForSelector( selector );
+
+	await Promise.race( [
+		new Promise( ( resolve, reject ) => {
+			if ( timeout > 0 ) {
+				setTimeout( () => {
+					reject( `Waiting for ${ selector } mutations timed out.` );
+				}, timeout );
+			}
+		} ),
+		page.evaluate(
+			async ( args ) => {
+				await new Promise( ( resolve ) => {
+					const debounceResolve = () => {
+						let timer: NodeJS.Timeout;
+						return () => {
+							clearTimeout( timer );
+							timer = setTimeout( resolve, args.debounce );
+						};
+					};
+
+					const observer = new MutationObserver( debounceResolve() );
+					observer.observe( args.target, args.observe );
+				} );
+			},
+			{ target, debounce, observe }
+		),
+	] );
+}
+
+/**
+ * Resolves once widgets.wp.com `message` events become idle or when no
+ * `message` events are dispatched within the first 3 seconds. Once resolved,
+ * all the widgets should be ready to be interacted with. This helper can be
+ * used on Atomic sites where the iframed widgets have, e.g., custom resize
+ * handlers (like the like button), causing layout shifting and, consequently,
+ * Playwright's stability checks to fail.
+ *
+ * @param {Page} page The parent page object.
+ */
+export async function waitForWPWidgetsIfNecessary( page: Page ): Promise< void > {
+	await page.evaluate( async () => {
+		await new Promise( ( resolve ) => {
+			let timer: NodeJS.Timeout;
+			const setResolveTimer = ( delay: number ) => {
+				clearTimeout( timer );
+				timer = setTimeout( resolve, delay );
+			};
+
+			setResolveTimer( 3000 );
+
+			window.addEventListener( 'message', ( event ) => {
+				if ( event.origin === 'https://widgets.wp.com' ) {
+					setResolveTimer( 1000 );
+				}
+			} );
+		} );
+	} );
 }

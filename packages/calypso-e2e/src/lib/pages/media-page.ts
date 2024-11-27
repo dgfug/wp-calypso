@@ -1,22 +1,32 @@
 import { ElementHandle, Page } from 'playwright';
+import { number } from 'yargs';
+import { getCalypsoURL } from '../../data-helper';
 import { waitForElementEnabled, clickNavTab } from '../../element-helper';
 
 const selectors = {
 	// Gallery view
 	gallery: '.media-library__content',
-	items: '.media-library__list-item',
-	selectedItems: '.media-library__list-item.is-selected',
+	items: ( selected: boolean ) => {
+		if ( selected ) {
+			return `.media-library__list-item.is-selected`;
+		}
+		return `.media-library__list-item`;
+	},
 	placeholder: '.is-placeholder',
 	uploadSpinner: '.media-library__list-item-spinner',
 	notReadyOverlay: `.is-transient`,
 	editButton: 'button[data-e2e-button="edit"]',
-	deleteButton: 'button[data-e2e-button="delete"]',
+	deleteButton: '.media-library__header button[data-e2e-button="delete"]',
 	fileInput: 'input.media-library__upload-button-input',
 	uploadRejectionNotice: 'text=/could not be uploaded/i',
 
 	// Edit File modal
 	editFileModal: '.editor-media-modal__content',
 	editImageButton: 'button:has-text("Edit Image"):visible',
+	editModalDeleteButton: '.editor-media-modal button:has-text("Delete"):visible',
+
+	// Popup confirmation
+	confirmationDeleteButton: '.dialog:has-text("Are you sure") button:has-text("Delete")',
 
 	// Iamge Editor
 	imageEditorCanvas: '.image-editor__canvas-container',
@@ -42,6 +52,15 @@ export class MediaPage {
 	}
 
 	/**
+	 * Opens the Media page.
+	 *
+	 * Example {@link https://wordpress.com/media}
+	 */
+	async visit( siteSlug: string ): Promise< void > {
+		await this.page.goto( getCalypsoURL( `media/${ siteSlug }` ) );
+	}
+
+	/**
 	 * Waits until the Media page gallery is loaded and ready.
 	 */
 	async waitUntilLoaded(): Promise< ElementHandle > {
@@ -56,27 +75,61 @@ export class MediaPage {
 	}
 
 	/**
-	 * Given a 1-indexed number `n`, click and select the nth item in the media gallery.
+	 * Checks whether the storage capacity for Media files is
+	 * as expected.
 	 *
-	 * Note that if the media gallery has been filtered (eg. Images only), this method
-	 * will select the `nth` item in the filtered gallery as shown.
-	 *
-	 * @param {number} index 1-indexed value denoting the nth media gallery item to be selected.
-	 * @returns {Promise<void>} No return value.
-	 * @throws {Error} If requested item could not be located in the gallery, or if the click action
-	 * failed to select the gallery item.
+	 * @param {number} capacity Expected capacity in GB (gigabytes).
 	 */
-	async selectItem( index: number ): Promise< void > {
-		// Playwright is able to select the nth matching item given a selector.
-		// See https://playwright.dev/docs/selectors#pick-n-th-match-from-the-query-result.
-		const elementHandle = await this.page.waitForSelector(
-			`:nth-match(${ selectors.items }, ${ index })`
+	async hasStorageCapacity( capacity: number ): Promise< boolean > {
+		const locator = this.page.locator(
+			`.plan-storage__storage-label:has-text("${ capacity.toString() }")`
 		);
-		await elementHandle.click();
-		await this.page.waitForFunction(
-			( element: any ) => element.classList.contains( 'is-selected' ),
-			elementHandle
-		);
+		try {
+			await locator.waitFor( { timeout: 15 * 1000 } );
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Given either a 1-indexed number `n` or the file name, click and select the item.
+	 *
+	 * Note that if an index is passed and the media gallery has been
+	 * filtered (eg. Images only), this method will select the `nth`
+	 * item in the filtered gallery as shown.
+	 *
+	 * @param param0 Keyed object parameter.
+	 * @param {number} param0.index 1-indexed value denoting the nth media gallery item to be selected.
+	 * @param {string} param0.name Filename of the media gallery item to be selected.
+	 * @throws {Error} If requested item could not be located in the gallery, or if the click action failed to select the gallery item.
+	 */
+	async selectItem( { index, name }: { index?: number; name?: string } = {} ): Promise< void > {
+		if ( ! name && ! number ) {
+			throw new Error( 'Specify either index or name.' );
+		}
+
+		if ( index ) {
+			const elementHandle = await this.page.waitForSelector(
+				`:nth-match(${ selectors.items }, ${ index })`
+			);
+			await elementHandle.click();
+			await this.page.waitForFunction(
+				( element: SVGElement | HTMLElement ) => element.classList.contains( 'is-selected' ),
+				elementHandle
+			);
+		}
+		if ( name ) {
+			const locator = this.page.locator( selectors.items( false ), {
+				has: this.page.locator( `figure[title="${ name }"]` ),
+			} );
+			await locator.click();
+
+			const selectedLocator = this.page.locator( selectors.items( true ), {
+				has: this.page.locator( `figure[title="${ name }"]` ),
+			} );
+			await selectedLocator.waitFor();
+		}
 	}
 
 	/**
@@ -101,7 +154,7 @@ export class MediaPage {
 	async editSelectedItem(): Promise< void > {
 		// Check that an item has been selected.
 		try {
-			await this.page.waitForSelector( selectors.selectedItems );
+			await this.page.waitForSelector( selectors.items( true ) );
 		} catch ( error ) {
 			throw new Error( 'Unable to edit files: no item(s) were selected.' );
 		}
@@ -138,6 +191,28 @@ export class MediaPage {
 	async cancelImageEdit(): Promise< void > {
 		await this.page.click( selectors.imageEditorCancelButton );
 		await this.page.waitForSelector( selectors.editFileModal );
+	}
+
+	/**
+	 * Delete the current selected media from the edit modal. Assumes the modal is open.
+	 */
+	async deleteMediaFromModal(): Promise< void > {
+		const modalDeleteButtonLocator = this.page.locator( selectors.editModalDeleteButton );
+		await modalDeleteButtonLocator.click();
+
+		const confirmationDeleteButtonLocator = this.page.locator( selectors.confirmationDeleteButton );
+		await confirmationDeleteButtonLocator.click();
+	}
+
+	/**
+	 * Delete all currently selected media from the main media library page.
+	 */
+	async deleteSelectedMediaFromLibrary(): Promise< void > {
+		const deleteButtonLocator = this.page.locator( selectors.deleteButton );
+		await deleteButtonLocator.click();
+
+		const confirmationDeleteButtonLocator = this.page.locator( selectors.confirmationDeleteButton );
+		await confirmationDeleteButtonLocator.click();
 	}
 
 	/**

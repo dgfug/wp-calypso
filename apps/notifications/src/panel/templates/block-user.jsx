@@ -1,4 +1,10 @@
 /* eslint-disable wpcalypso/jsx-classname-namespace */
+import {
+	getRelativeTimeString,
+	getShortDateString,
+	getNumericDateString,
+	getISODateString,
+} from '@automattic/i18n-utils';
 import { localize, getLocaleSlug } from 'i18n-calypso';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -17,115 +23,20 @@ function getDisplayURL( url ) {
 	return ( parser.hostname + parser.pathname ).replace( /\/$/, '' );
 }
 
-/**
- * Get localized relative time string for past timestamp.
- *
- * @param {number} timestamp Web timestamp (milliseconds since Epoch)
- * @param {string} locale Locale slug
- * @param {Date} now The date to be used for "now" in the relative calculation
- * @returns {string} Formatted relative date string, e.g. '2 min. ago'.
- *   Returns '' for future dates and errors.
- */
-function getRelativeTimeString( timestamp, locale = 'en', now = Date.now() ) {
-	const delta = now - timestamp;
-
-	if ( delta < 0 ) {
-		return '';
-	}
-
-	try {
-		const formatter = new Intl.RelativeTimeFormat( locale, { style: 'narrow' } );
-
-		if ( delta < aSecond ) {
-			// Super-accurate timing is not critical; pretend a second has elapsed.
-			return formatter.format( -1, 'seconds' );
-		}
-
-		if ( delta < aMinute ) {
-			return formatter.format( -1 * Math.round( delta / aSecond ), 'seconds' );
-		}
-
-		if ( delta < anHour ) {
-			return formatter.format( -1 * Math.round( delta / aMinute ), 'minutes' );
-		}
-
-		if ( delta < aDay ) {
-			return formatter.format( -1 * Math.round( delta / anHour ), 'hours' );
-		}
-
-		return formatter.format( -1 * Math.round( delta / aDay ), 'days' );
-	} catch ( error ) {
-		return '';
-	}
-}
-
-/**
- * Get localized short date format for timestamp.
- *
- * @param {number} timestamp Web timestamp (milliseconds since Epoch)
- * @param {string} locale Locale slug
- * @returns {string} Formatted localized date, e.g. 'Dec 20, 2021' for US English.
- *   Falls back to ISO date string if anything goes wrong.
- */
-function getShortDateString( timestamp, locale = 'en' ) {
-	try {
-		const formatter = new Intl.DateTimeFormat( locale, {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-		} );
-		return formatter.format( new Date( timestamp ) );
-	} catch ( error ) {
-		return getISODateString( timestamp );
-	}
-}
-
-/**
- * Get localized numeric date format for timestamp.
- *
- * @param {number} timestamp Web timestamp (milliseconds since Epoch)
- * @param {string} locale Locale slug
- * @returns {string} Formatted localized date, e.g. '12/20/2021' for US English
- *   Falls back to ISO date string if anything goes wrong.
- */
-function getNumericDateString( timestamp, locale = 'en' ) {
-	try {
-		const formatter = new Intl.DateTimeFormat( locale, {
-			year: 'numeric',
-			month: 'numeric',
-			day: 'numeric',
-		} );
-		return formatter.format( new Date( timestamp ) );
-	} catch ( error ) {
-		return getISODateString( timestamp );
-	}
-}
-
-/**
- * Get ISO date format for timestamp.
- *
- * @param {number} timestamp Web timestamp (milliseconds since Epoch)
- * @returns {string} Formatted ISO date, e.g. '2020-12-20'
- */
-function getISODateString( timestamp ) {
-	return new Date( timestamp ).toISOString().split( 'T' )[ 0 ];
-}
-
 export class UserBlock extends Component {
 	/**
 	 * Format a timestamp for showing how long ago an event occurred.
 	 * Specifically here for showing when a comment was made.
 	 *
 	 * If within the past five days, a relative time
-	 *   e.g. "23 sec. ago", "15 min. ago", "4 hrs. ago", "1 day ago"
+	 * e.g. "23 sec. ago", "15 min. ago", "4 hrs. ago", "1 day ago"
 	 *
 	 * If older than five days, absolute date
-	 *   e.g. "30 Apr 2015"
+	 * e.g. "30 Apr 2015"
 	 *
 	 * If anything goes wrong, ISO date
-	 *   e.g. "2020-12-20"
+	 * e.g. "2020-12-20"
 	 * Localized dates are always better, but ISO dates should be broadly recognizable.
-	 *
 	 * @param {string} timestamp - Timestamp in Date.parse()'able format
 	 * @returns {string} - Timestamp formatted for display or '' if input invalid
 	 */
@@ -154,7 +65,10 @@ export class UserBlock extends Component {
 
 		// Use relative time strings (e.g. '2 min. ago') for recent dates.
 		if ( Date.now() - parsedTime < 5 * aDay ) {
-			const relativeTimeString = getRelativeTimeString( parsedTime, localeSlug );
+			const relativeTimeString = getRelativeTimeString( {
+				timestamp: parsedTime,
+				locale: localeSlug,
+			} );
 
 			// Only use relative date if it makes sense and is not too long.
 			if ( relativeTimeString && relativeTimeString.length <= MAX_LENGTH ) {
@@ -213,7 +127,7 @@ export class UserBlock extends Component {
 			const homeClassName =
 				timeIndicator !== '' ? 'wpnc__user__meta wpnc__user__bulleted' : 'wpnc__user__meta';
 			homeTemplate = (
-				<p className={ homeClassName }>
+				<div className={ homeClassName }>
 					<span className="wpnc__user__ago">{ timeIndicator }</span>
 					<a
 						className="wpnc__user__site"
@@ -224,7 +138,7 @@ export class UserBlock extends Component {
 					>
 						{ home_title }
 					</a>
-				</p>
+				</div>
 			);
 		} else {
 			homeTemplate = (
@@ -254,11 +168,13 @@ export class UserBlock extends Component {
 					<a className="wpnc__user__site" href={ home_url } target="_blank" rel="noreferrer">
 						<img src={ grav.url } height={ grav.height } width={ grav.width } alt="Avatar" />
 					</a>
-					<span className="wpnc__user__username">
-						<a className="wpnc__user__home" href={ home_url } target="_blank" rel="noreferrer">
-							{ this.props.block.text }
-						</a>
-					</span>
+					<div>
+						<span className="wpnc__user__username">
+							<a className="wpnc__user__home" href={ home_url } target="_blank" rel="noreferrer">
+								{ this.props.block.text }
+							</a>
+						</span>
+					</div>
 					{ homeTemplate }
 					{ followLink }
 				</div>

@@ -1,30 +1,25 @@
-import { map, take, filter } from 'lodash';
-import PropTypes from 'prop-types';
+import { DotPager } from '@automattic/components';
 import ReaderExcerpt from 'calypso/blocks/reader-excerpt';
 import AutoDirection from 'calypso/components/auto-direction';
 import cssSafeUrl from 'calypso/lib/css-safe-url';
-import { isFeaturedImageInContent } from 'calypso/lib/post-normalizer/utils';
 import resizeImageUrl from 'calypso/lib/resize-image-url';
-import { imageIsBigEnoughForGallery } from 'calypso/state/reader/posts/normalization-rules';
-import { READER_CONTENT_WIDTH } from 'calypso/state/reader/posts/sizes';
+import { getImagesFromPostToDisplay } from 'calypso/state/reader/posts/normalization-rules';
+import { GALLERY_MAX_IMAGES, READER_CONTENT_WIDTH } from 'calypso/state/reader/posts/sizes';
 
-function getGalleryWorthyImages( post ) {
-	const numberOfImagesToDisplay = 4;
-	const images = ( post.images && [ ...post.images ] ) || [];
-	const indexToRemove = isFeaturedImageInContent( post );
-	if ( indexToRemove ) {
-		images.splice( indexToRemove, 1 );
+function PostGallery( { post, children } ) {
+	const imagesToDisplay = getImagesFromPostToDisplay( post, GALLERY_MAX_IMAGES );
+
+	function handleClick( event ) {
+		event.preventDefault();
 	}
 
-	const worthyImages = filter( images, imageIsBigEnoughForGallery );
-	return take( worthyImages, numberOfImagesToDisplay );
-}
+	if ( ! imagesToDisplay || imagesToDisplay.length < 2 ) {
+		return null;
+	}
 
-const PostGallery = ( { post, children, isDiscover } ) => {
-	const imagesToDisplay = getGalleryWorthyImages( post );
-	const listItems = map( imagesToDisplay, ( image, index ) => {
+	const listItems = imagesToDisplay.map( ( image, index ) => {
 		const imageUrl = resizeImageUrl( image.src, {
-			w: READER_CONTENT_WIDTH / imagesToDisplay.length,
+			w: READER_CONTENT_WIDTH,
 		} );
 		const safeCssUrl = cssSafeUrl( imageUrl );
 		let imageStyle = { background: 'none' };
@@ -37,14 +32,16 @@ const PostGallery = ( { post, children, isDiscover } ) => {
 			};
 		}
 		return (
-			<li key={ `post-${ post.ID }-image-${ index }` } className="reader-post-card__gallery-item">
-				<div className="reader-post-card__gallery-image" style={ imageStyle } />
-			</li>
+			<div
+				className="reader-post-card__gallery-image"
+				key={ `post-${ post.ID }-image-${ index }` }
+				style={ imageStyle }
+			/>
 		);
 	} );
+
 	return (
 		<div className="reader-post-card__post">
-			<ul className="reader-post-card__gallery">{ listItems }</ul>
 			<div className="reader-post-card__post-details">
 				<AutoDirection>
 					<h2 className="reader-post-card__title">
@@ -53,16 +50,14 @@ const PostGallery = ( { post, children, isDiscover } ) => {
 						</a>
 					</h2>
 				</AutoDirection>
-				<ReaderExcerpt post={ post } isDiscover={ isDiscover } />
-				{ children }
+				<ReaderExcerpt post={ post } />
 			</div>
+			<div onClick={ handleClick } role="presentation">
+				<DotPager isClickEnabled>{ listItems }</DotPager>
+			</div>
+			<div className="reader-post-card__post-details">{ children }</div>
 		</div>
 	);
-};
-
-PostGallery.propTypes = {
-	post: PropTypes.object.isRequired,
-	isDiscover: PropTypes.bool,
-};
+}
 
 export default PostGallery;

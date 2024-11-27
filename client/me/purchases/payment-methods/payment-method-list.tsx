@@ -1,39 +1,42 @@
+import page from '@automattic/calypso-router';
 import { Button, CompactCard } from '@automattic/components';
+import { CheckoutProvider } from '@automattic/composite-checkout';
 import { localize, translate } from 'i18n-calypso';
-import page from 'page';
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import QueryStoredCards from 'calypso/components/data/query-stored-cards';
+import Notice from 'calypso/components/notice';
 import SectionHeader from 'calypso/components/section-header';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
-import { isCreditCard } from 'calypso/lib/checkout/payment-methods';
+import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 import PaymentMethod from 'calypso/me/purchases/payment-methods/payment-method';
-import PaymentMethodBackupToggle from 'calypso/me/purchases/payment-methods/payment-method-backup-toggle';
-import PaymentMethodDelete from 'calypso/me/purchases/payment-methods/payment-method-delete';
+import { withStoredPaymentMethods } from 'calypso/my-sites/checkout/src/hooks/use-stored-payment-methods';
+import { isAgencyUser } from 'calypso/state/partner-portal/partner/selectors';
 import {
-	getAllStoredCards,
-	getUniquePaymentAgreements,
-	hasLoadedStoredCardsFromServer,
-	isFetchingStoredCards,
-} from 'calypso/state/stored-cards/selectors';
-import PaymentMethodDetails from './payment-method-details';
-import type { PaymentMethod as PaymentMethodType } from 'calypso/lib/checkout/payment-methods';
-import type { StoredCard } from 'calypso/my-sites/checkout/composite-checkout/types/stored-cards';
+	hasLoadedSitePurchasesFromServer,
+	hasLoadedUserPurchasesFromServer,
+} from 'calypso/state/purchases/selectors';
+import type { StoredPaymentMethod } from 'calypso/lib/checkout/payment-methods';
+import type { WithStoredPaymentMethodsProps } from 'calypso/my-sites/checkout/src/hooks/use-stored-payment-methods';
+import type { IAppState } from 'calypso/state/types';
 
 import 'calypso/me/purchases/payment-methods/style.scss';
 
 interface PaymentMethodListProps {
 	addPaymentMethodUrl: string;
-	cards: StoredCard[];
-	paymentAgreements: PaymentMethodType[];
-	hasLoadedFromServer?: boolean;
-	isFetching?: boolean;
 	translate: typeof translate;
+	isAgencyUser: boolean;
+	hasLoadedSitePurchasesFromServer: boolean;
+	hasLoadedUserPurchasesFromServer: boolean;
 }
 
-class PaymentMethodList extends Component< PaymentMethodListProps > {
-	renderPaymentMethods( paymentMethods: PaymentMethodType[] ) {
-		if ( this.props.isFetching && ! this.props.hasLoadedFromServer ) {
+class PaymentMethodList extends Component<
+	PaymentMethodListProps & WithStoredPaymentMethodsProps
+> {
+	renderPaymentMethods( paymentMethods: StoredPaymentMethod[] ) {
+		const hasLoadedPurchases =
+			this.props.hasLoadedUserPurchasesFromServer || this.props.hasLoadedSitePurchasesFromServer;
+
+		if ( this.props.paymentMethodsState.isLoading || ! hasLoadedPurchases ) {
 			return (
 				<CompactCard className="payment-method-list__loader">
 					<div className="payment-method-list__loading-placeholder-card loading-placeholder__content" />
@@ -48,23 +51,20 @@ class PaymentMethodList extends Component< PaymentMethodListProps > {
 			);
 		}
 
-		return paymentMethods.map( ( paymentMethod ) => {
-			return (
-				<PaymentMethod key={ paymentMethod.stored_details_id }>
-					<PaymentMethodDetails
-						lastDigits={ paymentMethod.card }
-						email={ paymentMethod.email }
-						cardType={ paymentMethod.card_type || '' }
-						paymentPartner={ paymentMethod.payment_partner }
-						name={ paymentMethod.name }
-						expiry={ paymentMethod.expiry }
-						isExpired={ paymentMethod.is_expired }
-					/>
-					{ isCreditCard( paymentMethod ) && <PaymentMethodBackupToggle card={ paymentMethod } /> }
-					<PaymentMethodDelete card={ paymentMethod } />
-				</PaymentMethod>
-			);
-		} );
+		return (
+			<div className="payment-method-list__payment-methods">
+				<CheckoutProvider paymentMethods={ [] } paymentProcessors={ {} }>
+					{ paymentMethods.map( ( paymentMethod ) => {
+						return (
+							<PaymentMethod
+								paymentMethod={ paymentMethod }
+								key={ paymentMethod.stored_details_id }
+							/>
+						);
+					} ) }
+				</CheckoutProvider>
+			</div>
+		);
 	}
 
 	goToAddPaymentMethod = () => {
@@ -81,27 +81,37 @@ class PaymentMethodList extends Component< PaymentMethodListProps > {
 	}
 
 	render() {
-		let paymentMethods = this.props.cards;
-		if ( this.props.hasLoadedFromServer && this.props.paymentAgreements.length > 0 ) {
-			paymentMethods = paymentMethods.concat( this.props.paymentAgreements );
-		}
+		const paymentMethods = this.props.paymentMethodsState.paymentMethods;
 
 		return (
-			<div className="payment-method-list">
-				<QueryStoredCards />
-				<SectionHeader label={ this.props.translate( 'Manage Your Payment Methods' ) }>
-					{ this.renderAddPaymentMethodButton() }
-				</SectionHeader>
+			<>
+				{ isJetpackCloud() && this.props.isAgencyUser && (
+					<Notice status="is-info" showDismiss={ false }>
+						{ this.props.translate(
+							'The cards stored here are used for purchases made via Jetpack.com. ' +
+								'If you intend to update your card to make purchases in Jetpack Manage, then do so {{a}}here{{/a}}.',
+							{
+								components: {
+									a: <a href="/partner-portal/payment-methods" />,
+								},
+							}
+						) }
+					</Notice>
+				) }
+				<div className="payment-method-list">
+					<SectionHeader label={ this.props.translate( 'Manage Your Payment Methods' ) }>
+						{ this.renderAddPaymentMethodButton() }
+					</SectionHeader>
 
-				{ this.renderPaymentMethods( paymentMethods ) }
-			</div>
+					{ this.renderPaymentMethods( paymentMethods ) }
+				</div>
+			</>
 		);
 	}
 }
 
-export default connect( ( state ) => ( {
-	cards: getAllStoredCards( state ),
-	paymentAgreements: getUniquePaymentAgreements( state ),
-	hasLoadedFromServer: hasLoadedStoredCardsFromServer( state ),
-	isFetching: isFetchingStoredCards( state ),
-} ) )( localize( PaymentMethodList ) );
+export default connect( ( state: IAppState ) => ( {
+	isAgencyUser: isAgencyUser( state ),
+	hasLoadedSitePurchasesFromServer: hasLoadedSitePurchasesFromServer( state ),
+	hasLoadedUserPurchasesFromServer: hasLoadedUserPurchasesFromServer( state ),
+} ) )( withStoredPaymentMethods( localize( PaymentMethodList ), { type: 'all', expired: true } ) );

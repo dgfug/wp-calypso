@@ -1,28 +1,23 @@
 /* eslint-disable wpcalypso/jsx-classname-namespace */
 
 import {
-	GOOGLE_WORKSPACE_BUSINESS_STARTER_YEARLY,
 	GOOGLE_WORKSPACE_BUSINESS_STARTER_MONTHLY,
+	GOOGLE_WORKSPACE_BUSINESS_STARTER_YEARLY,
 } from '@automattic/calypso-products';
-import { translate } from 'i18n-calypso';
-import { useSelector } from 'react-redux';
+import { useTranslate } from 'i18n-calypso';
 import { hasDiscount } from 'calypso/components/gsuite/gsuite-price';
-import InfoPopover from 'calypso/components/info-popover';
-import {
-	getGoogleMailServiceFamily,
-	hasGSuiteSupportedDomain,
-	isDomainEligibleForGoogleWorkspaceFreeTrial,
-} from 'calypso/lib/gsuite';
-import { formatPrice } from 'calypso/lib/gsuite/utils/format-price';
+import { hasGSuiteSupportedDomain } from 'calypso/lib/gsuite';
 import { IntervalLength } from 'calypso/my-sites/email/email-providers-comparison/interval-length';
+import PriceInformation from 'calypso/my-sites/email/email-providers-comparison/price/price-information';
+import useGetDomainIntroductoryOfferEligibilities from 'calypso/my-sites/email/email-providers-comparison/price/use-get-domain-introductory-offer-eligibilities';
 import PriceBadge from 'calypso/my-sites/email/email-providers-comparison/price-badge';
 import PriceWithInterval from 'calypso/my-sites/email/email-providers-comparison/price-with-interval';
+import { useSelector } from 'calypso/state';
 import { getCurrentUserCurrencyCode } from 'calypso/state/currency-code/selectors';
 import { getProductBySlug } from 'calypso/state/products-list/selectors';
+import { ProductListItem } from 'calypso/state/products-list/selectors/get-products-list';
 import canUserPurchaseGSuite from 'calypso/state/selectors/can-user-purchase-gsuite';
-import type { ProductListItem } from 'calypso/state/products-list/selectors/get-products-list';
-import type { SiteDomain } from 'calypso/state/sites/domains/types';
-import type { ReactElement } from 'react';
+import type { ResponseDomain } from 'calypso/lib/domains/types';
 
 import './style.scss';
 
@@ -32,76 +27,52 @@ const getGoogleWorkspaceProductSlug = ( intervalLength: IntervalLength ): string
 		: GOOGLE_WORKSPACE_BUSINESS_STARTER_YEARLY;
 };
 
-const AdditionalPriceInformation = ( {
-	currencyCode,
-	product,
-}: {
-	currencyCode: string | null;
-	product: ProductListItem | null;
-} ): ReactElement | null => {
-	if ( ! hasDiscount( product ) ) {
-		return null;
+const getApproximateDiscountForOffer = ( product: ProductListItem | null ) => {
+	if ( ! product || ! product?.introductory_offer ) {
+		return 0;
 	}
 
-	const standardPrice = formatPrice( product?.cost ?? 0, currencyCode ?? '' );
-	const discountedPrice = formatPrice( product?.sale_cost ?? 0, currencyCode ?? '' );
+	const offer = product.introductory_offer;
 
-	return (
-		<div className="google-workspace-price__discount">
-			{ translate(
-				'%(discount)d%% off{{span}}, %(discountedPrice)s billed today, renews at %(standardPrice)s{{/span}}',
-				{
-					args: {
-						discount: product?.sale_coupon?.discount,
-						discountedPrice,
-						standardPrice,
-					},
-					comment:
-						"%(discount)d is a numeric percentage discount (e.g. '50'), " +
-						"%(discountedPrice)s is a formatted, discounted price that the user will pay today (e.g. '$3'), " +
-						"%(standardPrice)s is a formatted price (e.g. '$5')",
-					components: {
-						span: <span />,
-					},
-				}
-			) }
+	if ( ! offer.cost_per_interval ) {
+		return 100;
+	}
 
-			<InfoPopover position="right" showOnHover>
-				{ translate(
-					'This discount is only available the first time you purchase a %(googleMailService)s account, any additional mailboxes purchased after that will be at the regular price.',
-					{
-						args: {
-							googleMailService: getGoogleMailServiceFamily( product?.product_slug ),
-						},
-						comment: '%(googleMailService)s can be either "G Suite" or "Google Workspace"',
-					}
-				) }
-			</InfoPopover>
-		</div>
-	);
+	return ( ( product.cost - offer.cost_per_interval ) / product.cost ) * 100;
 };
 
 type GoogleWorkspacePriceProps = {
-	domain: SiteDomain | undefined;
+	domain?: ResponseDomain;
 	intervalLength: IntervalLength;
+	isDomainInCart: boolean;
 };
 
 const GoogleWorkspacePrice = ( {
 	domain,
 	intervalLength,
-}: GoogleWorkspacePriceProps ): ReactElement => {
+	isDomainInCart,
+}: GoogleWorkspacePriceProps ) => {
 	const currencyCode = useSelector( getCurrentUserCurrencyCode );
+	const translate = useTranslate();
 
 	const productSlug = getGoogleWorkspaceProductSlug( intervalLength );
 	const product = useSelector( ( state ) => getProductBySlug( state, productSlug ) );
 
 	const canPurchaseGSuite = useSelector( canUserPurchaseGSuite );
 
-	if ( ! domain ) {
-		return <></>;
+	const { isEligibleForIntroductoryOffer, isEligibleForIntroductoryOfferFreeTrial } =
+		useGetDomainIntroductoryOfferEligibilities( {
+			domain,
+			isDomainInCart,
+			product,
+		} );
+
+	if ( ! domain && ! isDomainInCart ) {
+		return null;
 	}
 
-	const isGSuiteSupported = canPurchaseGSuite && hasGSuiteSupportedDomain( [ domain ] );
+	const isGSuiteSupported =
+		canPurchaseGSuite && ( isDomainInCart || hasGSuiteSupportedDomain( [ domain ] ) );
 
 	if ( ! isGSuiteSupported ) {
 		return (
@@ -111,41 +82,64 @@ const GoogleWorkspacePrice = ( {
 		);
 	}
 
-	if ( intervalLength === IntervalLength.MONTHLY ) {
-		return (
-			<div className="google-workspace-price__unavailable">
-				{ translate( 'Only available with annual billing' ) }
-			</div>
-		);
-	}
-
-	const isEligibleForFreeTrial = isDomainEligibleForGoogleWorkspaceFreeTrial( domain );
+	const isDiscounted = hasDiscount( product );
 
 	const priceWithInterval = (
 		<PriceWithInterval
-			cost={ product?.cost ?? 0 }
 			currencyCode={ currencyCode ?? '' }
-			hasDiscount={ isEligibleForFreeTrial || hasDiscount( product ) }
 			intervalLength={ intervalLength }
-			sale={ product?.sale_cost ?? null }
+			isDiscounted={ isDiscounted }
+			isEligibleForIntroductoryOffer={ isEligibleForIntroductoryOffer }
+			product={ product }
 		/>
-	);
-
-	const additionalPriceInformation = (
-		<AdditionalPriceInformation currencyCode={ currencyCode } product={ product } />
 	);
 
 	return (
 		<>
-			{ isEligibleForFreeTrial && (
-				<div className="google-workspace-price__discount badge badge--info-green">
+			{ isEligibleForIntroductoryOfferFreeTrial && (
+				<div className="google-workspace-price__trial-badge badge badge--info-green">
 					{ translate( '1 month free' ) }
 				</div>
 			) }
 
+			{ ! isEligibleForIntroductoryOfferFreeTrial && isEligibleForIntroductoryOffer && (
+				<div className="google-workspace-price__trial-badge badge badge--info-green">
+					{ translate( '%(approximateDiscountForOffer)d%% off', {
+						args: {
+							approximateDiscountForOffer: getApproximateDiscountForOffer( product ),
+						},
+						comment: "%(approximateDiscountForOffer)d is a numeric discount percentage (e.g. '40')",
+					} ) }
+				</div>
+			) }
+
+			{ ! isEligibleForIntroductoryOfferFreeTrial && isDiscounted && (
+				<div className="google-workspace-price__discount-badge badge badge--info-green">
+					{ isEligibleForIntroductoryOffer
+						? translate( 'Extra %(discount)d%% off', {
+								args: {
+									discount: product?.sale_coupon?.discount as number,
+								},
+								comment: "%(discount)d is a numeric discount percentage (e.g. '40')",
+						  } )
+						: translate( 'Limited time: %(discount)d%% off', {
+								args: {
+									discount: product?.sale_coupon?.discount as number,
+								},
+								comment: "%(discount)d is a numeric discount percentage (e.g. '40')",
+						  } ) }
+				</div>
+			) }
+
 			<PriceBadge
-				additionalPriceInformationComponent={ additionalPriceInformation }
-				priceComponent={ priceWithInterval }
+				priceInformation={
+					<PriceInformation
+						domain={ domain }
+						isDomainInCart={ isDomainInCart }
+						product={ product }
+					/>
+				}
+				price={ priceWithInterval }
 			/>
 		</>
 	);

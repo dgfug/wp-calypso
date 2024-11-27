@@ -1,6 +1,6 @@
-import classNames from 'classnames';
+import { Spinner } from '@automattic/components';
+import clsx from 'clsx';
 import { FunctionComponent, useEffect, useState } from 'react';
-import Spinner from 'calypso/components/spinner';
 import connectToWebpackServer, { BuildState } from './webpack-client';
 
 import './style.scss';
@@ -37,7 +37,7 @@ const WebpackBuildMonitor: FunctionComponent = () => {
 	const isWarning = buildState === BuildState.NEEDS_RELOAD;
 	const isSpinning = buildState === BuildState.BUILDING || buildState === BuildState.UPDATING;
 
-	const className = classNames( 'webpack-build-monitor', {
+	const className = clsx( 'webpack-build-monitor', {
 		'is-error': isError,
 		'is-warning': isWarning,
 	} );

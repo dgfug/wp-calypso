@@ -1,6 +1,5 @@
 /**
  * SiteSettings methods
- *
  * @param {string} sid - site id
  * @param {WPCOM} wpcom - wpcom instance
  * @returns {null} null
@@ -22,8 +21,7 @@ class SiteSettings {
 
 	/**
 	 * Get site-settings
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -33,7 +31,6 @@ class SiteSettings {
 
 	/**
 	 * Get site-settings single option
-	 *
 	 * @param {string} option - option to ask
 	 * @param {Function} [fn] - callback function
 	 * @returns {Function} request handler
@@ -67,9 +64,8 @@ class SiteSettings {
 
 	/**
 	 * Update site-settings
-	 *
-	 * @param {object} [query] - query object parameter
-	 * @param {object} body - body object parameter
+	 * @param {Object} [query] - query object parameter
+	 * @param {Object} body - body object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -79,7 +75,6 @@ class SiteSettings {
 
 	/**
 	 * Set site-settings single option
-	 *
 	 * @param {string} option - option to set
 	 * @param {*} value - value to assing to the given option
 	 * @param {Function} fn - callback function

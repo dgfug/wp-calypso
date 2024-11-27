@@ -1,5 +1,6 @@
+import config from '@automattic/calypso-config';
 import { translate } from 'i18n-calypso';
-import { compact, get, startsWith, pickBy, map } from 'lodash';
+import { get, startsWith, pickBy, map } from 'lodash';
 import { decodeEntities } from 'calypso/lib/formatting';
 import {
 	COMMENTS_REQUEST,
@@ -7,6 +8,8 @@ import {
 	COMMENTS_UPDATES_RECEIVE,
 	COMMENTS_COUNT_RECEIVE,
 	COMMENTS_DELETE,
+	COMMENTS_EMPTY,
+	COMMENTS_EMPTY_SUCCESS,
 } from 'calypso/state/action-types';
 import { requestCommentsList } from 'calypso/state/comments/actions';
 import {
@@ -18,7 +21,8 @@ import {
 import { registerHandlers } from 'calypso/state/data-layer/handler-registry';
 import { http } from 'calypso/state/data-layer/wpcom-http/actions';
 import { dispatchRequest } from 'calypso/state/data-layer/wpcom-http/utils';
-import { errorNotice, successNotice } from 'calypso/state/notices/actions';
+import { errorNotice, infoNotice, successNotice } from 'calypso/state/notices/actions';
+import { DEFAULT_NOTICE_DURATION } from 'calypso/state/notices/constants';
 import { getSitePost } from 'calypso/state/posts/selectors';
 
 const isDate = ( date ) => date instanceof Date && ! isNaN( date );
@@ -108,15 +112,20 @@ export const addComments = ( action, { comments, found } ) => {
 	return receiveAction;
 };
 
-export const announceFailure = ( { siteId, postId } ) => ( dispatch, getState ) => {
-	const post = getSitePost( getState(), siteId, postId );
-	const postTitle = post && post.title && post.title.trim().slice( 0, 20 ).trim().concat( '…' );
-	const error = postTitle
-		? translate( 'Could not retrieve comments for “%(postTitle)s”', { args: { postTitle } } )
-		: translate( 'Could not retrieve comments for post' );
+export const announceFailure =
+	( { siteId, postId } ) =>
+	( dispatch, getState ) => {
+		const post = getSitePost( getState(), siteId, postId );
+		const postTitle = post && post.title && post.title.trim().slice( 0, 20 ).trim().concat( '…' );
+		const error = postTitle
+			? translate( 'Could not retrieve comments for “%(postTitle)s”', { args: { postTitle } } )
+			: translate( 'Could not retrieve comments for post' );
 
-	dispatch( errorNotice( error, { duration: 5000 } ) );
-};
+		const environment = config( 'env_id' );
+		if ( environment === 'development' ) {
+			dispatch( errorNotice( error, { duration: 5000 } ) );
+		}
+	};
 
 // @see https://developer.wordpress.com/docs/api/1.1/post/sites/%24site/comments/%24comment_ID/delete/
 export const deleteComment = ( action ) => ( dispatch, getState ) => {
@@ -146,7 +155,7 @@ export const deleteComment = ( action ) => ( dispatch, getState ) => {
 export const handleDeleteSuccess = ( { options, refreshCommentListQuery } ) => {
 	const showSuccessNotice = get( options, 'showSuccessNotice', false );
 
-	return compact( [
+	return [
 		showSuccessNotice &&
 			successNotice( translate( 'Comment deleted permanently.' ), {
 				duration: 5000,
@@ -154,7 +163,7 @@ export const handleDeleteSuccess = ( { options, refreshCommentListQuery } ) => {
 				isPersistent: true,
 			} ),
 		!! refreshCommentListQuery && requestCommentsList( refreshCommentListQuery ),
-	] );
+	].filter( Boolean );
 };
 
 export const announceDeleteFailure = ( action ) => {
@@ -186,6 +195,74 @@ export const announceDeleteFailure = ( action ) => {
 	];
 };
 
+const emptyNoticeOptions = {
+	duration: DEFAULT_NOTICE_DURATION,
+	id: 'comment-notice',
+	isPersistent: true,
+};
+
+export const emptyComments = ( action ) => ( dispatch ) => {
+	const { siteId, status } = action;
+
+	dispatch(
+		infoNotice(
+			status === 'spam'
+				? translate( 'Spam emptying in progress.' )
+				: translate( 'Trash emptying in progress.' ),
+			emptyNoticeOptions
+		)
+	);
+
+	dispatch(
+		http(
+			{
+				apiVersion: '1',
+				body: {
+					empty_status: status,
+				},
+				method: 'POST',
+				path: `/sites/${ siteId }/comments/delete`,
+			},
+			action
+		)
+	);
+};
+
+export const handleEmptySuccess = (
+	{ status, siteId, options, refreshCommentListQuery },
+	apiResponse
+) => {
+	const showSuccessNotice = options?.showSuccessNotice;
+
+	return [
+		showSuccessNotice &&
+			successNotice(
+				status === 'spam' ? translate( 'Spam emptied.' ) : translate( 'Trash emptied.' ),
+				emptyNoticeOptions
+			),
+		!! refreshCommentListQuery && requestCommentsList( refreshCommentListQuery ),
+		{
+			type: COMMENTS_EMPTY_SUCCESS,
+			siteId,
+			status,
+			commentIds: apiResponse.results.map( ( x ) => +x ), // convert to number
+		},
+	];
+};
+
+export const announceEmptyFailure = ( action ) => {
+	const { status } = action;
+
+	const error = errorNotice(
+		status === 'spam'
+			? translate( 'Could not empty spam.' )
+			: translate( 'Could not empty trash.' ),
+		emptyNoticeOptions
+	);
+
+	return error;
+};
+
 registerHandlers( 'state/data-layer/wpcom/comments/index.js', {
 	[ COMMENTS_REQUEST ]: [
 		dispatchRequest( {
@@ -200,6 +277,14 @@ registerHandlers( 'state/data-layer/wpcom/comments/index.js', {
 			fetch: deleteComment,
 			onSuccess: handleDeleteSuccess,
 			onError: announceDeleteFailure,
+		} ),
+	],
+
+	[ COMMENTS_EMPTY ]: [
+		dispatchRequest( {
+			fetch: emptyComments,
+			onSuccess: handleEmptySuccess,
+			onError: announceEmptyFailure,
 		} ),
 	],
 } );

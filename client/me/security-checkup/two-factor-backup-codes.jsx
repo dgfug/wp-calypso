@@ -17,15 +17,11 @@ class SecurityCheckupTwoFactorBackupCodes extends Component {
 	};
 
 	render() {
-		const {
-			areBackupCodesPrinted,
-			areUserSettingsLoaded,
-			hasTwoStepEnabled,
-			translate,
-		} = this.props;
+		const { areBackupCodesPrinted, areUserSettingsLoaded, hasTwoStepEnabled, translate } =
+			this.props;
 
 		if ( ! areUserSettingsLoaded ) {
-			return <SecurityCheckupNavigationItem isPlaceholder={ true } />;
+			return <SecurityCheckupNavigationItem isPlaceholder />;
 		}
 
 		// Don't show this item if the user doesn't have 2FA enabled.
@@ -53,7 +49,7 @@ class SecurityCheckupTwoFactorBackupCodes extends Component {
 
 		return (
 			<SecurityCheckupNavigationItem
-				path={ '/me/security/two-step' }
+				path="/me/security/two-step"
 				materialIcon={ icon }
 				text={ translate( 'Two-Step Backup Codes' ) }
 				description={ description }

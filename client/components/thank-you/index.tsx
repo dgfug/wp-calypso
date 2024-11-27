@@ -1,9 +1,9 @@
 import { Gridicon } from '@automattic/components';
 import { useLocalizeUrl } from '@automattic/i18n-utils';
+import { CALYPSO_CONTACT, SUPPORT_ROOT } from '@automattic/urls';
 import styled from '@emotion/styled';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
-import { CALYPSO_CONTACT, SUPPORT_ROOT } from 'calypso/lib/url/support';
 import type {
 	ThankYouNextStepProps,
 	ThankYouProps,
@@ -28,6 +28,12 @@ const ThankYouSectionTitle = styled.h1`
 
 const ThankYouSectionContainer = styled.div`
 	margin-bottom: 35px;
+	&:not( :first-of-type ) {
+		border-top: 1px solid var( --studio-gray-5 );
+	}
+	&:last-child {
+		border-top: none;
+	}
 `;
 
 const ThankYouBody = styled.div`
@@ -88,21 +94,25 @@ const ThankYouNotice = ( props: ThankYouNoticeProps ) => {
 };
 
 const ThankYouNextStep = ( props: ThankYouNextStepProps ) => {
-	const { stepCta, stepDescription, stepKey, stepTitle } = props;
+	const { stepIcon, stepCta, stepDescription, stepSection, stepKey, stepTitle } = props;
 
 	return (
 		<div className="thank-you__step" key={ stepKey }>
-			<div>
-				<h3>{ stepTitle }</h3>
-				<p>{ stepDescription }</p>
-			</div>
-			<div className="thank-you__step-cta">{ stepCta }</div>
+			{ stepIcon && <div className="thank-you__step-icon">{ stepIcon }</div> }
+			{ ( stepTitle || stepDescription ) && (
+				<div>
+					<h3>{ stepTitle }</h3>
+					<p>{ stepDescription }</p>
+				</div>
+			) }
+			{ stepSection && <div className="thank-you__step-section">{ stepSection }</div> }
+			{ stepCta && <div className="thank-you__step-cta">{ stepCta }</div> }
 		</div>
 	);
 };
 
 const ThankYouSection = ( props: ThankYouSectionProps ) => {
-	const { nextSteps, sectionTitle } = props;
+	const { nextSteps, sectionTitle, nextStepsClassName } = props;
 
 	const nextStepComponents = nextSteps.map( ( nextStepProps, index ) => (
 		<ThankYouNextStep key={ index } { ...nextStepProps } />
@@ -110,11 +120,13 @@ const ThankYouSection = ( props: ThankYouSectionProps ) => {
 
 	return (
 		<ThankYouSectionContainer>
-			<ThankYouSectionTitle className="thank-you__body-header wp-brand-font">
-				{ sectionTitle }
-			</ThankYouSectionTitle>
+			{ sectionTitle && (
+				<ThankYouSectionTitle className="thank-you__body-header wp-brand-font">
+					{ sectionTitle }
+				</ThankYouSectionTitle>
+			) }
 
-			<ThankYouNextSteps>{ nextStepComponents }</ThankYouNextSteps>
+			<ThankYouNextSteps className={ nextStepsClassName }>{ nextStepComponents }</ThankYouNextSteps>
 		</ThankYouSectionContainer>
 	);
 };
@@ -146,7 +158,7 @@ const ThankYouSupportSection = ( props: ThankYouSupportSectionProps ) => {
 	);
 };
 
-export const ThankYou = ( props: ThankYouProps ): JSX.Element => {
+export const ThankYou = ( props: ThankYouProps ) => {
 	const translate = useTranslate();
 	const localizeUrl = useLocalizeUrl();
 
@@ -159,8 +171,9 @@ export const ThankYou = ( props: ThankYouProps ): JSX.Element => {
 		showSupportSection = true,
 		thankYouTitle,
 		thankYouSubtitle,
-		thankYouImage,
+		thankYouImage = null,
 		thankYouNotice,
+		thankYouHeaderBody = null,
 	} = props;
 
 	const ThankYouTitleContainer = styled.div`
@@ -180,8 +193,8 @@ export const ThankYou = ( props: ThankYouProps ): JSX.Element => {
 		background-color: ${ headerBackgroundColor };
 		min-height: 352px;
 		img {
-			width: ${ thankYouImage.width ? null : 'auto' };
-			height: ${ thankYouImage.height ? null : '200px' };
+			width: ${ thankYouImage?.width ? null : 'auto' };
+			height: ${ thankYouImage?.height ? null : '200px' };
 			margin-bottom: 14px;
 		}
 	`;
@@ -197,7 +210,7 @@ export const ThankYou = ( props: ThankYouProps ): JSX.Element => {
 			},
 			{
 				href: localizeUrl( SUPPORT_ROOT ),
-				title: translate( 'View support documentation' ),
+				title: translate( 'View WordPress.com support guides' ),
 			},
 		],
 	};
@@ -207,15 +220,16 @@ export const ThankYou = ( props: ThankYouProps ): JSX.Element => {
 	) );
 
 	return (
-		<ThankYouContainer className={ classNames( 'thank-you__container', containerClassName ) }>
-			<ThankYouHeader className={ classNames( 'thank-you__container-header', headerClassName ) }>
-				<img { ...{ ...thankYouImage, alt: String( thankYouImage.alt ) } } />
+		<ThankYouContainer className={ clsx( 'thank-you__container', containerClassName ) }>
+			<ThankYouHeader className={ clsx( 'thank-you__container-header', headerClassName ) }>
+				{ thankYouImage && <img { ...{ ...thankYouImage, alt: String( thankYouImage.alt ) } } /> }
 				{ thankYouTitle && (
 					<ThankYouTitleContainer>
 						<h1 className="thank-you__header-title wp-brand-font">{ thankYouTitle }</h1>
 						{ thankYouSubtitle && (
 							<h2 className="thank-you__header-subtitle">{ thankYouSubtitle }</h2>
 						) }
+						{ thankYouHeaderBody }
 					</ThankYouTitleContainer>
 				) }
 			</ThankYouHeader>

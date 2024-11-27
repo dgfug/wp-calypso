@@ -1,25 +1,24 @@
 import { isDomainRegistration } from '@automattic/calypso-products';
-import { Card } from '@automattic/components';
-import { localize } from 'i18n-calypso';
+import page from '@automattic/calypso-router';
+import { Card, CompactCard, FormLabel } from '@automattic/components';
+import i18n, { getLocaleSlug, localize } from 'i18n-calypso';
 import { map, find } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
+import ActionPanelLink from 'calypso/components/action-panel/link';
 import QueryUserPurchases from 'calypso/components/data/query-user-purchases';
+import FormattedHeader from 'calypso/components/formatted-header';
 import FormButton from 'calypso/components/forms/form-button';
 import FormCheckbox from 'calypso/components/forms/form-checkbox';
-import FormLabel from 'calypso/components/forms/form-label';
-import FormSectionHeading from 'calypso/components/forms/form-section-heading';
 import FormSelect from 'calypso/components/forms/form-select';
 import FormTextarea from 'calypso/components/forms/form-textarea';
-import HeaderCake from 'calypso/components/header-cake';
+import HeaderCakeBack from 'calypso/components/header-cake/back';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import { getName as getDomainName } from 'calypso/lib/purchases';
 import { cancelAndRefundPurchase } from 'calypso/lib/purchases/actions';
 import { cancelPurchase, purchasesRoot } from 'calypso/me/purchases/paths';
-import titles from 'calypso/me/purchases/titles';
 import TrackPurchasePageView from 'calypso/me/purchases/track-purchase-page-view';
 import { errorNotice, successNotice } from 'calypso/state/notices/actions';
 import { clearPurchases } from 'calypso/state/purchases/actions';
@@ -66,22 +65,21 @@ class ConfirmCancelDomain extends Component {
 	};
 
 	componentDidMount() {
-		this.redirectIfDataIsInvalid( this.props );
+		this.redirectIfDataIsInvalid();
 	}
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( nextProps ) {
-		this.redirectIfDataIsInvalid( nextProps );
+	componentDidUpdate() {
+		this.redirectIfDataIsInvalid();
 	}
 
-	redirectIfDataIsInvalid = ( props ) => {
-		if ( isDataLoading( props ) || this.state.submitting ) {
+	redirectIfDataIsInvalid = () => {
+		if ( isDataLoading( this.props ) || this.state.submitting ) {
 			return null;
 		}
 
-		const { purchase } = props;
+		const { purchase, selectedSite } = this.props;
 
-		if ( ! purchase || ! isDomainRegistration( purchase ) || ! props.selectedSite ) {
+		if ( ! purchase || ! isDomainRegistration( purchase ) || ! selectedSite ) {
 			page.redirect( this.props.purchaseListUrl );
 		}
 	};
@@ -124,12 +122,30 @@ class ConfirmCancelDomain extends Component {
 			}
 
 			if ( error ) {
-				this.props.errorNotice(
-					error.message ||
+				if (
+					getLocaleSlug() === 'en' ||
+					getLocaleSlug() === 'en-gb' ||
+					i18n.hasTranslation(
+						'Unable to cancel your purchase. Please try again later or {{a}}contact support{{/a}}.'
+					)
+				) {
+					this.props.errorNotice(
+						translate(
+							'Unable to cancel your purchase. Please try again later or {{a}}contact support{{/a}}.',
+							{
+								components: {
+									a: <ActionPanelLink href="/help/contact" />,
+								},
+							}
+						)
+					);
+				} else {
+					this.props.errorNotice(
 						translate(
 							'Unable to cancel your purchase. Please try again later or contact support.'
 						)
-				);
+					);
+				}
 
 				return;
 			}
@@ -176,12 +192,18 @@ class ConfirmCancelDomain extends Component {
 
 		return (
 			<div className="confirm-cancel-domain__help-message">
-				<p>{ selectedReason.helpMessage }</p>
-				{ selectedReason.showTextarea && (
-					<FormTextarea
-						className="confirm-cancel-domain__reason-details"
-						onChange={ this.onMessageChange }
-					/>
+				{ selectedReason.showTextarea ? (
+					<>
+						<p>{ selectedReason.helpMessage }</p>
+						<FormTextarea
+							className="confirm-cancel-domain__reason-details"
+							onChange={ this.onMessageChange }
+						/>
+					</>
+				) : (
+					<CompactCard className="confirm-cancel-domain__help-card" highlight="warning">
+						<span>{ selectedReason.helpMessage }</span>
+					</CompactCard>
 				) }
 			</div>
 		);
@@ -218,8 +240,8 @@ class ConfirmCancelDomain extends Component {
 
 		if ( this.state.submitting ) {
 			return (
-				<FormButton isPrimary={ true } disabled={ true }>
-					{ this.props.translate( 'Cancelling Domain…' ) }
+				<FormButton isPrimary disabled>
+					{ this.props.translate( 'Cancelling domain…' ) }
 				</FormButton>
 			);
 		}
@@ -229,28 +251,25 @@ class ConfirmCancelDomain extends Component {
 
 		if ( selectedReason && 'misspelled' === selectedReason.value ) {
 			return (
-				<FormButton isPrimary={ true } onClick={ this.onSubmit } disabled={ ! confirmed }>
-					{ this.props.translate( 'Cancel Anyway' ) }
+				<FormButton isPrimary onClick={ this.onSubmit } disabled={ ! confirmed }>
+					{ this.props.translate( 'Cancel anyway' ) }
 				</FormButton>
 			);
 		}
 
 		return (
-			<FormButton isPrimary={ true } onClick={ this.onSubmit } disabled={ ! confirmed }>
-				{ this.props.translate( 'Cancel Domain' ) }
+			<FormButton isPrimary onClick={ this.onSubmit } disabled={ ! confirmed }>
+				{ this.props.translate( 'Cancel domain' ) }
 			</FormButton>
 		);
 	};
 
 	render() {
-		if ( isDataLoading( this.props ) ) {
+		if ( isDataLoading( this.props ) || ! this.props.purchase ) {
 			return (
 				<div>
 					<QueryUserPurchases />
-					<ConfirmCancelDomainLoadingPlaceholder
-						purchaseId={ this.props.purchaseId }
-						selectedSite={ this.props.selectedSite }
-					/>
+					<ConfirmCancelDomainLoadingPlaceholder />
 				</div>
 			);
 		}
@@ -268,18 +287,23 @@ class ConfirmCancelDomain extends Component {
 					path="/me/purchases/:site/:purchaseId/confirm-cancel-domain"
 					title="Purchases > Confirm Cancel Domain"
 				/>
-				<HeaderCake
-					backHref={ this.props.getCancelPurchaseUrlFor(
-						this.props.siteSlug,
-						this.props.purchaseId
-					) }
-				>
-					{ titles.confirmCancelDomain }
-				</HeaderCake>
-				<Card>
-					<FormSectionHeading>
-						{ this.props.translate( 'Canceling %(domain)s', { args: { domain } } ) }
-					</FormSectionHeading>
+
+				<Card className="confirm-cancel-domain__card">
+					<div className="confirm-cancel-domain__back">
+						<HeaderCakeBack
+							icon="chevron-left"
+							href={ this.props.getCancelPurchaseUrlFor(
+								this.props.siteSlug,
+								this.props.purchaseId
+							) }
+						/>
+					</div>
+					<FormattedHeader
+						className="confirm-cancel-domain__formatted-header"
+						brandFont
+						headerText={ this.props.translate( 'Canceling %(domain)s', { args: { domain } } ) }
+						align="left"
+					/>
 					<p>
 						{ this.props.translate(
 							'Since domain cancellation can cause your site to stop working, ' +

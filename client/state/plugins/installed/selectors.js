@@ -6,8 +6,11 @@ import {
 	isJetpackSite,
 	isJetpackSiteSecondaryNetworkSite,
 } from 'calypso/state/sites/selectors';
-
 import 'calypso/state/plugins/init';
+import { PLUGINS_STATUS } from './status/constants';
+
+// TODO: Much of the functionality in this file is duplicated with selectors.js
+// which needs to be removed when this file is complete.
 
 const _filters = {
 	none: function () {
@@ -17,19 +20,39 @@ const _filters = {
 		return true;
 	},
 	active: function ( plugin ) {
-		return some( plugin.sites, function ( site ) {
-			return site.active;
-		} );
+		return (
+			some( plugin.sites, function ( site ) {
+				return site.active;
+			} ) || plugin.statusRecentlyChanged
+		);
 	},
 	inactive: function ( plugin ) {
-		return some( plugin.sites, function ( site ) {
-			return ! site.active;
-		} );
+		return (
+			some( plugin.sites, function ( site ) {
+				return ! site.active;
+			} ) || plugin.statusRecentlyChanged
+		);
 	},
 	updates: function ( plugin ) {
-		return some( plugin.sites, function ( site ) {
-			return site.update && ! site.update.recentlyUpdated;
-		} );
+		return (
+			some( plugin.sites, function ( site ) {
+				return site.update && ! site.update.recentlyUpdated;
+			} ) || plugin.statusRecentlyChanged
+		);
+	},
+	autoupdates: function ( plugin ) {
+		return (
+			some( plugin.sites, function ( site ) {
+				return site.autoupdate;
+			} ) || plugin.statusRecentlyChanged
+		);
+	},
+	autoupdates_disabled: function ( plugin ) {
+		return (
+			some( plugin.sites, function ( site ) {
+				return ! site.autoupdate;
+			} ) || plugin.statusRecentlyChanged
+		);
 	},
 	isEqual: function ( pluginSlug, plugin ) {
 		return plugin.slug === pluginSlug;
@@ -47,16 +70,20 @@ export function isRequesting( state, siteId ) {
 	return state.plugins.installed.isRequesting[ siteId ];
 }
 
-export function isLoaded( state, siteId ) {
-	return false === state.plugins.installed.isRequesting[ siteId ];
-}
-
 export function isRequestingForSites( state, sites ) {
 	// As long as any sites have isRequesting true, we consider this group requesting
 	return some( sites, ( siteId ) => isRequesting( state, siteId ) );
 }
 
-export function getPlugins( state, siteIds, pluginFilter ) {
+export function isRequestingForAllSites( state ) {
+	return state.plugins.installed.isRequestingAll;
+}
+
+export function requestPluginsError( state ) {
+	return state.plugins.installed.requestError;
+}
+
+function getPluginsSelector( state, siteIds, pluginFilter ) {
 	let pluginList = reduce(
 		siteIds,
 		( memo, siteId ) => {
@@ -64,9 +91,15 @@ export function getPlugins( state, siteIds, pluginFilter ) {
 				return memo;
 			}
 
+			// We currently support fetching plugins per site and also fetching all plugins
+			// in bulk, aiming to optimize the UX in some flows.
+			if ( isRequestingForAllSites( state ) ) {
+				return memo;
+			}
+
 			const list = state.plugins.installed.plugins[ siteId ] || [];
 			list.forEach( ( item ) => {
-				const sitePluginInfo = pick( item, [ 'active', 'autoupdate', 'update' ] );
+				const sitePluginInfo = pick( item, [ 'active', 'autoupdate', 'update', 'version' ] );
 
 				memo[ item.slug ] = {
 					...memo[ item.slug ],
@@ -89,6 +122,64 @@ export function getPlugins( state, siteIds, pluginFilter ) {
 	return sortBy( pluginList, ( item ) => item.slug.toLowerCase() );
 }
 
+export const getPlugins = createSelector(
+	getPluginsSelector,
+	( state ) => state.plugins.installed.plugins,
+	( state, siteIds, pluginFilter ) => {
+		return [ siteIds, pluginFilter ].flat().join( '-' );
+	}
+);
+
+export const getPluginsWithUpdateStatuses = createSelector(
+	( state, allPlugins ) => {
+		const active = filter( allPlugins, _filters.active );
+		const inactive = filter( allPlugins, _filters.inactive );
+		const withUpdate = filter( allPlugins, _filters.updates );
+		const withAutoUpdate = filter( allPlugins, _filters.autoupdates );
+		const withAutoUpdateDisabled = filter( allPlugins, _filters.autoupdates_disabled );
+
+		return allPlugins.reduce( ( memo, plugin ) => {
+			const status = [];
+			plugin.allStatuses = [];
+
+			Object.entries( state.plugins.installed.status ).map( ( [ siteId, siteStatuses ] ) => {
+				Object.entries( siteStatuses ).map( ( [ pluginId, pluginStatus ] ) => {
+					if ( plugin.id === pluginId ) {
+						plugin.allStatuses.push( {
+							...pluginStatus,
+							siteId,
+							pluginId,
+						} );
+					}
+				} );
+			} );
+
+			if ( find( withUpdate, { slug: plugin.slug } ) ) {
+				status.push( PLUGINS_STATUS.UPDATE );
+			}
+
+			if ( find( inactive, { slug: plugin.slug } ) ) {
+				status.push( PLUGINS_STATUS.INACTIVE );
+			}
+
+			if ( find( active, { slug: plugin.slug } ) ) {
+				status.push( PLUGINS_STATUS.ACTIVE );
+			}
+
+			if ( find( withAutoUpdate, { slug: plugin.slug } ) ) {
+				status.push( PLUGINS_STATUS.AUTOUPDATE_ENABLED );
+			}
+
+			if ( find( withAutoUpdateDisabled, { slug: plugin.slug } ) ) {
+				status.push( PLUGINS_STATUS.AUTOUPDATE_DISABLED );
+			}
+
+			return [ ...memo, { ...plugin, status } ];
+		}, [] );
+	},
+	( plugins, pluginsUpdate ) => [ plugins, pluginsUpdate ]
+);
+
 export function getPluginsWithUpdates( state, siteIds ) {
 	return filter( getPlugins( state, siteIds ), _filters.updates ).map( ( plugin ) => ( {
 		...plugin,
@@ -97,21 +188,25 @@ export function getPluginsWithUpdates( state, siteIds ) {
 	} ) );
 }
 
-export function getPluginsOnSites( state, plugins ) {
+export const getPluginOnSites = createSelector( ( state, siteIds, pluginSlug ) =>
+	getPlugins( state, siteIds ).find( ( plugin ) => isEqualSlugOrId( pluginSlug, plugin ) )
+);
+
+export const getPluginsOnSites = createSelector( ( state, plugins ) => {
 	return Object.values( plugins ).reduce( ( acc, plugin ) => {
 		const siteIds = Object.keys( plugin.sites );
 		acc[ plugin.slug ] = getPluginOnSites( state, siteIds, plugin.slug );
 		return acc;
 	}, {} );
-}
-
-export function getPluginOnSites( state, siteIds, pluginSlug ) {
-	return getPlugins( state, siteIds ).find( ( plugin ) => isEqualSlugOrId( pluginSlug, plugin ) );
-}
+} );
 
 export function getPluginOnSite( state, siteId, pluginSlug ) {
 	const pluginList = getPlugins( state, [ siteId ] );
 	return find( pluginList, ( plugin ) => isEqualSlugOrId( pluginSlug, plugin ) );
+}
+
+export function getPluginsOnSite( state, siteId, pluginSlugs ) {
+	return pluginSlugs.map( ( pluginSlug ) => getPluginOnSite( state, siteId, pluginSlug ) );
 }
 
 export function getSitesWithPlugin( state, siteIds, pluginSlug ) {
@@ -152,6 +247,11 @@ export function getSitesWithoutPlugin( state, siteIds, pluginSlug ) {
 	} );
 }
 
+export function getSiteObjectsWithoutPlugin( state, siteIds, pluginSlug ) {
+	const siteIdsWithoutPlugin = getSitesWithoutPlugin( state, siteIds, pluginSlug );
+	return siteIdsWithoutPlugin.map( ( siteId ) => getSite( state, siteId ) );
+}
+
 export function getStatusForPlugin( state, siteId, pluginId ) {
 	if ( typeof state.plugins.installed.status[ siteId ] === 'undefined' ) {
 		return false;
@@ -163,22 +263,9 @@ export function getStatusForPlugin( state, siteId, pluginId ) {
 	return Object.assign( {}, status, { siteId: siteId, pluginId: pluginId } );
 }
 
-export function getStatusForSite( state, siteId ) {
-	if ( typeof state.plugins.installed.status[ siteId ] === 'undefined' ) {
-		return false;
-	}
-	return state.plugins.installed.status[ siteId ];
-}
-
-export function isPluginDoingAction( state, siteId, pluginId ) {
-	const status = getStatusForPlugin( state, siteId, pluginId );
-	return !! status && 'inProgress' === status.status;
-}
-
 /**
  * Whether the plugin's status for one or more recent actions matches a specified status.
- *
- * @param  {object}       state    Global state tree
+ * @param  {Object}       state    Global state tree
  * @param  {number}       siteId   ID of the site
  * @param  {string}       pluginId ID of the plugin
  * @param  {string|Array} action   Action, or array of actions of interest
@@ -197,8 +284,7 @@ export function isPluginActionStatus( state, siteId, pluginId, action, status ) 
 
 /**
  * Whether the plugin's status for one or more recent actions is in progress.
- *
- * @param  {object}       state    Global state tree
+ * @param  {Object}       state    Global state tree
  * @param  {number}       siteId   ID of the site
  * @param  {string}       pluginId ID of the plugin
  * @param  {string|Array} action   Action, or array of actions of interest
@@ -210,8 +296,7 @@ export function isPluginActionInProgress( state, siteId, pluginId, action ) {
 
 /**
  * Retrieve all plugin statuses of a certain type.
- *
- * @param  {object} state    Global state tree
+ * @param  {Object} state    Global state tree
  * @param  {string} status   Status of interest
  * @returns {Array}          Array of plugin status objects
  */

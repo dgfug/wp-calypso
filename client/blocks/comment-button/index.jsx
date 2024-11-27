@@ -1,42 +1,38 @@
 import { Gridicon } from '@automattic/components';
 import { useTranslate } from 'i18n-calypso';
-import { omitBy } from 'lodash';
 import PropTypes from 'prop-types';
-import { createElement } from 'react';
 import { connect } from 'react-redux';
 import { getPostTotalCommentsCount } from 'calypso/state/comments/selectors';
 
 import './style.scss';
 
-const noop = () => {};
-
-function CommentButton( props ) {
-	const { commentCount, href, onClick, showLabel, tagName, target } = props;
+function CommentButton( {
+	commentCount = 0,
+	size = 24,
+	tagName: TagName = 'li',
+	onClick,
+	href,
+	target,
+	icon,
+	defaultLabel,
+} ) {
 	const translate = useTranslate();
+	const showLabel = commentCount > 0 || defaultLabel;
+	const label = commentCount || defaultLabel;
 
-	return createElement(
-		tagName,
-		omitBy(
-			{
-				className: 'comment-button',
-				href: 'a' === tagName ? href : null,
-				onClick,
-				target: 'a' === tagName ? target : null,
-			},
-			( prop ) => prop === null
-		),
-		<Gridicon icon="comment" size={ props.size } className="comment-button__icon" />,
-		<span className="comment-button__label">
-			{ commentCount > 0 && <span className="comment-button__label-count">{ commentCount }</span> }
-			{ showLabel && commentCount > 0 && (
-				<span className="comment-button__label-status">
-					{ translate( 'Comment', 'Comments', {
-						context: 'noun',
-						count: commentCount,
-					} ) }
-				</span>
-			) }
-		</span>
+	return (
+		<TagName
+			className="comment-button tooltip"
+			data-tooltip={ translate( 'Comment' ) }
+			onClick={ onClick }
+			href={ 'a' === TagName ? href : undefined }
+			target={ 'a' === TagName ? target : undefined }
+		>
+			{ icon || <Gridicon icon="comment" size={ size } className="comment-button__icon" /> }
+			<span className="comment-button__label">
+				{ showLabel && <span className="comment-button__label-count">{ label }</span> }
+			</span>
+		</TagName>
 	);
 }
 
@@ -44,19 +40,11 @@ CommentButton.propTypes = {
 	commentCount: PropTypes.number,
 	href: PropTypes.string,
 	onClick: PropTypes.func,
-	showLabel: PropTypes.bool,
+	post: PropTypes.object,
 	tagName: PropTypes.string,
 	target: PropTypes.string,
-};
-
-CommentButton.defaultProps = {
-	commentCount: 0,
-	href: null,
-	onClick: noop,
-	showLabel: true,
-	size: 24,
-	tagName: 'li',
-	target: null,
+	icon: PropTypes.object,
+	defaultLabel: PropTypes.string,
 };
 
 const mapStateToProps = ( state, ownProps ) => {

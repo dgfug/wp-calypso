@@ -1,16 +1,19 @@
 import {
-	PRODUCT_JETPACK_CRM,
-	PRODUCT_JETPACK_CRM_MONTHLY,
+	JETPACK_CRM_PRODUCTS,
+	JETPACK_SOCIAL_ADVANCED_PRODUCTS,
 	TERM_MONTHLY,
-	isJetpackSearch,
 } from '@automattic/calypso-products';
+import { isNumber } from 'lodash';
 import { useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { INTRO_PRICING_DISCOUNT_PERCENTAGE } from 'calypso/my-sites/plans/jetpack-plans/constants';
-import { getProductBySlug } from 'calypso/state/products-list/selectors';
+import { useSelector } from 'calypso/state';
+import {
+	getProductBySlug,
+	getProductSaleCouponDiscount,
+} from 'calypso/state/products-list/selectors';
 import { getProductCost } from 'calypso/state/products-list/selectors/get-product-cost';
 import { getProductPriceTierList } from 'calypso/state/products-list/selectors/get-product-price-tiers';
 import { isProductsListFetching } from 'calypso/state/products-list/selectors/is-products-list-fetching';
+import getIntroOfferEligibility from 'calypso/state/selectors/get-intro-offer-eligibility';
 import getIntroOfferPrice from 'calypso/state/selectors/get-intro-offer-price';
 import isRequestingIntroOffers from 'calypso/state/selectors/get-is-requesting-into-offers';
 import {
@@ -23,8 +26,12 @@ import type { PriceTierEntry } from '@automattic/calypso-products';
 interface ItemPrices {
 	isFetching: boolean | null;
 	originalPrice: number;
+	originalPriceTotal?: number;
 	discountedPrice?: number;
+	discountedPriceTotal?: number | null;
+	discountedPriceDuration?: number;
 	priceTierList: PriceTierEntry[];
+	saleCouponDiscount?: number | null;
 }
 
 interface ItemRawPrices {
@@ -102,10 +109,19 @@ const useIntroductoryOfferPrices = (
 
 	const isFetching =
 		useSelector( ( state ) => !! isRequestingIntroOffers( state, siteId ?? undefined ) ) || null;
-	const introOfferCost =
-		useSelector(
-			( state ) => product && getIntroOfferPrice( state, product.product_id, siteId ?? 'none' )
-		) || null;
+	const introOfferCost = useSelector( ( state ) => {
+		if ( ! product ) {
+			return null;
+		}
+
+		const introOfferPrice = getIntroOfferPrice( state, product.product_id, siteId ?? 'none' );
+		const isEligibleForIntroPrice = getIntroOfferEligibility(
+			state,
+			product.product_id,
+			siteId ?? 'none'
+		);
+		return isNumber( introOfferPrice ) && isEligibleForIntroPrice ? introOfferPrice : null;
+	} );
 
 	return {
 		isFetching,
@@ -123,12 +139,21 @@ const useItemPrice = (
 	const listPrices = useProductListItemPrices( item, monthlyItemSlug );
 	const sitePrices = useSiteAvailableProductPrices( siteId, item, monthlyItemSlug );
 	const introductoryOfferPrices = useIntroductoryOfferPrices( siteId, item );
+	const saleCouponDiscount = useSelector( ( state ) =>
+		item?.productSlug ? getProductSaleCouponDiscount( state, item.productSlug ) : null
+	);
 
 	const isFetching = siteId
 		? sitePrices.isFetching
 		: listPrices.isFetching || introductoryOfferPrices.isFetching;
 	const itemCost = siteId ? sitePrices.itemCost : listPrices.itemCost;
-	const monthlyItemCost = siteId ? sitePrices.monthlyItemCost : listPrices.monthlyItemCost;
+	/**
+	 * At one point we needed to use `monthlyItemCost` instead of calculating the monthly price
+	 * with getMonthlyPrice() because yearly prices were slightly incorrect in the pricing table.
+	 * See https://github.com/Automattic/wp-calypso/pull/60636.
+	 * I'm leaving `monthlyItemCost` here for now in case we need it again sometime.
+	 */
+	// const monthlyItemCost = siteId ? sitePrices.monthlyItemCost : listPrices.monthlyItemCost;
 
 	const priceTierList = useMemo(
 		() => ( siteId ? sitePrices.priceTierList : listPrices.priceTierList ),
@@ -144,25 +169,46 @@ const useItemPrice = (
 	}
 
 	let originalPrice = 0;
-	let discountedPrice = undefined;
+	let originalPriceTotal;
+	let discountedPrice;
+	let discountedPriceDuration;
+	let discountedPriceTotal;
 
 	if ( item && itemCost ) {
 		originalPrice = itemCost;
 		if ( item.term !== TERM_MONTHLY ) {
-			originalPrice = monthlyItemCost ?? getMonthlyPrice( itemCost );
-			discountedPrice = introductoryOfferPrices.introOfferCost
+			originalPrice = getMonthlyPrice( itemCost ); // monthlyItemCost - See comment above.
+			originalPriceTotal = itemCost;
+			discountedPrice = isNumber( introductoryOfferPrices.introOfferCost )
 				? getMonthlyPrice( introductoryOfferPrices.introOfferCost )
 				: undefined;
+			discountedPriceTotal = introductoryOfferPrices.introOfferCost;
+
+			// Override Jetpack Social Advanced price by hard-coding it for now
+			if (
+				JETPACK_SOCIAL_ADVANCED_PRODUCTS.includes(
+					item?.productSlug as ( typeof JETPACK_SOCIAL_ADVANCED_PRODUCTS )[ number ]
+				)
+			) {
+				discountedPrice = isNumber( introductoryOfferPrices.introOfferCost )
+					? introductoryOfferPrices.introOfferCost
+					: undefined;
+				if ( isNumber( discountedPrice ) ) {
+					discountedPriceDuration = 1;
+				}
+			}
 		}
 	}
 
-	// Introductory offer pricing is not yet supported for tiered plans, so we need to hard-code it for now.
-	if ( item && item.term !== TERM_MONTHLY && isJetpackSearch( item ) ) {
-		discountedPrice = originalPrice * ( 1 - INTRO_PRICING_DISCOUNT_PERCENTAGE / 100 );
+	if ( item && saleCouponDiscount !== null ) {
+		discountedPrice = ( discountedPrice ?? originalPrice ) * ( 1 - saleCouponDiscount );
 	}
 
 	// Jetpack CRM price won't come from the API, so we need to hard-code it for now.
-	if ( item && [ PRODUCT_JETPACK_CRM, PRODUCT_JETPACK_CRM_MONTHLY ].includes( item.productSlug ) ) {
+	if (
+		item &&
+		JETPACK_CRM_PRODUCTS.includes( item.productSlug as ( typeof JETPACK_CRM_PRODUCTS )[ number ] )
+	) {
 		discountedPrice = item.displayPrice || -1;
 		originalPrice = item.displayPrice || -1;
 	}
@@ -170,8 +216,12 @@ const useItemPrice = (
 	return {
 		isFetching,
 		originalPrice,
+		originalPriceTotal,
 		discountedPrice,
+		discountedPriceDuration,
+		discountedPriceTotal,
 		priceTierList,
+		saleCouponDiscount,
 	};
 };
 

@@ -1,5 +1,7 @@
 import { Button } from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
 import { withShoppingCart } from '@automattic/shopping-cart';
+import { MAP_EXISTING_DOMAIN, INCOMING_DOMAIN_TRANSFER } from '@automattic/urls';
 import { localize } from 'i18n-calypso';
 import { get } from 'lodash';
 import PropTypes from 'prop-types';
@@ -13,7 +15,6 @@ import { getDomainPriceRule } from 'calypso/lib/cart-values/cart-items';
 import { getFixedDomainSearch, getTld, checkDomainAvailability } from 'calypso/lib/domains';
 import { domainAvailability } from 'calypso/lib/domains/constants';
 import { getAvailabilityNotice } from 'calypso/lib/domains/registration/availability-messages';
-import { MAP_EXISTING_DOMAIN, INCOMING_DOMAIN_TRANSFER } from 'calypso/lib/url/support';
 import withCartKey from 'calypso/my-sites/checkout/with-cart-key';
 import { NON_PRIMARY_DOMAINS_TO_FREE_USERS } from 'calypso/state/current-user/constants';
 import { getCurrentUser, currentUserHasFlag } from 'calypso/state/current-user/selectors';
@@ -99,10 +100,12 @@ class MapDomainStep extends Component {
 							this.props.selectedSite,
 							this.props.cart,
 							suggestion,
-							false
+							false, // isDomainOnly
+							'', // flowName
+							false // domainAndPlanUpsellFlow
 						) }
 						price={ suggestion.cost }
-						isMappingProduct={ true }
+						isMappingProduct
 					/>
 
 					<div className="map-domain-step__add-domain" role="group">
@@ -134,7 +137,13 @@ class MapDomainStep extends Component {
 							"We'll add your domain and help you change its settings so it points to your site. Keep your domain renewed with your current provider. (They'll remind you when it's time.) {{a}}Learn more about mapping a domain{{/a}}.",
 							{
 								components: {
-									a: <a href={ MAP_EXISTING_DOMAIN } rel="noopener noreferrer" target="_blank" />,
+									a: (
+										<a
+											href={ localizeUrl( MAP_EXISTING_DOMAIN ) }
+											rel="noopener noreferrer"
+											target="_blank"
+										/>
+									),
 								},
 							}
 						) }
@@ -146,7 +155,7 @@ class MapDomainStep extends Component {
 								components: {
 									a: (
 										<a
-											href={ INCOMING_DOMAIN_TRANSFER }
+											href={ localizeUrl( INCOMING_DOMAIN_TRANSFER ) }
 											rel="noopener noreferrer"
 											target="_blank"
 										/>
@@ -222,14 +231,8 @@ class MapDomainStep extends Component {
 			( error, result ) => {
 				const mappableStatus = get( result, 'mappable', error );
 				const status = get( result, 'status', error );
-				const {
-					AVAILABLE,
-					AVAILABILITY_CHECK_ERROR,
-					MAPPABLE,
-					MAPPED,
-					NOT_REGISTRABLE,
-					UNKNOWN,
-				} = domainAvailability;
+				const { AVAILABLE, AVAILABILITY_CHECK_ERROR, MAPPABLE, MAPPED, NOT_REGISTRABLE, UNKNOWN } =
+					domainAvailability;
 
 				if ( status === AVAILABLE ) {
 					this.setState( { suggestion: result, isPendingSubmit: false } );

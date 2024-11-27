@@ -1,6 +1,5 @@
-import { Page, ElementHandle, Frame } from 'playwright';
-import { ReactModalComponent } from '../components';
-import { MediaPage } from '../pages';
+import { Page, ElementHandle } from 'playwright';
+import { EditorComponent, envVariables } from '../..';
 
 type Sources = 'Media Library' | 'Google Photos' | 'Pexels';
 
@@ -10,7 +9,7 @@ const selectors = {
 	// Block when no image is selected
 	fileInput: '.components-form-file-upload input[type="file"]',
 	selectImageSourceButton: 'button.jetpack-external-media-button-menu',
-	imageSource: ( source: Sources ) => `button:has(span:text("${ source }"))`,
+	imageSource: ( source: Sources ) => `button :text("${ source }")`,
 
 	// Published
 	// Use the attribute CSS selector to perform partial match, beginning with the filename.
@@ -25,15 +24,18 @@ const selectors = {
 export class ImageBlock {
 	static blockName = 'Image';
 	static blockEditorSelector = '[aria-label="Block: Image"]';
+	private editor: EditorComponent;
 	block: ElementHandle;
 
 	/**
 	 * Constructs an instance of this block.
 	 *
+	 * @param {Page} page The underlying page object.
 	 * @param {ElementHandle} block Handle referencing the block as inserted on the Gutenberg editor.
 	 */
-	constructor( block: ElementHandle ) {
+	constructor( page: Page, block: ElementHandle ) {
 		this.block = block;
+		this.editor = new EditorComponent( page );
 	}
 
 	/**
@@ -79,17 +81,22 @@ export class ImageBlock {
 	 *
 	 * @param {string} path Path to the image file.
 	 */
-	async uploadFromModal( path: string ): Promise< ElementHandle > {
-		const frame = ( await this.block.ownerFrame() ) as Frame;
-		const page = frame.page();
+	async uploadThroughMediaLibrary( path: string ): Promise< ElementHandle > {
+		await this.selectImageSource( 'Media Library' );
 
-		// The resulting react modal embeds the MediaPage with additional
-		// buttons to confirm/cancel action.
-		const reactModalComponent = new ReactModalComponent( page, new MediaPage( page ) );
-		await reactModalComponent.pageObject.upload( path );
-		await reactModalComponent.clickButton( 'Insert' );
+		// Note: editorParent() doesn't work in Gutenframe due to the media library's
+		// use of a ReactPortal, changing the DOM hierarchy. Instead, we use the
+		// expression below, which is compatible with both simple and AT (which is not
+		// rendered from Gutenframe).
+		const page = ( await this.block.ownerFrame() )?.page() as Page;
+		await page.locator( 'input[type="file"][multiple]' ).setInputFiles( path );
 
-		await this.waitUntilUploaded();
+		const confirmButtonSelector = envVariables.TEST_ON_ATOMIC
+			? 'button:text-is("Select")'
+			: 'button :text-is("Insert")'; // The whitespace is intentional as the text is nested in a span element.
+
+		await page.locator( confirmButtonSelector ).click();
+
 		return await this.getImage();
 	}
 
@@ -102,9 +109,8 @@ export class ImageBlock {
 		const buttonHandle = await this.block.waitForSelector( selectors.selectImageSourceButton );
 		await buttonHandle.click();
 
-		const frame = ( await this.block.ownerFrame() ) as Frame;
-		const locator = frame.locator( selectors.imageSource( source ) );
-		await locator.click();
+		const editorParent = await this.editor.parent();
+		await editorParent.locator( selectors.imageSource( source ) ).click();
 	}
 
 	/**

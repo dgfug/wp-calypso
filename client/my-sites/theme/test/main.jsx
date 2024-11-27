@@ -1,5 +1,5 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderToString } from 'react-dom/server';
-import { QueryClient, QueryClientProvider } from 'react-query';
 import { Provider as ReduxProvider } from 'react-redux';
 import { createReduxStore } from 'calypso/state';
 import { setStore } from 'calypso/state/redux-store';
@@ -10,6 +10,9 @@ jest.mock( 'calypso/lib/analytics/tracks', () => ( {} ) );
 jest.mock( 'calypso/my-sites/themes/theme-preview', () =>
 	require( 'calypso/components/empty-component' )
 );
+jest.mock( 'dompurify', () => ( {
+	sanitize: jest.fn().mockImplementation( ( text ) => text ),
+} ) );
 
 const themeData = {
 	name: 'Twenty Sixteen',
@@ -24,8 +27,10 @@ const themeData = {
 	demo_uri: 'https://twentysixteendemo.wordpress.com/',
 };
 
+let queryClient;
+
 const TestComponent = ( { themeId, store } ) => {
-	const queryClient = new QueryClient();
+	queryClient = new QueryClient();
 	return (
 		<ReduxProvider store={ store }>
 			<QueryClientProvider client={ queryClient }>
@@ -36,6 +41,10 @@ const TestComponent = ( { themeId, store } ) => {
 };
 
 describe( 'main', () => {
+	afterEach( () => {
+		queryClient.clear();
+	} );
+
 	test( "doesn't throw an exception without theme data", () => {
 		const store = createReduxStore();
 		setStore( store );

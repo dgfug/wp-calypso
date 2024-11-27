@@ -14,9 +14,13 @@ import {
 	hasGSuiteWithUs,
 } from 'calypso/lib/gsuite';
 import { hasTitanMailWithUs } from 'calypso/lib/titan';
-import { applyDnsTemplate, updateDns } from 'calypso/state/domains/dns/actions';
+import wpcom from 'calypso/lib/wp';
+import { useDispatch } from 'calypso/state';
+import { applyDnsTemplate, fetchDns, updateDns } from 'calypso/state/domains/dns/actions';
 import { errorNotice, successNotice } from 'calypso/state/notices/actions';
 import RestoreDefaultARecordsDialog from './restore-default-a-records-dialog';
+import RestoreDefaultCnameRecordDialog from './restore-default-cname-record-dialog';
+import RestoreDefaultEmailRecordsDIalog from './restore-default-email-records-dialog';
 import RestoreEmailDnsDialog from './restore-email-dns-dialog';
 import type {
 	DnsMenuOptionsButtonProps,
@@ -61,14 +65,17 @@ const emailProviderKeys: EmailProviderKey[] = [ EmailProvider.TITAN, EmailProvid
 
 function DnsMenuOptionsButton( {
 	domain,
-	pointsToWpcom,
+	hasDefaultARecords,
+	hasDefaultCnameRecord,
+	hasDefaultEmailRecords,
 	dns,
 	dispatchApplyDnsTemplate,
 	dispatchUpdateDns,
 	dispatchSuccessNotice,
 	dispatchErrorNotice,
-}: DnsMenuOptionsButtonProps ): JSX.Element {
+}: DnsMenuOptionsButtonProps ) {
 	const { __ } = useI18n();
+	const dispatch = useDispatch();
 
 	const [ isMenuVisible, setMenuVisible ] = useState( false );
 	const [ emailRestoreDialogVisibility, setEmailRestoreDialogVisibility ] = useState(
@@ -79,8 +86,13 @@ function DnsMenuOptionsButton( {
 			} )
 		)
 	);
-	const [ isRestoreDialogVisible, setRestoreDialogVisible ] = useState( false );
+	const [ isRestoreARecordsDialogVisible, setRestoreARecordsDialogVisible ] = useState( false );
+	const [ isRestoreCnameRecordDialogVisible, setRestoreCnameRecordDialogVisible ] =
+		useState( false );
+	const [ isRestoreEmailRecordsDialogVisible, setRestoreEmailRecordsDialogVisible ] =
+		useState( false );
 	const optionsButtonRef = useRef( null );
+	const shouldShowRestoreEmailRecordsMenuOption = domain?.isPrimary && domain?.isMappedToAtomicSite;
 
 	const toggleMenu = useCallback( () => {
 		setMenuVisible( ! isMenuVisible );
@@ -88,7 +100,7 @@ function DnsMenuOptionsButton( {
 
 	const closeMenu = useCallback( () => setMenuVisible( false ), [] );
 
-	const getRecordsToRemove = useCallback( () => {
+	const getARecordsToRemove = useCallback( () => {
 		const dnsRecords = dns.records ?? [];
 
 		return dnsRecords.filter(
@@ -98,7 +110,28 @@ function DnsMenuOptionsButton( {
 		);
 	}, [ dns ] );
 
+	const getCnameRecordToRemove = useCallback( () => {
+		const dnsRecords = dns.records ?? [];
+
+		return dnsRecords.filter(
+			( record ) =>
+				record.domain !== record.data?.replace( /\.$/, '' ) &&
+				'CNAME' === record.type &&
+				'www' === record.name
+		);
+	}, [ dns ] );
+
 	const domainName = domain?.domain ?? domain?.name;
+
+	const getDefaultCnameRecord = useCallback( () => {
+		return [
+			{
+				type: 'CNAME',
+				data: `${ domainName }.`,
+				name: 'www',
+			},
+		];
+	}, [ domainName ] );
 
 	const restoreEmailDnsRecords = useCallback(
 		async ( {
@@ -122,8 +155,8 @@ function DnsMenuOptionsButton( {
 		[ dispatchApplyDnsTemplate, dispatchErrorNotice, dispatchSuccessNotice, domainName ]
 	);
 
-	const restoreDefaultRecords = useCallback( async () => {
-		dispatchUpdateDns( domainName, [], getRecordsToRemove() )
+	const restoreDefaultARecords = useCallback( async () => {
+		dispatchUpdateDns( domainName, [], getARecordsToRemove(), true )
 			.then( () => dispatchSuccessNotice( __( 'Default A records restored' ) ) )
 			.catch( () => dispatchErrorNotice( __( 'Failed to restore the default A records' ) ) );
 	}, [
@@ -132,17 +165,77 @@ function DnsMenuOptionsButton( {
 		dispatchSuccessNotice,
 		dispatchUpdateDns,
 		domainName,
-		getRecordsToRemove,
+		getARecordsToRemove,
 	] );
 
-	const closeRestoreDialog = ( result: RestoreDialogResult ) => {
-		setRestoreDialogVisible( false );
+	const restoreDefaultCnameRecord = useCallback( async () => {
+		dispatchUpdateDns( domainName, getDefaultCnameRecord(), getCnameRecordToRemove() )
+			.then( () => dispatchSuccessNotice( __( 'Default CNAME record restored' ) ) )
+			.catch( () => dispatchErrorNotice( __( 'Failed to restore the default CNAME record' ) ) );
+	}, [
+		__,
+		dispatchErrorNotice,
+		dispatchSuccessNotice,
+		dispatchUpdateDns,
+		domainName,
+		getDefaultCnameRecord,
+		getCnameRecordToRemove,
+	] );
+
+	const restoreDefaultEmailRecords = useCallback( async () => {
+		wpcom.req
+			.post( {
+				apiNamespace: 'wpcom/v2',
+				path: '/domains/dns/email/set-default-records',
+				body: {
+					domain: domainName,
+				},
+			} )
+			.then( () => {
+				dispatchSuccessNotice( __( 'The default email DNS records were successfully fixed!' ) );
+			} )
+			.catch( () => {
+				dispatchErrorNotice( __( 'There was a problem when restoring default email DNS records' ) );
+			} )
+			.finally( () => {
+				dispatch( fetchDns( domainName, true ) );
+			} );
+	}, [ __, dispatch, dispatchErrorNotice, dispatchSuccessNotice, domainName ] );
+
+	const closeRestoreARecordsDialog = ( result: RestoreDialogResult ) => {
+		setRestoreARecordsDialogVisible( false );
 		if ( result?.shouldRestoreDefaultRecords ?? false ) {
-			restoreDefaultRecords();
+			restoreDefaultARecords();
 		}
 	};
 
-	const showRestoreDialog = useCallback( () => setRestoreDialogVisible( true ), [] );
+	const closeRestoreCnameRecordDialog = ( result: RestoreDialogResult ) => {
+		setRestoreCnameRecordDialogVisible( false );
+		if ( result?.shouldRestoreDefaultRecords ?? false ) {
+			restoreDefaultCnameRecord();
+		}
+	};
+
+	const closeRestoreEmailRecordsDialog = ( result: RestoreDialogResult ) => {
+		setRestoreEmailRecordsDialogVisible( false );
+		if ( result?.shouldRestoreDefaultRecords ?? false ) {
+			restoreDefaultEmailRecords();
+		}
+	};
+
+	const showRestoreARecordsDialog = useCallback(
+		() => setRestoreARecordsDialogVisible( true ),
+		[]
+	);
+	const showRestoreCnameRecordDialog = useCallback(
+		() => setRestoreCnameRecordDialogVisible( true ),
+		[]
+	);
+
+	const showRestoreEmailRecordsDialog = useCallback(
+		() => setRestoreEmailRecordsDialogVisible( true ),
+		[]
+	);
 
 	const closeEmailRestoreDialog = ( {
 		providerKey,
@@ -161,7 +254,7 @@ function DnsMenuOptionsButton( {
 	};
 
 	const showEmailRestoreDialog = useCallback(
-		( providerKey ) => setEmailRestoreDialogVisibility( { [ providerKey ]: true } ),
+		( providerKey: string ) => setEmailRestoreDialogVisibility( { [ providerKey ]: true } ),
 		[]
 	);
 
@@ -170,51 +263,57 @@ function DnsMenuOptionsButton( {
 		TITAN: __( 'Professional Email' ),
 	};
 
-	const emailDnsDialogs = emailProviderKeys.map(
-		( emailProviderKey: EmailProviderKey ): JSX.Element => {
-			return (
-				<RestoreEmailDnsDialog
-					key={ 'email-dns-restore-dialog-' + emailProviderKey }
-					emailServiceName={ productNames[ emailProviderKey ] }
-					isVisible={ emailRestoreDialogVisibility[ emailProviderKey ] }
-					onClose={ ( { shouldRestoreEmailDns }: RestoreEmailDnsDialogResult ) =>
-						closeEmailRestoreDialog( { providerKey: emailProviderKey, shouldRestoreEmailDns } )
-					}
-				/>
-			);
-		}
-	);
+	const emailDnsDialogs = emailProviderKeys.map( ( emailProviderKey: EmailProviderKey ) => {
+		return (
+			<RestoreEmailDnsDialog
+				key={ 'email-dns-restore-dialog-' + emailProviderKey }
+				emailServiceName={ productNames[ emailProviderKey ] }
+				isVisible={ emailRestoreDialogVisibility[ emailProviderKey ] }
+				onClose={ ( { shouldRestoreEmailDns }: RestoreEmailDnsDialogResult ) =>
+					closeEmailRestoreDialog( { providerKey: emailProviderKey, shouldRestoreEmailDns } )
+				}
+			/>
+		);
+	} );
 
-	const emailRestoreItems = emailProviderKeys.map(
-		( emailProviderKey: EmailProviderKey ): JSX.Element | null => {
-			if (
-				domain === undefined ||
-				! emailProviderConfig[ emailProviderKey ].shouldRestoreOptionBeEnabled( domain )
-			) {
-				return null;
-			}
-
-			return (
-				<PopoverMenuItem
-					key={ 'email-dns-restore-menu-item-' + emailProviderKey }
-					onClick={ () => showEmailRestoreDialog( emailProviderKey ) }
-				>
-					<Icon icon={ redo } size={ 14 } className="gridicon" viewBox="2 2 20 20" />
-					{
-						/* translators: %s is an email product name like Professional Email, Google Workspace, or Email Forwarding */
-						sprintf( __( 'Restore DNS records for %s' ), productNames[ emailProviderKey ] )
-					}
-				</PopoverMenuItem>
-			);
+	const emailRestoreItems = emailProviderKeys.map( ( emailProviderKey: EmailProviderKey ) => {
+		if (
+			domain === undefined ||
+			! emailProviderConfig[ emailProviderKey ].shouldRestoreOptionBeEnabled( domain )
+		) {
+			return null;
 		}
-	);
+
+		return (
+			<PopoverMenuItem
+				key={ 'email-dns-restore-menu-item-' + emailProviderKey }
+				onClick={ () => showEmailRestoreDialog( emailProviderKey ) }
+			>
+				<Icon icon={ redo } size={ 14 } className="gridicon" viewBox="2 2 20 20" />
+				{
+					/* translators: %s is an email product name like Professional Email, Google Workspace, or Email Forwarding */
+					sprintf( __( 'Restore DNS records for %s' ), productNames[ emailProviderKey ] )
+				}
+			</PopoverMenuItem>
+		);
+	} );
 
 	return (
 		<>
 			<RestoreDefaultARecordsDialog
-				visible={ isRestoreDialogVisible }
-				onClose={ closeRestoreDialog }
+				visible={ isRestoreARecordsDialogVisible }
+				onClose={ closeRestoreARecordsDialog }
 				defaultRecords={ null }
+			/>
+
+			<RestoreDefaultCnameRecordDialog
+				visible={ isRestoreCnameRecordDialogVisible }
+				onClose={ closeRestoreCnameRecordDialog }
+			/>
+
+			<RestoreDefaultEmailRecordsDIalog
+				visible={ isRestoreEmailRecordsDialogVisible }
+				onClose={ closeRestoreEmailRecordsDialog }
 			/>
 
 			{ emailDnsDialogs }
@@ -235,10 +334,31 @@ function DnsMenuOptionsButton( {
 				context={ optionsButtonRef.current }
 				position="bottom"
 			>
-				<PopoverMenuItem onClick={ showRestoreDialog } disabled={ pointsToWpcom || ! domain }>
+				<PopoverMenuItem
+					onClick={ showRestoreARecordsDialog }
+					disabled={ hasDefaultARecords || ! domain }
+				>
 					<Icon icon={ redo } size={ 14 } className="gridicon" viewBox="2 2 20 20" />
 					{ __( 'Restore default A records' ) }
 				</PopoverMenuItem>
+
+				<PopoverMenuItem
+					onClick={ showRestoreCnameRecordDialog }
+					disabled={ hasDefaultCnameRecord || ! domain }
+				>
+					<Icon icon={ redo } size={ 14 } className="gridicon" viewBox="2 2 20 20" />
+					{ __( 'Restore default CNAME record' ) }
+				</PopoverMenuItem>
+
+				{ shouldShowRestoreEmailRecordsMenuOption && (
+					<PopoverMenuItem
+						onClick={ showRestoreEmailRecordsDialog }
+						disabled={ hasDefaultEmailRecords || ! domain }
+					>
+						<Icon icon={ redo } size={ 14 } className="gridicon" viewBox="2 2 20 20" />
+						{ __( 'Restore default email records' ) }
+					</PopoverMenuItem>
+				) }
 
 				{ emailRestoreItems }
 			</PopoverMenu>

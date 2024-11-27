@@ -1,15 +1,14 @@
-import { PaymentLogo } from '@automattic/composite-checkout';
-import classNames from 'classnames';
+import { PaymentLogo } from '@automattic/wpcom-checkout';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
-import { useSelector } from 'react-redux';
 import PaymentMethodActions from 'calypso/jetpack-cloud/sections/partner-portal/payment-method-actions';
+import { useSelector } from 'calypso/state';
 import { isDeletingStoredCard } from 'calypso/state/partner-portal/stored-cards/selectors';
 import type { PaymentMethod } from 'calypso/jetpack-cloud/sections/partner-portal/payment-methods';
-import type { ReactElement } from 'react';
 
 import './style.scss';
 
-export default function StoredCreditCard( props: { card: PaymentMethod } ): ReactElement {
+export default function StoredCreditCard( props: { card: PaymentMethod } ) {
 	const translate = useTranslate();
 	const creditCard = props.card;
 
@@ -20,14 +19,14 @@ export default function StoredCreditCard( props: { card: PaymentMethod } ): Reac
 
 	return (
 		<div
-			className={ classNames( 'stored-credit-card', {
+			className={ clsx( 'stored-credit-card', {
 				'delete-in-progress': isDeleting,
 			} ) }
 		>
 			<div className="stored-credit-card__header">
 				<div className="stored-credit-card__labels">
 					<div className="stored-credit-card__payment-logo">
-						<PaymentLogo brand={ creditCard?.card.brand } isSummary={ true } />
+						<PaymentLogo brand={ creditCard?.card.brand } isSummary />
 					</div>
 					{ creditCard?.is_default && (
 						<div className="stored-credit-card__primary">{ translate( 'Primary' ) }</div>

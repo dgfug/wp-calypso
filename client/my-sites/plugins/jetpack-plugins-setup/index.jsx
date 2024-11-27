@@ -1,7 +1,14 @@
-import { CompactCard } from '@automattic/components';
+import page from '@automattic/calypso-router';
+import { CompactCard, Spinner } from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
+import {
+	JETPACK_CONTACT_SUPPORT,
+	JETPACK_SERVICE_AKISMET,
+	JETPACK_SERVICE_VAULTPRESS,
+	JETPACK_SUPPORT,
+} from '@automattic/urls';
 import { localize } from 'i18n-calypso';
 import { filter, get, range } from 'lodash';
-import page from 'page';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import QueryJetpackPlugins from 'calypso/components/data/query-jetpack-plugins';
@@ -9,16 +16,9 @@ import QueryPluginKeys from 'calypso/components/data/query-plugin-keys';
 import EmptyContent from 'calypso/components/empty-content';
 import Notice from 'calypso/components/notice';
 import NoticeAction from 'calypso/components/notice/notice-action';
-import Spinner from 'calypso/components/spinner';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import { getSiteFileModDisableReason } from 'calypso/lib/site/utils';
-import {
-	JETPACK_CONTACT_SUPPORT,
-	JETPACK_SERVICE_AKISMET,
-	JETPACK_SERVICE_VAULTPRESS,
-	JETPACK_SUPPORT,
-} from 'calypso/lib/url/support';
 import PluginIcon from 'calypso/my-sites/plugins/plugin-icon/plugin-icon';
 import PluginItem from 'calypso/my-sites/plugins/plugin-item/plugin-item';
 import {
@@ -175,7 +175,7 @@ class PlansSetup extends Component {
 				title={ this.props.translate(
 					'Oh no! You need to select a Jetpack site to be able to setup your plan'
 				) }
-				illustration={ '/calypso/images/jetpack/jetpack-manage.svg' }
+				illustration="/calypso/images/jetpack/jetpack-manage.svg"
 			/>
 		);
 	};
@@ -197,7 +197,7 @@ class PlansSetup extends Component {
 			this.trackConfigFinished( 'calypso_plans_autoconfig_error', {
 				error: 'secondary_network_site',
 			} );
-		} else if ( site.options.is_multi_network ) {
+		} else if ( site.options?.is_multi_network ) {
 			reason = translate( "We can't install plugins on multi-network sites." );
 			this.trackConfigFinished( 'calypso_plans_autoconfig_error', {
 				error: 'multinetwork',
@@ -210,7 +210,7 @@ class PlansSetup extends Component {
 				actionURL={ JETPACK_CONTACT_SUPPORT }
 				title={ translate( "Oh no! We can't install plugins on this site." ) }
 				line={ reason }
-				illustration={ '/calypso/images/jetpack/jetpack-manage.svg' }
+				illustration="/calypso/images/jetpack/jetpack-manage.svg"
 			/>
 		);
 	};
@@ -250,7 +250,7 @@ class PlansSetup extends Component {
 							{ hidden ? (
 								<Notice
 									key={ 0 }
-									isCompact={ true }
+									isCompact
 									showDismiss={ false }
 									icon="plugins"
 									text={ this.props.translate( 'Waiting to install' ) }
@@ -311,7 +311,7 @@ class PlansSetup extends Component {
 			return (
 				<Notice
 					showDismiss={ false }
-					isCompact={ true }
+					isCompact
 					status="is-info"
 					text={ translate( 'This plugin is already registered with another plan.' ) }
 				>
@@ -330,7 +330,7 @@ class PlansSetup extends Component {
 		statusProps.children = (
 			<NoticeAction
 				key="notice_action"
-				href={ helpLinks[ plugin.slug ] }
+				href={ localizeUrl( helpLinks[ plugin.slug ] ) }
 				onClick={ this.trackManualInstall }
 			>
 				{ translate( 'Manual Installation' ) }
@@ -423,7 +423,7 @@ class PlansSetup extends Component {
 						plugin: pluginsWithErrors[ 0 ].name,
 					},
 					components: {
-						a: <a href={ JETPACK_SUPPORT } onClick={ this.trackManualInstall } />,
+						a: <a href={ localizeUrl( JETPACK_SUPPORT ) } onClick={ this.trackManualInstall } />,
 					},
 				}
 			);
@@ -433,14 +433,17 @@ class PlansSetup extends Component {
 					'It may be possible to fix this by {{a}}manually installing{{/a}} the plugins.',
 				{
 					components: {
-						a: <a href={ JETPACK_SUPPORT } onClick={ this.trackManualInstall } />,
+						a: <a href={ localizeUrl( JETPACK_SUPPORT ) } onClick={ this.trackManualInstall } />,
 					},
 				}
 			);
 		}
 		return (
 			<Notice status="is-error" text={ noticeText } showDismiss={ false }>
-				<NoticeAction href={ JETPACK_CONTACT_SUPPORT } onClick={ this.trackContactSupport }>
+				<NoticeAction
+					href={ localizeUrl( JETPACK_CONTACT_SUPPORT ) }
+					onClick={ this.trackContactSupport }
+				>
 					{ translate( 'Contact Support' ) }
 				</NoticeAction>
 			</Notice>

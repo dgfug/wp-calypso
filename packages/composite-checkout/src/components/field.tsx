@@ -1,5 +1,4 @@
 import styled from '@emotion/styled';
-import PropTypes from 'prop-types';
 import { LabelHTMLAttributes, InputHTMLAttributes, HTMLAttributes } from 'react';
 import * as React from 'react';
 import Button from './button';
@@ -89,7 +88,7 @@ export default function Field( {
 	errorMessage,
 	autoComplete,
 	disabled,
-}: FieldProps ): JSX.Element {
+}: FieldProps ) {
 	const fieldOnChange = ( event: React.ChangeEvent< HTMLInputElement > ) => {
 		if ( onChange ) {
 			onChange( event.target.value );
@@ -135,25 +134,6 @@ export default function Field( {
 	);
 }
 
-Field.propTypes = {
-	type: PropTypes.string,
-	id: PropTypes.string.isRequired,
-	className: PropTypes.string,
-	isError: PropTypes.bool,
-	onChange: PropTypes.func,
-	label: PropTypes.string,
-	value: PropTypes.string,
-	icon: PropTypes.node,
-	iconAction: PropTypes.func,
-	isIconVisible: PropTypes.bool,
-	placeholder: PropTypes.string,
-	tabIndex: PropTypes.number,
-	description: PropTypes.string,
-	errorMessage: PropTypes.string,
-	autoComplete: PropTypes.string,
-	disabled: PropTypes.bool,
-};
-
 interface FieldProps {
 	type?: string;
 	id: string;
@@ -171,6 +151,7 @@ interface FieldProps {
 	errorMessage?: string;
 	autoComplete?: string;
 	disabled?: boolean;
+	children?: React.ReactNode;
 }
 
 const FieldIcon = styled.div`
@@ -234,7 +215,7 @@ function RenderedIcon( {
 	if ( iconAction ) {
 		return (
 			<ButtonIcon>
-				<Button onClick={ iconAction }>{ icon as React.ReactChildren }</Button>
+				<Button onClick={ iconAction }>{ icon }</Button>
 			</ButtonIcon>
 		);
 	}

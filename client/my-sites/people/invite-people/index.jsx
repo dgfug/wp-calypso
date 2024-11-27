@@ -1,8 +1,10 @@
-import { Card, Button } from '@automattic/components';
+import { isEnabled } from '@automattic/calypso-config';
+import page from '@automattic/calypso-router';
+import { Card, Button, FormLabel } from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
 import debugModule from 'debug';
 import { localize } from 'i18n-calypso';
 import { filter, get, groupBy, includes, pickBy, some } from 'lodash';
-import page from 'page';
 import { createRef, Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import QueryJetpackModules from 'calypso/components/data/query-jetpack-modules';
@@ -14,7 +16,6 @@ import ClipboardButton from 'calypso/components/forms/clipboard-button';
 import CountedTextarea from 'calypso/components/forms/counted-textarea';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormSelect from 'calypso/components/forms/form-select';
 import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import FormTextInput from 'calypso/components/forms/form-text-input';
@@ -27,7 +28,6 @@ import TokenField from 'calypso/components/token-field';
 import withSiteRoles from 'calypso/data/site-roles/with-site-roles';
 import accept from 'calypso/lib/accept';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
-import withTrackingTool from 'calypso/lib/analytics/with-tracking-tool';
 import getWpcomFollowerRole from 'calypso/lib/get-wpcom-follower-role';
 import { userCan } from 'calypso/lib/site/utils';
 import wpcom from 'calypso/lib/wp';
@@ -41,8 +41,10 @@ import { getInviteLinksForSite } from 'calypso/state/invites/selectors';
 import { activateModule } from 'calypso/state/jetpack/modules/actions';
 import { errorNotice, successNotice } from 'calypso/state/notices/actions';
 import isActivatingJetpackModule from 'calypso/state/selectors/is-activating-jetpack-module';
+import isEligibleForSubscriberImporter from 'calypso/state/selectors/is-eligible-for-subscriber-importer';
 import isJetpackModuleActive from 'calypso/state/selectors/is-jetpack-module-active';
 import isPrivateSite from 'calypso/state/selectors/is-private-site';
+import isSiteAutomatedTransfer from 'calypso/state/selectors/is-site-automated-transfer';
 import isSiteWPForTeams from 'calypso/state/selectors/is-site-wpforteams';
 import { isJetpackSite } from 'calypso/state/sites/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
@@ -72,9 +74,20 @@ class InvitePeople extends Component {
 	};
 
 	getInitialState = () => {
-		const { isWPForTeamsSite } = this.props;
+		let defaultRole;
+		const { isAtomic, isWPForTeamsSite, includeSubscriberImporter } = this.props;
 
-		const defaultRole = isWPForTeamsSite ? 'editor' : 'follower';
+		if ( includeSubscriberImporter ) {
+			defaultRole = 'editor';
+		} else {
+			defaultRole = 'follower';
+
+			if ( isWPForTeamsSite ) {
+				defaultRole = 'editor';
+			} else if ( isAtomic ) {
+				defaultRole = 'subscriber';
+			}
+		}
 
 		return {
 			isExternal: false,
@@ -362,9 +375,10 @@ class InvitePeople extends Component {
 
 	goBack = () => {
 		const siteSlug = get( this.props, 'site.slug' );
-		const fallback = siteSlug ? '/people/team/' + siteSlug : '/people/team';
+		const route = isEnabled( 'user-management-revamp' ) ? 'team' : 'team-members';
+		const fallback = siteSlug ? `/people/${ route }/${ siteSlug }` : `/people/${ route }`;
 
-		// Go back to last route with /people/team/$site as the fallback
+		// Go back to last route with provided route as the fallback
 		page.back( fallback );
 	};
 
@@ -374,7 +388,7 @@ class InvitePeople extends Component {
 			<a
 				target="_blank"
 				rel="noopener noreferrer"
-				href="http://wordpress.com/support/user-roles/"
+				href={ localizeUrl( 'https://wordpress.com/support/user-roles/' ) }
 				onClick={ this.onClickRoleExplanation }
 			>
 				{ translate( 'Learn more about roles' ) }
@@ -390,7 +404,25 @@ class InvitePeople extends Component {
 	};
 
 	renderInviteForm = () => {
-		const { site, translate, needsVerification, isJetpack, showSSONotice } = this.props;
+		const {
+			site,
+			translate,
+			needsVerification,
+			isAtomic,
+			isJetpack,
+			isPrivateSite: isPrivate,
+			showSSONotice,
+			includeSubscriberImporter,
+		} = this.props;
+
+		let includeFollower = isPrivate && ! isAtomic;
+		const includeSubscriber = isAtomic;
+
+		if ( ! includeSubscriberImporter ) {
+			// Atomic private sites don't support Viewers/Followers.
+			// @see https://github.com/Automattic/wp-calypso/issues/43919
+			includeFollower = ! isAtomic;
+		}
 
 		const inviteForm = (
 			<Card>
@@ -424,12 +456,13 @@ class InvitePeople extends Component {
 						<RoleSelect
 							id="role"
 							name="role"
-							includeFollower
 							siteId={ this.props.siteId }
 							onChange={ this.onRoleChange }
 							onFocus={ this.onFocusRoleSelect }
 							value={ this.state.role }
 							disabled={ this.state.sendingInvites }
+							includeFollower={ includeFollower }
+							includeSubscriber={ includeSubscriber }
 							explanation={ this.renderRoleExplanation() }
 						/>
 
@@ -495,19 +528,20 @@ class InvitePeople extends Component {
 	};
 
 	getInviteLinkRoles = () => {
-		const { siteRoles, translate } = this.props;
+		const { isAtomic, siteRoles, translate } = this.props;
 		const wpcomFollowerRole = getWpcomFollowerRole( this.props.isPrivateSite, translate );
 
 		if ( ! siteRoles || ! wpcomFollowerRole ) {
 			return [];
 		}
 
-		return siteRoles.concat( wpcomFollowerRole );
-	};
+		// Atomic private sites don't support Viewers/Followers.
+		// @see https://github.com/Automattic/wp-calypso/issues/43919
+		if ( isAtomic && this.props.isPrivateSite ) {
+			return siteRoles;
+		}
 
-	isValidInviteLinkRole = ( inviteLinkRole ) => {
-		const roles = this.getInviteLinkRoles();
-		return roles.some( ( role ) => role === inviteLinkRole );
+		return siteRoles.concat( wpcomFollowerRole );
 	};
 
 	generateInviteLinks = () => {
@@ -704,7 +738,7 @@ class InvitePeople extends Component {
 					<PageViewTracker path="/people/new/:site" title="People > Invite People" />
 					<EmptyContent
 						title={ translate( 'Oops, only administrators can invite other people' ) }
-						illustration={ '/calypso/images/illustrations/illustration-empty-results.svg' }
+						illustration="/calypso/images/illustrations/illustration-empty-results.svg"
 					/>
 				</Main>
 			);
@@ -745,10 +779,12 @@ const mapStateToProps = ( state ) => {
 		siteId,
 		needsVerification: ! isCurrentUserEmailVerified( state ),
 		showSSONotice: ! ( activating || active ),
+		isAtomic: isSiteAutomatedTransfer( state, siteId ),
 		isJetpack: isJetpackSite( state, siteId ),
 		isWPForTeamsSite: isSiteWPForTeams( state, siteId ),
 		inviteLinks: getInviteLinksForSite( state, siteId ),
 		isPrivateSite: isPrivateSite( state, siteId ),
+		includeSubscriberImporter: isEligibleForSubscriberImporter( state ),
 	};
 };
 
@@ -763,6 +799,4 @@ const mapDispatchToProps = {
 
 const connectComponent = connect( mapStateToProps, mapDispatchToProps );
 
-export default connectComponent(
-	localize( withTrackingTool( 'HotJar' )( withSiteRoles( InvitePeople ) ) )
-);
+export default connectComponent( localize( withSiteRoles( InvitePeople ) ) );

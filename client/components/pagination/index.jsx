@@ -1,7 +1,11 @@
-import classnames from 'classnames';
+import clsx from 'clsx';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
-import { PaginationVariant } from './constants';
+import {
+	PaginationVariant,
+	PaginationLeftDefaultIcon,
+	PaginationRightDefaultIcon,
+} from './constants';
 import PaginationPage from './pagination-page';
 
 import './style.scss';
@@ -16,10 +20,15 @@ class Pagination extends Component {
 		prevLabel: PropTypes.string,
 		total: PropTypes.number,
 		variant: PropTypes.oneOf( Object.values( PaginationVariant ) ),
+		getPageList: PropTypes.func,
+		paginationLeftIcon: PropTypes.string,
+		paginationRightIcon: PropTypes.string,
 	};
 
 	static defaultProps = {
 		variant: PaginationVariant.outlined,
+		paginationLeftIcon: PaginationLeftDefaultIcon,
+		paginationRightIcon: PaginationRightDefaultIcon,
 	};
 
 	getPageList = ( page, pageCount ) => {
@@ -63,6 +72,9 @@ class Pagination extends Component {
 			prevLabel,
 			total,
 			variant,
+			getPageList,
+			paginationLeftIcon,
+			paginationRightIcon,
 		} = this.props;
 		const pageCount = Math.ceil( total / perPage );
 
@@ -70,7 +82,9 @@ class Pagination extends Component {
 			return null;
 		}
 
-		const pageList = this.getPageList( page, pageCount );
+		const pageList = getPageList
+			? getPageList( page, pageCount )
+			: this.getPageList( page, pageCount );
 		const pageListRendered = pageList.map( ( pageNumber, index ) => {
 			return (
 				<PaginationPage
@@ -82,13 +96,15 @@ class Pagination extends Component {
 					pageNumber={ pageNumber }
 					prevLabel={ prevLabel }
 					totalPages={ pageCount }
+					paginationLeftIcon={ paginationLeftIcon }
+					paginationRightIcon={ paginationRightIcon }
 				/>
 			);
 		} );
 
 		return (
 			<div
-				className={ classnames( 'pagination', className, {
+				className={ clsx( 'pagination', className, {
 					'is-compact': compact,
 					'is-minimal': variant === PaginationVariant.minimal,
 				} ) }

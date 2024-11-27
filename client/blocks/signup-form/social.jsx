@@ -1,135 +1,162 @@
-import config from '@automattic/calypso-config';
+import { Card } from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import AppleLoginButton from 'calypso/components/social-buttons/apple';
-import GoogleLoginButton from 'calypso/components/social-buttons/google';
+import SocialToS from 'calypso/blocks/authentication/social/social-tos.jsx';
+import {
+	GoogleSocialButton,
+	AppleLoginButton,
+	GithubSocialButton,
+	UsernameOrEmailButton,
+} from 'calypso/components/social-buttons';
 import { preventWidows } from 'calypso/lib/formatting';
-import { recordTracksEvent } from 'calypso/state/analytics/actions';
+import { isWooOAuth2Client } from 'calypso/lib/oauth2-clients';
+import { isWpccFlow } from 'calypso/signup/is-flow';
+import { recordTracksEvent as recordTracks } from 'calypso/state/analytics/actions';
+import { errorNotice } from 'calypso/state/notices/actions';
+import { getCurrentOAuth2Client } from 'calypso/state/oauth2-clients/ui/selectors';
+import getCurrentQueryArguments from 'calypso/state/selectors/get-current-query-arguments';
 import getCurrentRoute from 'calypso/state/selectors/get-current-route';
-import SocialSignupToS from './social-signup-tos';
+import isWooPasswordlessJPCFlow from 'calypso/state/selectors/is-woo-passwordless-jpc-flow';
 
 class SocialSignupForm extends Component {
 	static propTypes = {
 		compact: PropTypes.bool,
 		handleResponse: PropTypes.func.isRequired,
+		setCurrentStep: PropTypes.func,
 		translate: PropTypes.func.isRequired,
-		socialService: PropTypes.string,
 		socialServiceResponse: PropTypes.object,
 		disableTosText: PropTypes.bool,
+		flowName: PropTypes.string,
+		redirectToAfterLoginUrl: PropTypes.string,
+		isSocialFirst: PropTypes.bool,
 	};
 
 	static defaultProps = {
 		compact: false,
 	};
 
-	handleAppleResponse = ( response ) => {
-		if ( ! response.id_token ) {
-			return;
-		}
+	handleSignup = ( result ) => {
+		const { recordTracksEvent, isDevAccount, handleResponse } = this.props;
+		recordTracksEvent( 'calypso_signup_social_button_success', {
+			social_account_type: result.service,
+		} );
 
-		const extraUserData = response.user && {
-			user_name: response.user.name,
-			user_email: response.user.email,
-		};
+		window.sessionStorage?.removeItem( 'login_redirect_to' );
 
-		this.props.handleResponse( 'apple', null, response.id_token, extraUserData );
-	};
-
-	handleGoogleResponse = ( response, triggeredByUser = true ) => {
-		if ( ! response.getAuthResponse ) {
-			return;
-		}
-
-		const tokens = response.getAuthResponse();
-
-		if ( ! tokens || ! tokens.access_token || ! tokens.id_token ) {
-			return;
-		}
-
-		if ( ! triggeredByUser && this.props.socialService !== 'google' ) {
-			return;
-		}
-
-		this.props.handleResponse( 'google', tokens.access_token, tokens.id_token );
-	};
-
-	trackSocialLogin = ( service ) => {
-		this.props.recordTracksEvent( 'calypso_login_social_button_click', {
-			social_account_type: service,
+		handleResponse( result.service, result.access_token, result.id_token, {
+			...result,
+			is_dev_account: result.service === 'github' ? true : isDevAccount,
 		} );
 	};
 
-	shouldUseRedirectFlow() {
-		const { currentRoute } = this.props;
+	trackSignupAndRememberRedirect = ( event ) => {
+		const service = event.currentTarget.getAttribute( 'data-social-service' );
 
-		// If calypso is loaded in a popup, we don't want to open a second popup for social signup
-		// let's use the redirect flow instead in that case
-		let isPopup = typeof window !== 'undefined' && window.opener && window.opener !== window;
+		const { recordTracksEvent, oauth2Client, redirectToAfterLoginUrl, showErrorNotice, translate } =
+			this.props;
 
-		// Jetpack Connect-in-place auth flow contains special reserved args, so we want a popup for social signup.
-		// See p1HpG7-7nj-p2 for more information.
-		if ( isPopup && '/jetpack/connect/authorize' === currentRoute ) {
-			isPopup = false;
+		recordTracksEvent( 'calypso_signup_social_button_click', {
+			social_account_type: service,
+			client_id: oauth2Client?.id,
+		} );
+
+		try {
+			if ( redirectToAfterLoginUrl && typeof window !== 'undefined' ) {
+				window.sessionStorage.setItem( 'signup_redirect_to', redirectToAfterLoginUrl );
+			}
+		} catch ( error ) {
+			showErrorNotice(
+				translate(
+					'Error accessing sessionStorage. {{a}}Please check your browser settings{{/a}}.',
+					{
+						components: {
+							a: (
+								<a
+									href={ localizeUrl( 'https://wordpress.com/support/browser-issues/' ) }
+									target="_blank"
+									rel="noreferrer"
+								/>
+							),
+						},
+					}
+				)
+			);
 		}
-
-		return isPopup;
-	}
+	};
 
 	render() {
-		const uxMode = this.shouldUseRedirectFlow() ? 'redirect' : 'popup';
-		const host = typeof window !== 'undefined' && window.location.host;
-		const redirectUri = `https://${ host }/start/user`;
-		const uxModeApple = config.isEnabled( 'sign-in-with-apple/redirect' ) ? 'redirect' : uxMode;
+		const {
+			compact,
+			translate,
+			socialServiceResponse,
+			disableTosText,
+			isSocialFirst,
+			flowName,
+			isWoo,
+			setCurrentStep,
+		} = this.props;
 
 		return (
-			// Note: we allow social sign-in on the Desktop app, but not social sign-up. Existing config flags do
-			// not distinguish between sign-in and sign-up but instead use the catch-all `signup/social` flag.
-			// Therefore we need to make an exception for the desktop app directly in this component because there
-			// are many places in which the social signup form is rendered based only on the presence of the
-			// `signup/social` config flag.
-			! config.isEnabled( 'desktop' ) && (
-				<div className="signup-form__social">
-					{ ! this.props.compact && (
-						<p>{ preventWidows( this.props.translate( 'Or create an account using:' ) ) }</p>
-					) }
+			<Card
+				className={ clsx( 'auth-form__social', 'is-signup', {
+					'is-social-first': isSocialFirst,
+				} ) }
+			>
+				{ ! compact && (
+					<p className="auth-form__social-text">
+						{ preventWidows( translate( 'Or create an account using:' ) ) }
+					</p>
+				) }
 
-					<div className="signup-form__social-buttons">
-						<GoogleLoginButton
-							clientId={ config( 'google_oauth_client_id' ) }
-							responseHandler={ this.handleGoogleResponse }
-							uxMode={ uxMode }
-							redirectUri={ redirectUri }
-							onClick={ () => this.trackSocialLogin( 'google' ) }
-							socialServiceResponse={
-								this.props.socialService === 'google' ? this.props.socialServiceResponse : null
-							}
-							isReskinned={ this.props.isReskinned }
+				<div className="auth-form__social-buttons">
+					<div className="auth-form__social-buttons-container">
+						<GoogleSocialButton
+							responseHandler={ this.handleSignup }
+							onClick={ this.trackSignupAndRememberRedirect }
 						/>
 
 						<AppleLoginButton
-							clientId={ config( 'apple_oauth_client_id' ) }
-							responseHandler={ this.handleAppleResponse }
-							uxMode={ uxModeApple }
-							redirectUri={ redirectUri }
-							onClick={ () => this.trackSocialLogin( 'apple' ) }
-							socialServiceResponse={
-								this.props.socialService === 'apple' ? this.props.socialServiceResponse : null
-							}
+							responseHandler={ this.handleSignup }
+							onClick={ this.trackSignupAndRememberRedirect }
+							socialServiceResponse={ socialServiceResponse }
+							queryString={ isWpccFlow( flowName ) ? window?.location?.search?.slice( 1 ) : '' }
 						/>
 
-						{ ! this.props.disableTosText && <SocialSignupToS /> }
+						<GithubSocialButton
+							responseHandler={ this.handleSignup }
+							onClick={ this.trackSignupAndRememberRedirect }
+							socialServiceResponse={ socialServiceResponse }
+						/>
+						{ isSocialFirst && (
+							<UsernameOrEmailButton onClick={ () => setCurrentStep( 'email' ) } />
+						) }
 					</div>
+					{ ! isWoo && ! disableTosText && <SocialToS /> }
 				</div>
-			)
+				{ isWoo && ! disableTosText && <SocialToS /> }
+			</Card>
 		);
 	}
 }
 
 export default connect(
-	( state ) => ( {
-		currentRoute: getCurrentRoute( state ),
-	} ),
-	{ recordTracksEvent }
+	( state ) => {
+		const query = getCurrentQueryArguments( state );
+		const devAccountLandingPageRefs = [ 'hosting-lp', 'developer-lp' ];
+		const isDevAccount = devAccountLandingPageRefs.includes( query?.ref );
+
+		return {
+			recordTracksEvent: recordTracks,
+			currentRoute: getCurrentRoute( state ),
+			oauth2Client: getCurrentOAuth2Client( state ),
+			isDevAccount: isDevAccount,
+			isWoo:
+				isWooOAuth2Client( getCurrentOAuth2Client( state ) ) || isWooPasswordlessJPCFlow( state ),
+		};
+	},
+	{ showErrorNotice: errorNotice }
 )( localize( SocialSignupForm ) );

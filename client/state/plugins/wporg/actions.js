@@ -18,6 +18,7 @@ import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import { getCurrentUserLocale } from 'calypso/state/current-user/selectors';
 import {
 	getNextPluginsListPage,
+	getPlugin,
 	isFetching,
 	isFetchingPluginsList,
 } from 'calypso/state/plugins/wporg/selectors';
@@ -26,8 +27,12 @@ import 'calypso/state/plugins/init';
 
 const PLUGINS_LIST_DEFAULT_SIZE = 24;
 
-export function fetchPluginData( pluginSlug ) {
+export function fetchPluginData( pluginSlug, locale = '' ) {
 	return async ( dispatch, getState ) => {
+		if ( getPlugin( getState(), pluginSlug ) ) {
+			return;
+		}
+
 		if ( isFetching( getState(), pluginSlug ) ) {
 			return;
 		}
@@ -38,7 +43,10 @@ export function fetchPluginData( pluginSlug ) {
 		} );
 
 		try {
-			const data = await fetchPluginInformation( pluginSlug, getCurrentUserLocale( getState() ) );
+			const data = await fetchPluginInformation(
+				pluginSlug,
+				getCurrentUserLocale( getState() ) || locale
+			);
 
 			dispatch( {
 				type: PLUGINS_WPORG_PLUGIN_RECEIVE,
@@ -58,14 +66,13 @@ export function fetchPluginData( pluginSlug ) {
 /**
  * Helper thunk for receiving a specific data or retrieve error of plugins list.
  * Handles plugin list normalization internally.
- *
  * @param {string} category   Plugin category
  * @param {number} page       Page (1-based)
  * @param {string} searchTerm Search term
  * @param {Array}  data       List of found plugins, not defined if there was an error
- * @param {object} error      Error object, undefined if the plugins were fetched successfully
- * @param {object} pagination Paginatioin data, as retrieved from the API response.
- * @returns {object}          Action object
+ * @param {Object} error      Error object, undefined if the plugins were fetched successfully
+ * @param {Object} pagination Paginatioin data, as retrieved from the API response.
+ * @returns {Object}          Action object
  */
 function receivePluginsList( category, page, searchTerm, data, error, pagination = null ) {
 	return {
@@ -85,7 +92,6 @@ function receivePluginsList( category, page, searchTerm, data, error, pagination
  * WP.org plugins can be filtered either by category or search term.
  * Category can be one of "featured", "popular", "new", "beta" or "recommended".
  * Search term is an open text field.
- *
  * @param {string} category   	Plugin category
  * @param {number} page       	Page (1-based)
  * @param {string} searchTerm 	Search term
@@ -155,7 +161,6 @@ export function fetchPluginsList(
 /**
  * Retrieve the next page of plugins for the specified category.
  * Pagination is currently supported only for category queries in the API.
- *
  * @param {string} category   Plugin category
  * @returns {Function} Action thunk
  */

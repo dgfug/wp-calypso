@@ -38,8 +38,7 @@ export const dependencyStoreSchema = {
 			template: { type: 'string' },
 			theme: { type: 'string' },
 		},
-		surveyQuestion: { type: 'string' },
-		surveySiteType: { type: 'string' },
 		theme: { type: 'string' },
+		signupDomainOrigin: { type: 'string' },
 	},
 };

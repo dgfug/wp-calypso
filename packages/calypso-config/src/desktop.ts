@@ -15,11 +15,15 @@ const config = {
 const features = {
 	desktop: true,
 	'desktop-promo': false,
+	'login/last-used-method': false,
+	'login/social-first': false,
 	'sign-in-with-apple': false,
 	// Note: there is also a sign-in-with-apple/redirect flag
 	// that may/may not be relevant to override for the Desktop app.
 	'signup/social': false,
+	'signup/social-first': false,
 	'login/magic-login': false,
+	'bilmur-script': false,
 };
 
 export default ( data: ConfigData ): ConfigData => {
@@ -28,7 +32,7 @@ export default ( data: ConfigData ): ConfigData => {
 		data.features = Object.assign( data.features, features );
 	}
 	if ( window.electron && window.electron.features ) {
-		data.features = Object.assign( data.features, window.electron.features );
+		data.features = Object.assign( data.features ?? {}, window.electron.features );
 	}
 
 	return data;

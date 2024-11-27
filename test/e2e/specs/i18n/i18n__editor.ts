@@ -3,17 +3,27 @@
  */
 
 import {
-	ChangeUILanguageFlow,
-	DataHelper,
-	GutenbergEditorPage,
+	EditorPage,
 	TestAccount,
 	envVariables,
+	getTestAccountByFeature,
+	envToFeatureKey,
+	RestAPIClient,
+	EditorWelcomeTourComponent,
+	EditorComponent,
 } from '@automattic/calypso-e2e';
-import { Page, Frame, Browser } from 'playwright';
+import { Page, Browser, Locator } from 'playwright';
 import type { LanguageSlug } from '@automattic/languages';
 
 type Translations = {
 	[ language in LanguageSlug ]?: Partial< {
+		etkPlugin: {
+			welcomeGuide: {
+				openGuideSelector: string;
+				welcomeTitleSelector: string;
+				closeButtonSelector: string;
+			};
+		};
 		blocks: {
 			blockName: string;
 			blockEditorSelector: string;
@@ -24,6 +34,15 @@ type Translations = {
 };
 const translations: Translations = {
 	en: {
+		etkPlugin: {
+			welcomeGuide: {
+				openGuideSelector:
+					'.interface-more-menu-dropdown__content button:has-text("Welcome Guide")',
+				welcomeTitleSelector:
+					'.wpcom-tour-kit-step-card__heading:has-text("Welcome to WordPress!")',
+				closeButtonSelector: '.wpcom-tour-kit button[aria-label="Close Tour"]',
+			},
+		},
 		blocks: [
 			// Core
 			{
@@ -31,7 +50,7 @@ const translations: Translations = {
 				blockEditorSelector: '[data-type="core/image"]',
 				blockEditorContent: [
 					'.components-placeholder__label:has-text("Image")',
-					'.jetpack-external-media-button-menu:text("Select Image")', // Jetpack extension
+					'.jetpack-external-media-button-menu:has-text("Select Image")', // Jetpack extension
 				],
 				blockPanelTitle: 'Image',
 			},
@@ -84,6 +103,15 @@ const translations: Translations = {
 		],
 	},
 	fr: {
+		etkPlugin: {
+			welcomeGuide: {
+				openGuideSelector:
+					'.interface-more-menu-dropdown__content button:has-text("Guide de bienvenue")',
+				welcomeTitleSelector:
+					'.wpcom-tour-kit-step-card__heading:has-text("Bienvenue dans WordPress !")',
+				closeButtonSelector: '.wpcom-tour-kit button[aria-label="Fermer la visite"]',
+			},
+		},
 		blocks: [
 			// Core
 			{
@@ -91,7 +119,7 @@ const translations: Translations = {
 				blockEditorSelector: '[data-type="core/image"]',
 				blockEditorContent: [
 					'.components-placeholder__label:has-text("Image")',
-					'.jetpack-external-media-button-menu:text("Sélectionner une image")', // Jetpack extension
+					'.jetpack-external-media-button-menu:has-text("Sélectionner une image")', // Jetpack extension
 				],
 				blockPanelTitle: 'Image',
 			},
@@ -146,6 +174,15 @@ const translations: Translations = {
 		],
 	},
 	he: {
+		etkPlugin: {
+			welcomeGuide: {
+				openGuideSelector:
+					'.interface-more-menu-dropdown__content button:has-text("מדריך ברוכים הבאים")',
+				welcomeTitleSelector:
+					'.wpcom-tour-kit-step-card__heading:has-text("ברוך בואך ל-WordPress!")',
+				closeButtonSelector: '.wpcom-tour-kit button[aria-label="לסגור את הסיור"]',
+			},
+		},
 		blocks: [
 			// Core
 			{
@@ -153,7 +190,7 @@ const translations: Translations = {
 				blockEditorSelector: '[data-type="core/image"]',
 				blockEditorContent: [
 					'.components-placeholder__label:has-text("תמונה")',
-					'.jetpack-external-media-button-menu:text("לבחור תמונה")', // Jetpack extension
+					'.jetpack-external-media-button-menu:has-text("לבחור תמונה")', // Jetpack extension
 				],
 				blockPanelTitle: 'תמונה',
 			},
@@ -210,12 +247,17 @@ const translations: Translations = {
 declare const browser: Browser;
 
 describe( 'I18N: Editor', function () {
+	const features = envToFeatureKey( envVariables );
+	const accountName = getTestAccountByFeature( { ...features, variant: 'i18n' } );
+	const testAccount = new TestAccount( accountName );
+
 	// Filter out the locales that do not have valid translation content defined above.
-	const locales = Object.keys( translations ).filter( ( locale ) =>
+	const locales: LanguageSlug[] = Object.keys( translations ).filter( ( locale ) =>
 		( envVariables.TEST_LOCALES as ReadonlyArray< string > ).includes( locale )
-	);
+	) as LanguageSlug[];
 	let page: Page;
-	let gutenbergEditorPage: GutenbergEditorPage;
+	let editorPage: EditorPage;
+	let restAPIClient: RestAPIClient;
 
 	beforeAll( async () => {
 		page = await browser.newPage();
@@ -226,82 +268,93 @@ describe( 'I18N: Editor', function () {
 			}
 		} );
 
-		const testAccount = new TestAccount( 'i18nUser' );
 		await testAccount.authenticate( page );
+		restAPIClient = new RestAPIClient( testAccount.credentials );
 
-		gutenbergEditorPage = new GutenbergEditorPage( page );
+		editorPage = new EditorPage( page );
 	} );
 
 	describe.each( locales )( `Locale: %s`, function ( locale ) {
-		describe( 'Set up', function () {
-			it( `Change UI language to ${ locale }`, async function () {
-				await Promise.all( [
-					page.waitForNavigation( { url: '**/home/**', waitUntil: 'load' } ),
-					page.goto( DataHelper.getCalypsoURL( '/' ) ),
-				] );
+		beforeAll( async function () {
+			await restAPIClient.setMySettings( { language: locale } );
+			await page.reload();
+		} );
 
-				const changeUILanguageFlow = new ChangeUILanguageFlow( page );
-				await changeUILanguageFlow.changeUILanguage( locale as LanguageSlug );
-
-				await Promise.all( [
-					page.waitForNavigation( { url: '**/home/**', waitUntil: 'load' } ),
-					page.goto( DataHelper.getCalypsoURL( '/' ) ),
-				] );
+		describe( 'Editing Toolkit Plugin', function () {
+			it( 'Go to the new post page', async function () {
+				await editorPage.visit( 'post' );
 			} );
 
-			it( 'Go to the new post page', async function () {
-				await gutenbergEditorPage.visit( 'post' );
+			it( 'Translations for Welcome Guide', async function () {
+				// Abort API request to fetch the Welcome Tour status in order to avoid
+				// overwriting the current state when the request finishes.
+				await page.route( '**/block-editor/nux*', ( route ) => {
+					route.abort();
+				} );
+
+				// @TODO Consider moving this to EditorPage.
+				const editor = new EditorComponent( page );
+				const editorWelcomeTourComponent = new EditorWelcomeTourComponent( page, editor );
+
+				// We know these are all defined because of the filtering above. Non-null asserting is safe here.
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				const etkTranslations = translations[ locale ]!.etkPlugin!;
+
+				// Ensure the Welcome Guide component is shown.
+				await editorWelcomeTourComponent.forceShowWelcomeTour();
+
+				const editorParent = await editorPage.getEditorParent();
+
+				await editorParent.locator( etkTranslations.welcomeGuide.welcomeTitleSelector ).waitFor();
+				await editorParent.locator( etkTranslations.welcomeGuide.closeButtonSelector ).click();
 			} );
 		} );
 
-		describe.each( translations[ locale ].blocks )(
+		// We know these are all defined because of the filtering above. Non-null asserting is safe here.
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		describe.each( translations[ locale ]!.blocks! )(
 			'Translations for block: $blockName',
 			( ...args ) => {
 				const block = args[ 0 ]; // Makes TS stop complaining about incompatible args type
-				let frame: Frame;
-				let gutenbergEditorPage: GutenbergEditorPage;
-
-				const blockTimeout = 10 * 1000;
+				let editorPage: EditorPage;
+				let editorParent: Locator;
 
 				it( 'Insert test block', async function () {
-					gutenbergEditorPage = new GutenbergEditorPage( page );
-					await gutenbergEditorPage.addBlock( block.blockName, block.blockEditorSelector );
+					editorPage = new EditorPage( page );
+					await editorPage.addBlockFromSidebar( block.blockName, block.blockEditorSelector );
 				} );
 
 				it( 'Render block content translations', async function () {
-					frame = await gutenbergEditorPage.getEditorFrame();
+					editorParent = await editorPage.getEditorParent();
 					// Ensure block contents are translated as expected.
+					// To deal with multiple potential matches (eg. Jetpack/Business Hours > Add Hours)
+					// the first locator is matched.
 					await Promise.all(
-						block.blockEditorContent.map( ( content: any ) =>
-							frame.waitForSelector( `${ block.blockEditorSelector } ${ content }`, {
-								timeout: blockTimeout,
-							} )
+						block.blockEditorContent.map( ( content ) =>
+							editorParent
+								.locator( `${ block.blockEditorSelector } ${ content }` )
+								.first()
+								.waitFor()
 						)
 					);
 				} );
 
 				it( 'Render block title translations', async function () {
-					await gutenbergEditorPage.openSettings();
-					await frame.click( block.blockEditorSelector );
-
-					// Ensure the block is highlighted.
-					await frame.waitForSelector(
-						`:is( ${ block.blockEditorSelector }.is-selected, ${ block.blockEditorSelector }.has-child-selected)`,
-						{ timeout: blockTimeout }
-					);
-
 					// If on block insertion, one of the sub-blocks are selected, click on
 					// the first button in the floating toolbar which selects the overall
 					// block.
-					if ( await frame.isVisible( '.block-editor-block-parent-selector__button' ) ) {
-						await frame.click( '.block-editor-block-parent-selector__button' );
+					if (
+						await editorParent
+							.locator( '.block-editor-block-parent-selector__button:visible' )
+							.count()
+					) {
+						await editorParent.locator( '.block-editor-block-parent-selector__button' ).click();
 					}
 
 					// Ensure the Settings with the block selected shows the expected title.
-					await frame.waitForSelector(
-						`.block-editor-block-card__title:has-text("${ block.blockPanelTitle }")`,
-						{ timeout: blockTimeout }
-					);
+					await editorParent
+						.locator( `.block-editor-block-card__title:has-text("${ block.blockPanelTitle }")` )
+						.waitFor();
 				} );
 			}
 		);

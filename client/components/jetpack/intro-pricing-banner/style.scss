@@ -1,70 +1,114 @@
-.intro-pricing-banner,
-.intro-pricing-banner__sticky,
-.intro-pricing-banner__loading {
+@import "@wordpress/base-styles/mixins";
+@import "@wordpress/base-styles/breakpoints";
+
+.intro-pricing-banner {
 	display: flex;
-	flex-direction: row;
-
 	justify-content: center;
+}
 
-	.intro-pricing-banner__discount,
-	.intro-pricing-banner__guarantee {
+.intro-pricing-banner.is-loading .intro-pricing-banner__item-label {
+	@include placeholder();
+}
+
+.intro-pricing-banner.is-sticky .intro-pricing-banner__item.is-agencies {
+	display: none;
+
+	@include break-large {
 		display: flex;
+	}
+}
+
+.intro-pricing-banner:not(.is-sticky) .intro-pricing-banner__content {
+	height: 120px;
+	margin-bottom: 2rem;
+	column-gap: 1.25rem;
+
+	@include break-large {
+		height: 54px;
+	}
+}
+
+.intro-pricing-banner__content {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+
+	@include break-large {
+		flex-wrap: wrap;
+		justify-content: center;
 		flex-direction: row;
 		align-items: center;
-
-		font-size: $font-body;
 	}
+}
 
-	> :not( :last-child ) {
+.intro-pricing-banner__item {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	font-size: $font-body;
+
+	&:not(:last-child) {
 		margin-right: 16px;
 	}
-}
 
-.intro-pricing-banner,
-.intro-pricing-banner__loading {
-	height: 54px;
-	margin-bottom: 32px;
-}
-
-.intro-pricing-banner__loading {
-	.intro-pricing-banner__discount,
-	.intro-pricing-banner__guarantee {
-		span {
-			@include placeholder();
+	&.is-centered-mobile {
+		@media (max-width: $break-large) {
+			align-self: center;
 		}
 	}
 }
 
-.intro-pricing-banner__sticky {
-	position: fixed;
-	width: 100%;
-	left: 0;
-	top: var( --masterbar-height );
-
-	background-color: var( --color-surface );
-	box-shadow: 0 4px 4px 0 #00000014;
-
-	z-index: 2;
-	height: 54px;
+.intro-pricing-banner__item-icon {
+	min-width: 2em;
+	margin-inline-end: 0.5em;
 }
-.is-section-jetpack-connect,
-.is-group-jetpack-cloud.is-section-jetpack-cloud-pricing {
-	.intro-pricing-banner__sticky {
-		top: 0;
+
+.intro-pricing-banner__item-label.is-link {
+	color: var(--color-primary-100);
+	text-decoration: underline;
+	// This works in all major browsers except for Firefox for Android. It is also not imperative that this works
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+
+.is-section-jetpack-connect .intro-pricing-banner.is-sticky,
+.is-group-jetpack-cloud.is-section-jetpack-cloud-pricing .intro-pricing-banner.is-sticky {
+	top: 0;
+}
+
+.is-section-jetpack-connect .intro-pricing-banner.is-sticky,
+.is-group-jetpack-cloud.is-section-jetpack-cloud-pricing .intro-pricing-banner.is-sticky .header__jetpack-masterbar-cart {
+	position: absolute;
+	display: inline-flex;
+
+	@media (max-width: 660px) {
+		right: 11%;
+	}
+
+	@media (max-width: 960px) {
+		top: 14px;
+	}
+
+}
+
+.external-link {
+	.gridicons-external.intro-pricing-banner__external-link-icon {
+		color: var(--studio-gray-50);
 	}
 }
 
+
 // target Calypso pricing filter bar, not jetpack cloud
-.is-group-sites.is-section-plans .intro-pricing-banner__sticky {
+.is-group-sites.is-section-plans .intro-pricing-banner.is-sticky {
 	// At this screen size, the left sidebar is 228px;
-	@include breakpoint-deprecated( '>660px' ) {
-		width: calc( 100% - 228px );
+	@include breakpoint-deprecated( ">660px" ) {
+		width: calc(100% - 228px);
 		left: 228px;
 	}
 
 	// At this screen size, the lft sidebar is 272px;
-	@include breakpoint-deprecated( '>960px' ) {
-		width: calc( 100% - 272px );
+	@include breakpoint-deprecated( ">960px" ) {
+		width: calc(100% - 272px);
 		left: 272px;
 	}
 }

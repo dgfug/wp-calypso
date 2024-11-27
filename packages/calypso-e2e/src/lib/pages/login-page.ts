@@ -22,7 +22,16 @@ export class LoginPage {
 	 */
 	async visit( { path }: { path: string } = { path: '' } ): Promise< Response | null > {
 		const targetUrl = path ? `log-in/${ path }` : 'log-in';
-		return await this.page.goto( getCalypsoURL( targetUrl ), { waitUntil: 'networkidle' } );
+		// We are getting a pending status for https://wordpress.com/cspreport intermittently
+		// which causes the login to hang on networkidle when running the tests locally.
+		// This fulfill's the route request with status 200.
+		// See https://github.com/Automattic/wp-calypso/issues/69294
+		await this.page.route( '**/cspreport', ( route ) => {
+			route.fulfill( {
+				status: 200,
+			} );
+		} );
+		return await this.page.goto( getCalypsoURL( targetUrl ) );
 	}
 
 	/**
@@ -32,7 +41,10 @@ export class LoginPage {
 		await this.fillUsername( username );
 		await this.clickSubmit();
 		await this.fillPassword( password );
-		await Promise.all( [ this.page.waitForNavigation(), this.clickSubmit() ] );
+		await Promise.all( [
+			this.page.waitForNavigation( { timeout: 20 * 1000 } ),
+			this.clickSubmit(),
+		] );
 	}
 
 	/**
@@ -88,12 +100,19 @@ export class LoginPage {
 
 	/**
 	 * Clicks the "Continue with Google" link.
+	 *
+	 * @returns {Promise<Page>} Handler to the popup page.
 	 */
-	async clickLoginWithGoogle(): Promise< Locator > {
-		const locator = await this.page.locator( ':text-is("Continue with Google")' );
-		await locator.click();
+	async clickLoginWithGoogle(): Promise< Page > {
+		const locator = this.page.getByRole( 'button', { name: 'Continue with Google' } );
 
-		return locator;
+		await locator.waitFor();
+
+		// Intercept the popup that appears when Login with Google button
+		// is clicked.
+		const [ page ] = await Promise.all( [ this.page.waitForEvent( 'popup' ), locator.click() ] );
+
+		return page;
 	}
 
 	/**
@@ -107,10 +126,11 @@ export class LoginPage {
 	}
 
 	/**
-	 * Clicks the "Create a new account" link.
+	 * Clicks the "Create an account" link.
 	 */
 	async clickCreateNewAccount(): Promise< Locator > {
-		const locator = await this.page.locator( ':text-is("Create a new account")' );
+		const locator = this.page.getByRole( 'link', { name: 'Create an account' } );
+		await locator.waitFor();
 		await locator.click();
 
 		return locator;

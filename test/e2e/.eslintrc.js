@@ -4,37 +4,13 @@ module.exports = {
 	...nodeConfig,
 	env: {
 		...nodeConfig.env,
-		mocha: false,
 	},
 	overrides: [
-		{
-			plugins: [ 'mocha' ],
-			files: [ 'specs/jetpack/*', 'specs/wpcom-old/*', 'lib/mocha-hooks.js' ],
-			rules: {
-				'mocha/no-exclusive-tests': 'error',
-				'mocha/handle-done-callback': [ 'error', { ignoreSkipped: true } ],
-				'mocha/no-global-tests': 'error',
-				'mocha/no-async-describe': 'error',
-				'mocha/no-top-level-hooks': 'error',
-				'mocha/max-top-level-suites': [ 'error', { limit: 1 } ],
-				// Disable all rules from "plugin:jest/recommended", as e2e tests use mocha
-				...Object.keys( require( 'eslint-plugin-jest' ).configs.recommended.rules ).reduce(
-					( disabledRules, key ) => ( { ...disabledRules, [ key ]: 'off' } ),
-					{}
-				),
-			},
-			env: {
-				mocha: true,
-			},
-			globals: {
-				step: false,
-			},
-		},
 		{
 			files: [ 'specs/**/*' ],
 			rules: {
 				// We use jest-runner-groups to run spec suites, and these involve a custom doc header tag.
-				'jsdoc/check-tag-names': [ 'error', { definedTags: [ 'group' ] } ],
+				'jsdoc/check-tag-names': [ 'error', { definedTags: [ 'group', 'browser' ] } ],
 				'jest/no-standalone-expect': [ 'error', { additionalTestBlockFunctions: [ 'skipItIf' ] } ],
 			},
 		},
@@ -61,5 +37,11 @@ module.exports = {
 
 		// We compose the test titles dynamically
 		'jest/valid-title': 'off',
+
+		// The rule hasn't had the intended results (encouraging owners to re-enable and fix their tests).
+		// See GitHub issue #64870 for context (https://github.com/Automattic/wp-calypso/issues/64870).
+		'jest/no-disabled-tests': 'off',
+
+		'jsdoc/tag-lines': [ 'off' ],
 	},
 };

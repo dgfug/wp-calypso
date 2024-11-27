@@ -42,8 +42,7 @@ marked.setOptions( {
  * Query the index using lunr.
  * We store the documents and index in memory for speed,
  * and also because lunr.js is designed to be memory resident
- *
- * @param {object} query The search query for lunr
+ * @param {Object} query The search query for lunr
  * @returns {Array} The results from the query
  */
 async function queryDocs( query ) {
@@ -62,7 +61,6 @@ async function queryDocs( query ) {
 
 /**
  * Return an array of results based on the provided filenames
- *
  * @param {Array} filePaths An array of file paths
  * @returns {Array} The results from the docs
  */
@@ -91,9 +89,8 @@ async function listDocs( filePaths ) {
  * Extract a snippet from a document, capturing text either side of
  * any term(s) featured in a whitespace-delimited search query.
  * We look for up to 3 matches in a document and concatenate them.
- *
- * @param {object} doc The document to extract the snippet from
- * @param {object} query The query to be searched for
+ * @param {Object} doc The document to extract the snippet from
+ * @param {Object} query The query to be searched for
  * @returns {string} A snippet from the document
  */
 function makeSnippet( doc, query ) {
@@ -129,8 +126,7 @@ function makeSnippet( doc, query ) {
 
 /**
  * Generate a standardized snippet
- *
- * @param {object} doc The document from which to generate the snippet
+ * @param {Object} doc The document from which to generate the snippet
  * @returns {string} The snippet
  */
 function defaultSnippet( doc ) {

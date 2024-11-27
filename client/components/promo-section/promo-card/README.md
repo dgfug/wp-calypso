@@ -1,6 +1,6 @@
 # Promo Card
 
-A [`Card` component](../../components/card) based on [`ActionPanel'](../../components/action-panel) designed to promote plan features and partnerships.
+A [`Card` component](../../components/card) based on [`ActionPanel`](../../components/action-panel) designed to promote plan features and partnerships.
 
 ## Usage
 
@@ -20,13 +20,15 @@ const PromoCardExample = () => {
 				This is a description of the action. It gives a bit more detail and explains what we are
 				inviting the user to do.
 			</p>
-			<PromoCardCta
+			<PromoCardCTA
 				cta={ {
-					feature: FEATURE_MEMBERSHIPS,
-					upgradeButton: { text: 'Upgrade!', action: clicked },
-					defaultButton: { text: 'Memberships', action: clicked },
+					text: translate( 'Upgrade to Pro Plan' ),
+					action: {
+						url: `/checkout/${ siteSlug }/pro`,
+						onClick: onUpgradeClick,
+						selfTarget: true,
+					},
 				} }
-				learnMoreLink="/learn-more"
 			/>
 		</PromoCard>
 	);

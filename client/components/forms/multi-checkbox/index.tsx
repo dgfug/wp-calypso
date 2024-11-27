@@ -1,7 +1,7 @@
+import { FormLabel } from '@automattic/components';
 import { useCallback, useRef } from 'react';
 import * as React from 'react';
 import FormInputCheckbox from 'calypso/components/forms/form-checkbox';
-import FormLabel from 'calypso/components/forms/form-label';
 
 import './style.scss';
 
@@ -10,30 +10,30 @@ const noop = () => {};
 
 type OptionValue = number | string;
 
-interface Option {
-	value: OptionValue;
+interface Option< T = OptionValue > {
+	value: T;
 	label: string;
 }
 
-interface ChangeList {
-	value: OptionValue[];
+export interface ChangeList< T = OptionValue > {
+	value: T[];
 }
 
-interface Props {
-	options: Option[];
-	checked?: OptionValue[];
-	defaultChecked?: OptionValue[];
-	onChange?: ( list: ChangeList ) => void;
+interface Props< T = OptionValue > {
+	options: Option< T >[];
+	checked?: T[];
+	defaultChecked?: T[];
+	onChange?: ( list: ChangeList< T > ) => void;
 	disabled?: boolean;
 	name?: string;
 }
 
 type DivProps = Omit< React.ComponentPropsWithoutRef< 'div' >, 'className' >;
 
-export default function MultiCheckbox( props: Props & DivProps ) {
+export default function MultiCheckbox< T extends string | number >( props: Props< T > & DivProps ) {
 	const {
 		checked,
-		defaultChecked = [] as OptionValue[],
+		defaultChecked = [],
 		disabled = false,
 		onChange = noop,
 		name = 'multiCheckbox',
@@ -46,12 +46,14 @@ export default function MultiCheckbox( props: Props & DivProps ) {
 	const defaultCheckedOnStart = useRef( defaultChecked );
 
 	const handleChange = useCallback(
-		( event ) => {
+		( event: React.ChangeEvent< HTMLInputElement > ) => {
 			const target = event.target;
 			let changeEventValue = checked || defaultCheckedOnStart.current;
-			changeEventValue = changeEventValue.concat( [ target.value ] ).filter( ( currentValue ) => {
-				return currentValue !== target.value || target.checked;
-			} );
+			changeEventValue = changeEventValue
+				.concat( [ target.value as T ] )
+				.filter( ( currentValue ) => {
+					return currentValue !== target.value || target.checked;
+				} );
 
 			if ( onChange ) {
 				onChange( { value: changeEventValue } );

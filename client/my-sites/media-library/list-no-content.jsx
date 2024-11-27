@@ -32,7 +32,7 @@ class MediaLibraryListNoContent extends Component {
 			} );
 		}
 
-		if ( 'pexels' === source ) {
+		if ( 'pexels' === source || 'openverse' === source ) {
 			return translate( 'Use the search above to find free photos!', {
 				comment: 'Media no results',
 			} );
@@ -74,18 +74,16 @@ class MediaLibraryListNoContent extends Component {
 	render() {
 		let line = '';
 		let action = '';
-		const showPexelsButton =
+		const showFreeLibraryButton =
 			config.isEnabled( 'external-media/free-photo-library' ) &&
 			userCan( 'upload_files', this.props.site ) &&
-			! this.props.source;
+			! this.props.source &&
+			( 'images' === this.props.filter || 'undefined' === typeof this.props.filter ); // Filter to where we would allow selecting an image.
 
 		if ( userCan( 'upload_files', this.props.site ) && ! this.props.source ) {
 			line = this.props.translate( 'Would you like to upload something?' );
 			action = (
-				<UploadButton
-					className="media-library__no-content-upload-button is-primary"
-					site={ this.props.site }
-				>
+				<UploadButton className="media-library__no-content-upload-button" site={ this.props.site }>
 					{ this.props.translate( 'Upload media' ) }
 				</UploadButton>
 			);
@@ -98,7 +96,7 @@ class MediaLibraryListNoContent extends Component {
 				title={ this.getLabel() }
 				line={ line }
 				action={ action }
-				secondaryAction={ showPexelsButton && this.props.translate( 'Browse free images' ) }
+				secondaryAction={ showFreeLibraryButton && this.props.translate( 'Browse free images' ) }
 				secondaryActionCallback={ this.changeSource }
 				illustration={ mediaImage }
 				illustrationWidth={ 150 }

@@ -1,10 +1,10 @@
 import { FEATURE_WP_SUBDOMAIN } from '@automattic/calypso-products';
-import * as redux from 'react-redux';
-import hasAvailableSiteFeature from 'calypso/state/selectors/has-available-site-feature';
+import * as calypsoState from 'calypso/state';
+import getPlansForFeature from 'calypso/state/selectors/get-plans-for-feature';
 import { useSelectedSiteSelector } from '../';
 import { isJetpackSite } from '../../selectors';
 
-const useSelector = jest.spyOn( redux, 'useSelector' );
+const useSelector = jest.spyOn( calypsoState, 'useSelector' );
 
 describe( 'useSelectedSiteSelector()', () => {
 	test( 'executes selector with selected site id passed in', () => {
@@ -42,8 +42,6 @@ describe( 'useSelectedSiteSelector()', () => {
 			},
 		};
 		useSelector.mockImplementation( ( selector ) => selector( state ) );
-		expect( useSelectedSiteSelector( hasAvailableSiteFeature, FEATURE_WP_SUBDOMAIN ) ).toEqual(
-			true
-		);
+		expect( useSelectedSiteSelector( getPlansForFeature, FEATURE_WP_SUBDOMAIN ) ).toEqual( true );
 	} );
 } );

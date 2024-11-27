@@ -4,15 +4,14 @@
  * Key format is {literalQuery}-{excludeFlag}-{sort}.
  * literal query: the literal query text
  * exclude flag:
- *   X if we excluded followed sites,
- *   A if we did not
+ * X if we excluded followed sites,
+ * A if we did not
  * sort:
- *   text of the sort order. last_updated or relevance
+ * text of the sort order. last_updated or relevance
  * For example: a search for "halloween",
  * excluding followed sites, using relevance sortwould be
- *   halloween-X-relevance
- *
- * @param  {object} query The feed search action
+ * halloween-X-relevance
+ * @param  {Object} query The feed search action
  * @returns {string} the key
  */
 export default function keyBy( query ) {

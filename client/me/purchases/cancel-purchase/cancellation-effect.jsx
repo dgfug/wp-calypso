@@ -4,17 +4,17 @@ import {
 	isJetpackPlan,
 	isDotComPlan,
 	isPlan,
-	isTheme,
+	isThemePurchase,
 } from '@automattic/calypso-products';
 import { getGoogleMailServiceFamily } from 'calypso/lib/gsuite';
 import { getName, getSubscriptionEndDate, isRefundable } from 'calypso/lib/purchases';
-import { isJetpackTemporarySitePurchase } from '../utils';
+import { isTemporarySitePurchase } from '../utils';
 
 export function cancellationEffectHeadline( purchase, translate ) {
 	const { domain } = purchase;
 	const purchaseName = getName( purchase );
 
-	if ( isJetpackTemporarySitePurchase( purchase.domain ) ) {
+	if ( isTemporarySitePurchase( purchase ) ) {
 		return translate( 'Are you sure you want to cancel and remove %(purchaseName)s? ', {
 			args: {
 				purchaseName,
@@ -54,7 +54,7 @@ export function cancellationEffectHeadline( purchase, translate ) {
 function refundableCancellationEffectDetail( purchase, translate, overrides ) {
 	const refundText = overrides.refundText || purchase.refundText;
 
-	if ( isTheme( purchase ) ) {
+	if ( isThemePurchase( purchase ) ) {
 		return translate(
 			"Your site's appearance will revert to its previously selected theme and you will be refunded %(cost)s.",
 			{

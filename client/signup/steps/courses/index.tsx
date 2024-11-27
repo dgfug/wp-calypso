@@ -1,10 +1,10 @@
 import { useViewportMatch } from '@wordpress/compose';
 import { useTranslate } from 'i18n-calypso';
-import React from 'react';
-import { useDispatch } from 'react-redux';
+import { useEffect } from 'react';
 import VideosUi from 'calypso/components/videos-ui';
 import { COURSE_SLUGS, useCourseData } from 'calypso/data/courses';
 import StepWrapper from 'calypso/signup/step-wrapper';
+import { useDispatch } from 'calypso/state';
 import { saveSignupStep, submitSignupStep } from 'calypso/state/signup/progress/actions';
 import CoursesFooter from './footer';
 import CoursesHeader from './header';
@@ -15,7 +15,7 @@ interface Props {
 	goToNextStep: () => void;
 }
 
-export default function CoursesStep( props: Props ): React.ReactNode {
+export default function CoursesStep( props: Props ) {
 	const dispatch = useDispatch();
 	const translate = useTranslate();
 	const { stepName, goToNextStep } = props;
@@ -29,7 +29,7 @@ export default function CoursesStep( props: Props ): React.ReactNode {
 		goToNextStep();
 	};
 
-	React.useEffect( () => {
+	useEffect( () => {
 		dispatch( saveSignupStep( { stepName } ) );
 	}, [] ); // eslint-disable-line react-hooks/exhaustive-deps
 

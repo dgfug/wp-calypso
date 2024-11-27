@@ -1,6 +1,6 @@
 import path from 'path';
-import { Dialog, Gridicon } from '@automattic/components';
-import classnames from 'classnames';
+import { Dialog, Gridicon, Spinner } from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
@@ -12,20 +12,18 @@ import ExternalLink from 'calypso/components/external-link';
 import FilePicker from 'calypso/components/file-picker';
 import Gravatar from 'calypso/components/gravatar';
 import InfoPopover from 'calypso/components/info-popover';
-import Spinner from 'calypso/components/spinner';
 import {
 	recordTracksEvent,
 	recordGoogleEvent,
 	composeAnalytics,
 } from 'calypso/state/analytics/actions';
-import {
-	receiveGravatarImageFailed,
-	uploadGravatar,
-} from 'calypso/state/current-user/gravatar-status/actions';
-import { isCurrentUserUploadingGravatar } from 'calypso/state/current-user/gravatar-status/selectors';
 import { getCurrentUser } from 'calypso/state/current-user/selectors';
 import { resetAllImageEditorState } from 'calypso/state/editor/image-editor/actions';
 import { AspectRatios } from 'calypso/state/editor/image-editor/constants';
+import { receiveGravatarImageFailed, uploadGravatar } from 'calypso/state/gravatar-status/actions';
+import { isCurrentUserUploadingGravatar } from 'calypso/state/gravatar-status/selectors';
+import getUserSetting from 'calypso/state/selectors/get-user-setting';
+import { isFetchingUserSettings } from 'calypso/state/user-settings/selectors';
 import { ALLOWED_FILE_EXTENSIONS } from './constants';
 
 import './style.scss';
@@ -125,7 +123,7 @@ export class EditGravatar extends Component {
 	renderImageEditor() {
 		if ( this.state.isEditingImage ) {
 			return (
-				<Dialog additionalClassNames={ 'edit-gravatar-modal' } isVisible={ true }>
+				<Dialog additionalClassNames="edit-gravatar-modal" isVisible>
 					<ImageEditor
 						allowedAspectRatios={ [ AspectRatios.ASPECT_1X1 ] }
 						media={ { src: this.state.image } }
@@ -156,12 +154,79 @@ export class EditGravatar extends Component {
 		} );
 	};
 
+	renderEditGravatarIsLoading = () => {
+		return (
+			<div className="edit-gravatar edit_gravatar__is-loading">
+				<div className="edit-gravatar__image-container">
+					<div className="edit-gravatar__gravatar-placeholder"></div>
+				</div>
+				<div>
+					<p className="edit-gravatar__explanation edit-gravatar__explanation-placeholder"></p>
+				</div>
+			</div>
+		);
+	};
+
+	renderGravatarProfileHidden = ( { gravatarLink, translate } ) => {
+		return (
+			<div className="edit-gravatar">
+				<div className="edit-gravatar__image-container">
+					<div className="edit-gravatar__gravatar-is-hidden">
+						<div className="edit-gravatar__label-container">
+							<Gridicon
+								icon="user"
+								size={ 96 } /* eslint-disable-line wpcalypso/jsx-gridicon-size */
+							/>
+						</div>
+					</div>
+				</div>
+				<div>
+					<p className="edit-gravatar__explanation">
+						{ translate( 'Your profile photo is hidden.' ) }
+					</p>
+					<InfoPopover className="edit-gravatar__pop-over" position="left">
+						{ translate(
+							'{{p}}The avatar you use on WordPress.com comes ' +
+								'from {{ExternalLink}}Gravatar{{/ExternalLink}}, a universal avatar service ' +
+								'(it stands for "Globally Recognized Avatar," get it?).{{/p}}' +
+								'{{p}}However, your photo and Gravatar profile are hidden, preventing' +
+								' them from appearing on any site.{{/p}}',
+							{
+								components: {
+									ExternalLink: (
+										<ExternalLink
+											href={ gravatarLink }
+											target="_blank"
+											rel="noopener noreferrer"
+											icon
+										/>
+									),
+									p: <p />,
+								},
+							}
+						) }
+					</InfoPopover>
+				</div>
+			</div>
+		);
+	};
+
 	render() {
-		const { isUploading, translate, user } = this.props;
-		const gravatarLink = `https://gravatar.com/${ user.username || '' }`;
+		const { isGravatarProfileHidden, isUploading, translate, user, additionalUploadHtml } =
+			this.props;
+		const gravatarLink = 'https://gravatar.com';
 		// use imgSize = 400 for caching
 		// it's the popular value for large Gravatars in Calypso
 		const GRAVATAR_IMG_SIZE = 400;
+
+		if ( this.props.isFetchingUserSettings ) {
+			return this.renderEditGravatarIsLoading();
+		}
+
+		if ( isGravatarProfileHidden ) {
+			return this.renderGravatarProfileHidden( { gravatarLink, translate } );
+		}
+
 		const icon = user.email_verified ? 'cloud-upload' : 'notice';
 		const buttonText = user.email_verified
 			? translate( 'Click to change photo' )
@@ -170,7 +235,7 @@ export class EditGravatar extends Component {
 		/* eslint-disable jsx-a11y/no-static-element-interactions */
 		return (
 			<div
-				className={ classnames(
+				className={ clsx(
 					'edit-gravatar',
 					{ 'is-unverified': ! user.email_verified },
 					{ 'is-uploading': isUploading }
@@ -180,7 +245,7 @@ export class EditGravatar extends Component {
 					<FilePicker accept="image/*" onPick={ this.onReceiveFile }>
 						<div
 							data-tip-target="edit-gravatar"
-							className={ classnames( 'edit-gravatar__image-container', {
+							className={ clsx( 'edit-gravatar__image-container', {
 								'is-uploading': isUploading,
 							} ) }
 						>
@@ -211,11 +276,8 @@ export class EditGravatar extends Component {
 					</p>
 					<InfoPopover className="edit-gravatar__pop-over" position="left">
 						{ translate(
-							'{{p}}The avatar you use on WordPress.com comes ' +
-								'from {{ExternalLink}}Gravatar{{/ExternalLink}}, a universal avatar service ' +
-								'(it stands for "Globally Recognized Avatar," get it?).{{/p}}' +
-								'{{p}}Your image may also appear on other sites using Gravatar ' +
-								"whenever you're logged in with the email %(email)s.{{/p}}",
+							'{{p}}The avatar you upload here is synced with {{ExternalLink}}Gravatar{{/ExternalLink}}.' +
+								' If you do not have a Gravatar account, one will be created for you when you upload your first image.{{/p}}',
 							{
 								components: {
 									ExternalLink: (
@@ -223,17 +285,19 @@ export class EditGravatar extends Component {
 											href={ gravatarLink }
 											target="_blank"
 											rel="noopener noreferrer"
-											icon={ true }
+											icon
 										/>
 									),
 									p: <p />,
 								},
-								args: {
-									email: user.email,
-								},
 							}
 						) }
 					</InfoPopover>
+					{ additionalUploadHtml && (
+						<FilePicker accept="image/*" onPick={ this.onReceiveFile }>
+							{ additionalUploadHtml }
+						</FilePicker>
+					) }
 				</div>
 			</div>
 		);
@@ -253,6 +317,8 @@ const recordReceiveImageEvent = () => recordTracksEvent( 'calypso_edit_gravatar_
 export default connect(
 	( state ) => ( {
 		user: getCurrentUser( state ) || {},
+		isFetchingUserSettings: isFetchingUserSettings( state ),
+		isGravatarProfileHidden: getUserSetting( state, 'gravatar_profile_hidden' ),
 		isUploading: isCurrentUserUploadingGravatar( state ),
 	} ),
 	{

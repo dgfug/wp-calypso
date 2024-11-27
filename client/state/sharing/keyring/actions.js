@@ -20,7 +20,6 @@ import 'calypso/state/sharing/init';
 
 /**
  * Triggers a network request for a user's connected services.
- *
  * @param {boolean} forceExternalUsersRefetch Whether to force refetching of external users
  * @returns {Function} Action thunk
  */
@@ -55,8 +54,7 @@ export function requestKeyringConnections( forceExternalUsersRefetch = false ) {
 
 /**
  * Triggers an action to delete a Keyring connection.
- *
- * @param  {object}   connection Keyring connection to be removed.
+ * @param  {Object}   connection Keyring connection to be removed.
  * @returns {Function}            Action thunk
  */
 export function deleteKeyringConnection( connection ) {
@@ -68,9 +66,8 @@ export function deleteKeyringConnection( connection ) {
 
 /**
  * Returns an action object to be used to render a connection deletion success notice.
- *
- * @param  {object} connection Connection that was deleted.
- * @returns {object}            Action object
+ * @param  {Object} connection Connection that was deleted.
+ * @returns {Object}            Action object
  */
 function deleteKeyringConnectionSuccess( connection ) {
 	return successNotice(
@@ -84,8 +81,7 @@ function deleteKeyringConnectionSuccess( connection ) {
 
 /**
  * Triggers a network request to delete a Keyring connection from the server-side.
- *
- * @param  {object} connection         Connection to be deleted.
+ * @param  {Object} connection         Connection to be deleted.
  * @param  {number} connection.ID      ID of the connection to be deleted.
  * @param  {string} connection.label   Name of the service that was connected.
  * @returns {Function}                  Action thunk
@@ -129,7 +125,6 @@ export function deleteStoredKeyringConnection( connection ) {
 
 /**
  * Triggers a network request for a P2's connected services.
- *
  * @param {number} hubId P2 hub identifier
  * @returns {Function} Action thunk
  */
@@ -161,8 +156,7 @@ export function requestP2KeyringConnections( hubId ) {
 
 /**
  * Triggers a network request to delete a P2 Keyring connection from the server-side.
- *
- * @param  {object} connection         Connection to be deleted.
+ * @param  {Object} connection         Connection to be deleted.
  * @param  {number} connection.ID      ID of the connection to be deleted.
  * @param  {string} connection.label   Name of the service that was connected.
  * @param  {number} siteId             Selected site id.

@@ -12,8 +12,8 @@ const facebook = {
 	windowArg: 'width=626,height=436,resizeable,scrollbars',
 };
 
-const twitter = {
-	url: 'https://twitter.com/intent/tweet?url=<URL>&text=<TITLE>&via=wordpressdotcom',
+const x = {
+	url: 'https://x.com/intent/tweet?url=<URL>&text=<TITLE>&via=wordpressdotcom',
 	windowArg: 'width=550,height=420,resizeable,scrollbars',
 };
 
@@ -22,8 +22,7 @@ const linkedin = {
 };
 
 const tumblr = {
-	url:
-		'https://www.tumblr.com/widgets/share/tool?canonicalUrl=<URL>&title=<TITLE>&caption=<DESCRIPTION>',
+	url: 'https://www.tumblr.com/widgets/share/tool?canonicalUrl=<URL>&title=<TITLE>&caption=<DESCRIPTION>',
 };
 
 const pinterest = {
@@ -37,7 +36,7 @@ const telegram = {
 export default {
 	wordpress,
 	facebook,
-	twitter,
+	x,
 	linkedin,
 	tumblr,
 	pinterest,

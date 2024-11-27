@@ -1,5 +1,5 @@
 import debugFactory from 'debug';
-import { compact, get, isEqual, sortBy } from 'lodash';
+import { get, isEqual, sortBy } from 'lodash';
 const debug = debugFactory( 'calypso:data-layer:remove-duplicate-gets' );
 
 /**
@@ -9,7 +9,6 @@ const debug = debugFactory( 'calypso:data-layer:remove-duplicate-gets' );
  * Two requests are considered identical if they
  * are both GET requests and share the same
  * fundamental properties.
- *
  * @module state/data-layer/wpcom-http/optimizations/remove-duplicate-gets
  */
 
@@ -31,15 +30,13 @@ export const clearQueue = () => {
 
 /**
  * Determines if a request object specifies the GET HTTP method
- *
- * @param {object} request the HTTP request action
+ * @param {Object} request the HTTP request action
  * @returns {boolean} whether or not the method is GET
  */
 const isGetRequest = ( request ) => 'GET' === get( request, 'method', '' ).toUpperCase();
 
 /**
  * Returns all elements that exist in any of the two arrays at least once,
- *
  * @param {Array} a First array
  * @param {Array} b Second array
  * @returns {Array} Array of elements that exist in at least one of the arrays
@@ -51,12 +48,11 @@ const unionWith = ( a = [], b = [] ) => [
 
 /**
  * Generate a deterministic key for comparing request descriptions
- *
- * @param {object}            requestOptions              Request options
+ * @param {Object}            requestOptions              Request options
  * @param {string}            requestOptions.path         API endpoint path
  * @param {string}            requestOptions.apiNamespace used for endpoint versioning
  * @param {string}            requestOptions.apiVersion   used for endpoint versioning
- * @param {object<string, *>} requestOptions.query        GET query string
+ * @param {Object<string, *>} requestOptions.query        GET query string
  * @returns {string} unique key up to duplicate request descriptions
  */
 export const buildKey = ( { path, apiNamespace, apiVersion, query = {} } ) =>
@@ -69,24 +65,21 @@ export const buildKey = ( { path, apiNamespace, apiVersion, query = {} } ) =>
 
 /**
  * Joins a responder action into a unique list of responder actions
- *
- * @param {object<string, object[]>} list existing responder actions
- * @param {object} item new responder action to add
- * @returns {object<string, object[]>} union of existing list and new item
+ * @param {Object<string, Object[]>} list existing responder actions
+ * @param {Object} item new responder action to add
+ * @returns {Object<string, Object[]>} union of existing list and new item
  */
 export const addResponder = ( list, item ) => ( {
-	failures: unionWith( list.failures, compact( [ item.onFailure ] ) ),
-	successes: unionWith( list.successes, compact( [ item.onSuccess ] ) ),
+	failures: unionWith( list.failures, [ item.onFailure ].filter( Boolean ) ),
+	successes: unionWith( list.successes, [ item.onSuccess ].filter( Boolean ) ),
 } );
 
 /**
  * Prevents sending duplicate requests when one is
  * already in transit over the network.
- *
  * @see applyDuplicateHandlers
- *
- * @param {object} outboundData request info
- * @returns {object} filtered request info
+ * @param {Object} outboundData request info
+ * @returns {Object} filtered request info
  */
 export const removeDuplicateGets = ( outboundData ) => {
 	const { nextRequest } = outboundData;
@@ -113,11 +106,9 @@ export const removeDuplicateGets = ( outboundData ) => {
  * When requests have been de-duplicated and return
  * this injects the other responder actions into the
  * response stream so that each caller gets called
- *
  * @see removeDuplicateGets
- *
- * @param {object} inboundData request info
- * @returns {object} processed request info
+ * @param {Object} inboundData request info
+ * @returns {Object} processed request info
  */
 export const applyDuplicatesHandlers = ( inboundData ) => {
 	const { originalRequest } = inboundData;

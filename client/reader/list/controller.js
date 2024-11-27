@@ -5,6 +5,7 @@ import {
 	trackScrollPage,
 } from 'calypso/reader/controller-helper';
 import { recordTrack } from 'calypso/reader/stats';
+import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 
 const analyticsPageTitle = 'Reader';
 
@@ -29,12 +30,17 @@ export const listListing = ( context, next ) => {
 	const mcKey = 'list';
 	const streamKey =
 		'list:' + JSON.stringify( { owner: context.params.user, slug: context.params.list } );
+	const state = context.store.getState();
 
 	trackPageLoad( basePath, fullAnalyticsPageTitle, mcKey );
-	recordTrack( 'calypso_reader_list_loaded', {
-		list_owner: context.params.user,
-		list_slug: context.params.list,
-	} );
+	recordTrack(
+		'calypso_reader_list_loaded',
+		{
+			list_owner: context.params.user,
+			list_slug: context.params.list,
+		},
+		{ pathnameOverride: getCurrentRoute( state ) }
+	);
 
 	context.primary = (
 		<AsyncLoad
@@ -43,7 +49,6 @@ export const listListing = ( context, next ) => {
 			streamKey={ streamKey }
 			owner={ encodeURIComponent( context.params.user ) }
 			slug={ encodeURIComponent( context.params.list ) }
-			showPrimaryFollowButtonOnCards={ false }
 			trackScrollPage={ trackScrollPage.bind(
 				null,
 				basePath,
@@ -74,7 +79,7 @@ export const editList = ( context, next ) => {
 			key="list-manage"
 			owner={ encodeURIComponent( context.params.user ) }
 			slug={ encodeURIComponent( context.params.list ) }
-			selectedSection={ 'details' }
+			selectedSection="details"
 		/>
 	);
 	next();
@@ -97,7 +102,7 @@ export const editListItems = ( context, next ) => {
 			key="list-manage"
 			owner={ encodeURIComponent( context.params.user ) }
 			slug={ encodeURIComponent( context.params.list ) }
-			selectedSection={ 'items' }
+			selectedSection="items"
 		/>
 	);
 	next();
@@ -120,7 +125,7 @@ export const exportList = ( context, next ) => {
 			key="list-manage"
 			owner={ encodeURIComponent( context.params.user ) }
 			slug={ encodeURIComponent( context.params.list ) }
-			selectedSection={ 'export' }
+			selectedSection="export"
 		/>
 	);
 	next();
@@ -143,7 +148,7 @@ export const deleteList = ( context, next ) => {
 			key="list-manage"
 			owner={ encodeURIComponent( context.params.user ) }
 			slug={ encodeURIComponent( context.params.list ) }
-			selectedSection={ 'delete' }
+			selectedSection="delete"
 		/>
 	);
 	next();

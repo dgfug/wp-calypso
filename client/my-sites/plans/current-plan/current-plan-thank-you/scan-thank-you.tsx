@@ -1,8 +1,8 @@
 import { Button } from '@automattic/components';
 import { useTranslate } from 'i18n-calypso';
-import { useCallback, ReactElement } from 'react';
-import { useSelector } from 'react-redux';
+import { useCallback } from 'react';
 import { settingsPath } from 'calypso/lib/jetpack/paths';
+import { useSelector } from 'calypso/state';
 import getSelectedSiteSlug from 'calypso/state/ui/selectors/get-selected-site-slug';
 import ThankYou, { ThankYouCtaType } from './thank-you';
 
@@ -33,7 +33,7 @@ const ThankYouCta: ThankYouCtaType = ( {
 	);
 };
 
-const ScanProductThankYou = (): ReactElement => {
+const ScanProductThankYou = () => {
 	const translate = useTranslate();
 	return (
 		<ThankYou

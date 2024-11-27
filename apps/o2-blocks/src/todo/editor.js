@@ -1,9 +1,10 @@
 import { registerBlockType } from '@wordpress/blocks';
-import { Button, Dashicon } from '@wordpress/components';
+import { Button } from '@wordpress/components';
 import { RichText } from '@wordpress/editor';
 import { Component } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import classnames from 'classnames';
+import { Icon, plus } from '@wordpress/icons';
+import clsx from 'clsx';
 import { ItemEditor } from './item';
 
 import './editor.scss';
@@ -172,7 +173,7 @@ const edit = class extends Component {
 						const onSplit = () => {
 							this.insertNewItemAfter( itemIndex );
 						};
-						const classNames = classnames( `${ className }__item`, {
+						const classNames = clsx( `${ className }__item`, {
 							[ `${ className }__item--done` ]: item.done,
 						} );
 
@@ -200,7 +201,7 @@ const edit = class extends Component {
 				</ul>
 				<div class="add-new-todo-item-form">
 					<Button onClick={ this.addNewItem }>
-						<Dashicon icon="plus" /> Add new item
+						<Icon icon={ plus } /> Add new item
 					</Button>
 				</div>
 			</div>

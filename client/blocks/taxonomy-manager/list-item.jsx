@@ -1,17 +1,15 @@
-import { Dialog, Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import page from '@automattic/calypso-router';
+import { Count, Dialog, Gridicon, Tooltip } from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { get } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component, createRef } from 'react';
 import { connect } from 'react-redux';
-import Count from 'calypso/components/count';
 import EllipsisMenu from 'calypso/components/ellipsis-menu';
 import PodcastIndicator from 'calypso/components/podcast-indicator';
 import PopoverMenuItem from 'calypso/components/popover-menu/item';
 import PopoverMenuSeparator from 'calypso/components/popover-menu/separator';
-import Tooltip from 'calypso/components/tooltip';
 import { decodeEntities } from 'calypso/lib/formatting';
 import { recordGoogleEvent, bumpStat } from 'calypso/state/analytics/actions';
 import getPodcastingCategoryId from 'calypso/state/selectors/get-podcasting-category-id';
@@ -120,17 +118,11 @@ class TaxonomyManagerListItem extends Component {
 	};
 
 	render() {
-		const {
-			canSetAsDefault,
-			isDefault,
-			onClick,
-			term,
-			isPodcastingCategory,
-			translate,
-		} = this.props;
+		const { canSetAsDefault, isDefault, onClick, term, isPodcastingCategory, translate } =
+			this.props;
 		const name = this.getName();
 		const hasPosts = get( term, 'post_count', 0 ) > 0;
-		const className = classNames( 'taxonomy-manager__item', {
+		const className = clsx( 'taxonomy-manager__item', {
 			'is-default': isDefault,
 		} );
 		const deleteDialogButtons = [
@@ -138,14 +130,32 @@ class TaxonomyManagerListItem extends Component {
 			{ action: 'delete', label: translate( 'OK' ), isPrimary: true },
 		];
 
+		const onKeyUp = ( event ) => {
+			if ( event.key === 'Enter' ) {
+				onClick();
+			}
+		};
+
 		return (
 			<div className={ className }>
-				<span className="taxonomy-manager__icon" onClick={ onClick }>
+				<span
+					className="taxonomy-manager__icon"
+					role="button"
+					tabIndex={ 0 }
+					onKeyUp={ onKeyUp }
+					onClick={ onClick }
+					aria-label={ name }
+				>
 					<Gridicon icon={ isDefault ? 'checkmark-circle' : 'folder' } />
 				</span>
-				{ /* FIXME: jsx-a11y issues */ }
-				{ /* eslint-disable-next-line */ }
-				<span className="taxonomy-manager__label" onClick={ onClick }>
+				<span
+					className="taxonomy-manager__label"
+					role="button"
+					tabIndex={ 0 }
+					onKeyUp={ onKeyUp }
+					onClick={ onClick }
+					aria-label={ name }
+				>
 					<span>{ name }</span>
 					{ isDefault && (
 						<span className="taxonomy-manager__default-label">
@@ -159,7 +169,7 @@ class TaxonomyManagerListItem extends Component {
 				{ typeof term.post_count !== 'undefined' && (
 					<div className="taxonomy-manager__count">
 						<Count
-							ref={ this.countRef }
+							forwardRef={ this.countRef }
 							count={ term.post_count }
 							onMouseEnter={ this.showTooltip }
 							onMouseLeave={ this.hideTooltip }

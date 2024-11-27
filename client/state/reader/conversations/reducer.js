@@ -1,4 +1,4 @@
-import { forEach, omit, size } from 'lodash';
+import { forEach, omit } from 'lodash';
 import {
 	READER_CONVERSATION_FOLLOW,
 	READER_CONVERSATION_MUTE,
@@ -18,10 +18,8 @@ export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) =
 		case READER_CONVERSATION_FOLLOW: {
 			const newState = {
 				...state,
-				[ key(
-					action.payload.siteId,
-					action.payload.postId
-				) ]: CONVERSATION_FOLLOW_STATUS.following,
+				[ key( action.payload.siteId, action.payload.postId ) ]:
+					CONVERSATION_FOLLOW_STATUS.following,
 			};
 			return newState;
 		}
@@ -60,7 +58,7 @@ export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) =
 				}
 			} );
 
-			if ( size( newState ) === 0 ) {
+			if ( Object.keys( newState ).length === 0 ) {
 				return state;
 			}
 

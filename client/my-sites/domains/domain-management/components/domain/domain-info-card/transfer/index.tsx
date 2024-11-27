@@ -1,21 +1,22 @@
 import { Icon, lock } from '@wordpress/icons';
 import { useTranslate } from 'i18n-calypso';
-import { isDomainInGracePeriod } from 'calypso/lib/domains';
+import { useCurrentRoute } from 'calypso/components/route';
 import { type as domainType } from 'calypso/lib/domains/constants';
 import { domainManagementTransfer } from 'calypso/my-sites/domains/paths';
 import DomainInfoCard from '..';
 import type { DomainInfoCardProps } from '../types';
 
-const DomainTransferInfoCard = ( {
-	domain,
-	selectedSite,
-}: DomainInfoCardProps ): JSX.Element | null => {
+const DomainTransferInfoCard = ( { domain, selectedSite }: DomainInfoCardProps ) => {
 	const typesUnableToTransfer = [ domainType.TRANSFER, domainType.SITE_REDIRECT ] as const;
 	const translate = useTranslate();
+	const { currentRoute } = useCurrentRoute();
 
 	if (
 		! domain.currentUserIsOwner ||
-		( domain.expired && ! isDomainInGracePeriod( domain ) ) ||
+		domain.isRedeemable ||
+		domain.pendingRegistration ||
+		domain.pendingRegistrationAtRegistry ||
+		domain.isMoveToNewSitePending ||
 		typesUnableToTransfer.includes( domain.type ) ||
 		domain.aftermarketAuction
 	) {
@@ -34,7 +35,7 @@ const DomainTransferInfoCard = ( {
 	return (
 		<DomainInfoCard
 			type="href"
-			href={ domainManagementTransfer( selectedSite.slug, domain.name ) }
+			href={ domainManagementTransfer( selectedSite.slug, domain.name, currentRoute ) }
 			title={ translate( 'Transfer' ) }
 			description={
 				domain.isLocked ? (
@@ -47,6 +48,7 @@ const DomainTransferInfoCard = ( {
 				)
 			}
 			ctaText={ translate( 'Transfer' ) }
+			buttonDisabled={ domain.isMoveToNewSitePending }
 		/>
 	);
 };

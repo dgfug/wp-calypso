@@ -27,7 +27,7 @@ Finally, this lib exposes a utility method for your React application:
 
 The following attributes can be set in the options object to alter the translation type. The attributes can be combined as needed for a particular case.
 
-- **options.args** [string, array, or object] arguments you would pass into sprintf to be run against the text for string substitution. [See docs](http://www.diveintojavascript.com/projects/javascript-sprintf)
+- **options.args** [string, array, or object] arguments you would pass into sprintf to be run against the text for string substitution. [See docs](https://www.npmjs.com/package/@tannin/sprintf#readme)
 - **options.components** [object] markup must be added as React components and not with string substitution. See [mixing strings and markup](#mixing-strings-and-markup).
 - **options.comment** [string] comment that will be shown to the translator for anything that may need to be explained about the translation.
 - **options.context** [string] provides the ability for the translator to provide a different translation for the same text in two locations (_dependent on context_). Usually context should only be used after a string has been discovered to require different translations. If you want to provide help on how to translate (which is highly appreciated!), please use a comment.
@@ -44,6 +44,8 @@ const translation = i18n.translate( 'Some content to translate' );
 ### Strings Only
 
 Translation strings are extracted from our codebase through a process of [static analysis](http://en.wikipedia.org/wiki/Static_program_analysis) and imported into GlotPress where they are translated ([more on that process here](./cli)). So you must avoid passing a variable, ternary expression, function call, or other form of logic in place of a string value to the `translate` method. The _one_ exception is that you can split a long string into multiple substrings concatenated with the `+` operator.
+
+GlotPress also support emoji being part of the translatable string, as it allows flexibility with positioning when being translated.
 
 ```js
 /*----------------- Bad Examples -----------------*/
@@ -69,11 +71,13 @@ const translation4 = i18n.translate(
 		'I know the kings of England, and I quote the fights historical ' +
 		'from Marathon to Waterloo, in order categorical.'
 );
+
+const emoji = i18n.translate( 'Let us celebrate 🎉');
 ```
 
 ### String Substitution
 
-The `translate()` method uses sprintf interpolation for string substitution ([see docs for syntax details](http://www.diveintojavascript.com/projects/javascript-sprintf)). The `option.args` value is used to inject variable content into the string.
+The `translate()` method uses sprintf interpolation for string substitution ([see docs for syntax details](https://www.npmjs.com/package/@tannin/sprintf#readme)). The `option.args` value is used to inject variable content into the string.
 
 ```js
 // named arguments (preferred approach)

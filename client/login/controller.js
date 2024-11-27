@@ -1,31 +1,73 @@
 import config from '@automattic/calypso-config';
+import page from '@automattic/calypso-router';
 import { getUrlParts } from '@automattic/calypso-url';
-import page from 'page';
+import { isGravPoweredOAuth2Client } from 'calypso/lib/oauth2-clients';
+import { SOCIAL_HANDOFF_CONNECT_ACCOUNT } from 'calypso/state/action-types';
 import { isUserLoggedIn, getCurrentUserLocale } from 'calypso/state/current-user/selectors';
 import { fetchOAuth2ClientData } from 'calypso/state/oauth2-clients/actions';
+import { getOAuth2Client } from 'calypso/state/oauth2-clients/selectors';
 import MagicLogin from './magic-login';
 import HandleEmailedLinkForm from './magic-login/handle-emailed-link-form';
 import HandleEmailedLinkFormJetpackConnect from './magic-login/handle-emailed-link-form-jetpack-connect';
+import QrCodeLoginPage from './qr-code-login-page';
 import WPLogin from './wp-login';
 
 const enhanceContextWithLogin = ( context ) => {
 	const {
-		params: { flow, isJetpack, isGutenboarding, socialService, twoFactorAuthType },
+		params: { flow, isJetpack, socialService, twoFactorAuthType, action },
 		path,
 		query,
+		isServerSide,
 	} = context;
+
+	// Process a social login handoff from /start/user.
+	if ( query?.email_address && query?.service && query?.access_token && query?.id_token ) {
+		context.store.dispatch( {
+			type: SOCIAL_HANDOFF_CONNECT_ACCOUNT,
+			email: query.email_address,
+			authInfo: {
+				service: query.service,
+				access_token: query.access_token,
+				id_token: query.id_token,
+			},
+		} );
+
+		// Remove state-related data from URL but leave 'email_address'.
+		if ( ! isServerSide ) {
+			const params = new URLSearchParams( new URL( window.location.href ).search );
+			params.delete( 'service' );
+			params.delete( 'access_token' );
+			params.delete( 'id_token' );
+			page.redirect( window.location.pathname + '?' + params.toString() );
+		}
+	}
 
 	const previousHash = context.state || {};
 	const { client_id, user_email, user_name, id_token, state } = previousHash;
 	const socialServiceResponse = client_id
 		? { client_id, user_email, user_name, id_token, state }
 		: null;
+	const isJetpackLogin = isJetpack === 'jetpack';
+	const isP2Login = query && query.from === 'p2';
+	const clientId = query?.client_id;
+	const oauth2ClientId = query?.oauth2_client_id;
+	const oauth2Client =
+		getOAuth2Client( context.store.getState(), Number( clientId || oauth2ClientId ) ) || {};
+	const isGravPoweredClient = isGravPoweredOAuth2Client( oauth2Client );
+	const isWhiteLogin =
+		( ! isJetpackLogin &&
+			! isP2Login &&
+			Boolean( clientId ) === false &&
+			Boolean( oauth2ClientId ) === false ) ||
+		isGravPoweredClient;
 
 	context.primary = (
 		<WPLogin
-			isJetpack={ isJetpack === 'jetpack' }
-			isGutenboarding={ isGutenboarding === 'new' }
-			isP2Login={ query && query.from === 'p2' }
+			action={ action }
+			isJetpack={ isJetpackLogin }
+			isWhiteLogin={ isWhiteLogin }
+			isP2Login={ isP2Login }
+			isGravPoweredClient={ isGravPoweredClient }
 			path={ path }
 			twoFactorAuthType={ twoFactorAuthType }
 			socialService={ socialService }
@@ -59,8 +101,14 @@ export async function login( context, next ) {
 		}
 
 		const { searchParams: redirectParams } = getUrlParts( redirect_to );
+		const back = redirectParams.get( 'back' );
 
-		if ( client_id !== redirectParams.get( 'client_id' ) ) {
+		const redirectClientId =
+			redirectParams.get( 'client_id' ) ||
+			// If the client_id is not in the redirect_to URL, check the back URL. This is for the case where the client_id is passed in the back parameter of remote login link when proxy is enabled. See: https://github.com/Automattic/wp-calypso/issues/52940
+			( back ? getUrlParts( back ).searchParams.get( 'client_id' ) : null );
+
+		if ( client_id !== redirectClientId ) {
 			const error = new Error(
 				'The `redirect_to` query parameter is invalid with the given `client_id`.'
 			);
@@ -68,10 +116,14 @@ export async function login( context, next ) {
 			return next( error );
 		}
 
-		try {
-			await context.store.dispatch( fetchOAuth2ClientData( client_id ) );
-		} catch ( error ) {
-			return next( error );
+		const OAuth2Client = getOAuth2Client( context.store.getState(), client_id );
+		if ( ! OAuth2Client ) {
+			// Only fetch the OAuth2 client data if it's not already in the store. This is to avoid unnecessary requests and re-renders.
+			try {
+				await context.store.dispatch( fetchOAuth2ClientData( client_id ) );
+			} catch ( error ) {
+				return next( error );
+			}
 		}
 	}
 
@@ -80,10 +132,49 @@ export async function login( context, next ) {
 	next();
 }
 
-export function magicLogin( context, next ) {
-	const { path } = context;
+export async function magicLogin( context, next ) {
+	const {
+		path,
+		query: { gravatar_flow, client_id, redirect_to },
+	} = context;
+
+	if ( isUserLoggedIn( context.store.getState() ) ) {
+		return login( context, next );
+	}
+
+	// For Gravatar-related OAuth2 clients, check the necessary URL parameters and fetch the client data if needed.
+	if ( gravatar_flow ) {
+		if ( ! client_id ) {
+			const error = new Error( 'The `client_id` query parameter is missing.' );
+			error.status = 401;
+			return next( error );
+		}
+
+		if ( ! redirect_to ) {
+			const error = new Error( 'The `redirect_to` query parameter is missing.' );
+			error.status = 401;
+			return next( error );
+		}
+
+		const oauth2Client = getOAuth2Client( context.store.getState(), client_id );
+		// Only fetch the data if it's not already in the store. This is to avoid unnecessary requests and re-renders.
+		if ( ! oauth2Client ) {
+			try {
+				await context.store.dispatch( fetchOAuth2ClientData( client_id ) );
+			} catch ( error ) {
+				return next( error );
+			}
+		}
+	}
 
 	context.primary = <MagicLogin path={ path } />;
+
+	next();
+}
+
+export function qrCodeLogin( context, next ) {
+	const { redirect_to } = context.query;
+	context.primary = <QrCodeLoginPage locale={ context.params.lang } redirectTo={ redirect_to } />;
 
 	next();
 }
@@ -108,22 +199,45 @@ export function magicLoginUse( context, next ) {
 
 	const previousQuery = context.state || {};
 
-	const { client_id, email, redirect_to, token } = previousQuery;
+	const { client_id, email, redirect_to, token, transition: isTransition } = previousQuery;
+
+	let activate = '';
+	try {
+		const params = new URLSearchParams( new URL( redirect_to ).search );
+		activate = params.get( 'activate' );
+	} catch ( e ) {
+		// redirect_to isn't always given, the URL constructor will throw in this case
+	}
+	const transition = isTransition === 'true';
 
 	const flow = redirect_to?.includes( 'jetpack/connect' ) ? 'jetpack' : null;
 
 	const PrimaryComponent = getHandleEmailedLinkFormComponent( flow );
 
 	context.primary = (
-		<PrimaryComponent clientId={ client_id } emailAddress={ email } token={ token } />
+		<PrimaryComponent
+			clientId={ client_id }
+			emailAddress={ email }
+			token={ token }
+			redirectTo={ redirect_to }
+			transition={ transition }
+			activate={ activate }
+		/>
 	);
 
 	next();
 }
 
 export function redirectDefaultLocale( context, next ) {
+	// Do not redirect if it's server side
+	if ( context.isServerSide ) {
+		return next();
+	}
 	// Only handle simple routes
 	if ( context.pathname !== '/log-in/en' && context.pathname !== '/log-in/jetpack/en' ) {
+		if ( ! isUserLoggedIn( context.store.getState() ) && ! context.params.lang ) {
+			context.params.lang = config( 'i18n_default_locale_slug' );
+		}
 		return next();
 	}
 
@@ -143,9 +257,9 @@ export function redirectDefaultLocale( context, next ) {
 	}
 
 	if ( context.params.isJetpack === 'jetpack' ) {
-		context.redirect( '/log-in/jetpack' );
+		page.redirect( '/log-in/jetpack' );
 	} else {
-		context.redirect( '/log-in' );
+		page.redirect( '/log-in' );
 	}
 }
 
@@ -156,6 +270,8 @@ export function redirectJetpack( context, next ) {
 	const isUserComingFromPricingPage =
 		redirect_to?.includes( 'source=jetpack-plans' ) ||
 		redirect_to?.includes( 'source=jetpack-connect-plans' );
+	const isUserComingFromMigrationPlugin = redirect_to?.includes( 'wpcom-migration' );
+
 	/**
 	 * Send arrivals from the jetpack connect process or jetpack's pricing page
 	 * (when site user email matches a wpcom account) to the jetpack branded login.
@@ -164,9 +280,21 @@ export function redirectJetpack( context, next ) {
 	 * because the iOS app relies on seeing a request to /log-in$ to show its
 	 * native credentials form.
 	 */
+
+	// 2023-01-23: For some reason (yet unknown), the path replacement below
+	// is happening twice. Until we determine and fix the root cause, this
+	// guard exists to stop it from happening.
+	const pathAlreadyUpdated = context.path.includes( 'log-in/jetpack' );
+	if ( pathAlreadyUpdated ) {
+		next();
+		return;
+	}
+
 	if (
-		isJetpack !== 'jetpack' &&
-		( redirect_to?.includes( 'jetpack/connect' ) || isUserComingFromPricingPage )
+		( isJetpack !== 'jetpack' &&
+			redirect_to?.includes( 'jetpack/connect' ) &&
+			! isUserComingFromMigrationPlugin ) ||
+		isUserComingFromPricingPage
 	) {
 		return context.redirect( context.path.replace( 'log-in', 'log-in/jetpack' ) );
 	}

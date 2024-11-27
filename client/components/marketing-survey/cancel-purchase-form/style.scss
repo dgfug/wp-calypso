@@ -1,78 +1,77 @@
-@import '@wordpress/base-styles/breakpoints';
-@import '@wordpress/base-styles/mixins';
-
-.dialog__content input[type='text'].cancel-purchase-form__reason-input.form-text-input {
-	margin: 4px 0 0 24px;
-	width: calc( 100% - 24px );
-}
-
-.dialog__content .cancel-purchase-form__reason-select {
-	margin: 6px 0 0 24px;
-	&.form-label {
-		font-weight: 600;
-		font-size: 0.75rem;
-	}
-
-	.select-dropdown {
-		margin: 6px 0;
-	}
-}
-
-.cancel-purchase-form__dialog {
-	max-width: 472px;
-}
-
-.cancel-purchase-form__question {
-	margin-bottom: 1.5em;
-	&:last-child {
-		margin-bottom: 0;
-	}
-}
-
-.dialog__action-buttons {
-	display: flex;
-	justify-content: flex-end;
-}
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
+@import "@automattic/components/src/styles/typography";
 
 .cancel-purchase-form__site-slug {
 	margin-left: 0.25rem;
-	background-color: var( --studio-gray-0 );
-	color: var( --studio-gray-70 );
+	background-color: var(--studio-gray-0);
+	color: var(--studio-gray-70);
 	padding: 0.25rem 0.75rem;
 	font-size: 0.75rem;
 	font-weight: 600;
-	/* stylelint-disable-next-line scales/radii */
 	border-radius: 4px;
-	max-width: calc( 100vw - 250px );
 	text-overflow: ellipsis;
 	overflow: hidden;
 	display: inline-block;
 	vertical-align: middle;
-}
-
-.cancel-purchase-form__step {
-	position: absolute;
-	right: 1.5rem;
-	display: none;
+	text-align: center;
 
 	@include break-small {
-		display: inline-block;
+		max-width: calc(100vw - 400px);
+		text-align: left;
 	}
 }
 
 .cancel-purchase-form__feedback,
-.cancel-purchase-form__atomic-revert {
-	max-width: 730px;
-	margin: 0 auto 3rem;
+.cancel-purchase-form,
+.cancel-purchase-form__remove-plan {
+	.cancel-purchase-form__buttons {
+		max-width: 350px;
+		display: flex;
+	}
+}
+
+.cancel-purchase-form__feedback,
+.cancel-purchase-form__atomic-revert,
+.cancel-purchase-form__remove-plan {
+	max-width: 600px;
+	margin: 0 auto 1.25rem;
+}
+
+.cancel-purchase-form__feedback, .cancel-purchase-form__remove-plan {
+	margin-bottom: 0;
+	max-width: 350px;
+}
+
+.blank-canvas .formatted-header .formatted-header__subtitle {
+	font-family: $font-sf-pro-text;
+	font-size: 0.875rem;
+	font-weight: 400;
+	margin: 0 auto;
+	line-height: 20px;
+	letter-spacing: -0.15px;
+	color: var(--studio-gray-50);
+}
+
+.blank-canvas .cancel-purchase-form__feedback .formatted-header .formatted-header__subtitle {
+	max-width: 320px;
+}
+
+.cancel-purchase-form__remove-plan .formatted-header__subtitle {
+	margin: 0 auto;
 }
 
 .cancel-purchase-form__feedback-questions {
-	max-width: 540px;
+	font-family: $font-sf-pro-text;
 	margin: 0 auto;
 }
 
 .cancel-purchase-form__feedback-question {
-	margin-bottom: 1.5rem;
+	margin-bottom: 1rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	letter-spacing: -0.31px;
+	text-align: left;
 }
 
 .cancel-purchase-form__atomic-revert {
@@ -81,56 +80,59 @@
 	}
 
 	> p {
-		color: var( --studio-gray-50 );
+		color: var(--studio-gray-60);
+		font-size: 0.875rem;
 
 		@include break-small {
 			text-align: center;
 		}
 	}
 
-	strong.is-highlighted {
-		background-color: var( --studio-yellow-5 );
-		padding: 0.25rem 0.5rem;
-		/* stylelint-disable-next-line scales/radii */
-		border-radius: 5px;
-		color: var( --stugio-gray-80 );
-	}
-
 	.components-base-control__field {
-		background-color: var( --studio-white );
-		padding: 0.8125rem 1.25rem;
-		/* stylelint-disable-next-line scales/radii */
-		border-radius: 5px;
-		box-shadow: 0 1px 2px rgb( 0 0 0 / 5% );
-		border: 1px solid var( --studio-gray-5 );
+		font-family: $font-sf-pro-text;
+		margin-bottom: 1.25rem;
+		background-color: var(--studio-white);
+		padding: 1.2rem;
+		border-radius: 4px;
+		border: 1px solid var(--studio-gray-5);
 		display: flex;
 		align-items: center;
 
 		.components-checkbox-control__label {
+			font-family: $font-sf-pro-text;
+			line-height: 20px;
 			font-size: 0.875rem;
-			color: var( --studio-gray-60 );
-		}
-
-		.components-checkbox-control__input[type=checkbox]:checked {
-			background: var( --studio-black );
-			border-color: var( --studio-black );
-		}
-
-		.components-checkbox-control__input[type=checkbox]:focus {
-			box-shadow: 0 0 0 2px var( --studio-white ), 0 0 0 4px var( --studio-black );
+			color: var(--studio-gray-100);
+			text-wrap: pretty;
 		}
 
 		.components-checkbox-control__input-container,
-		.components-checkbox-control__input[type=checkbox],
+		.components-checkbox-control__input[type="checkbox"],
 		svg.components-checkbox-control__checked {
 			width: 1rem;
 			height: 1rem;
+			margin-top: 0.125rem;
 		}
+	}
 
-		svg.components-checkbox-control__checked {
-			left: 0;
-			top: 0;
+	.cancel-purchase-form__atomic-revert-checkbox-enabled {
+		.components-base-control__field {
+			border: 1px solid var(--studio-blue-50);
+			background: #f9fbfd;
 		}
+	}
+}
+
+
+.cancel-purchase-form__atomic-revert,
+.cancel-purchase-form__remove-plan {
+	strong.is-highlighted {
+		font-size: 0.75rem;
+		display: inline-block;
+		background-color: var(--studio-yellow-20);
+		padding: 0 0.625rem;
+		border-radius: 4px;
+		color: var(--studio-yellow-80);
 	}
 }
 
@@ -143,155 +145,308 @@
 }
 
 .cancel-purchase-form__backups {
-	background-color: var( --studio-blue-0 );
-	border: 1px solid var( --studio-blue-5 );
-	/* stylelint-disable-next-line scales/radii */
-	border-radius: 5px;
-	padding: 1.25rem;
-	margin-top: 2rem;
-	font-size: 0.875rem;
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+	border: 1px solid var(--studio-gray-5);
+	padding: 12px 10px 12px 20px;
+	font-size: 0.75rem;
+	border-left: 3px solid var(--studio-blue-50);
 
 	h4 {
-		color: var( --studio-gray-80 );
+		color: var(--studio-gray-70);
 		font-weight: 600;
-		margin-bottom: 0.5rem;
-		font-size: 1rem;
+		margin-bottom: 0;
+		font-size: 0.875rem;
+	}
+
+	p {
+		margin-bottom: 0;
+	}
+
+	a {
+		font-size: 0.75rem;
+		padding: 0.5rem;
+		border-radius: 2px;
+		height: 28px;
 	}
 }
 
 .cancel-purchase-form__actions {
-	@include break-small {
-		max-width: 730px;
-		display: block;
-		margin: 0 auto;
-		text-align: center;
-		overflow: hidden;
-	}
+	font-family: $font-sf-pro-text;
+	display: block;
+	margin: 0 auto 2rem;
+	text-align: center;
+	overflow: hidden;
 }
 
 .cancel-purchase-form__buttons {
-	display: inline-block;
 	position: relative;
-
-	@include break-small {
-		// Line decorations.
-		&::before,
-		&::after {
-			content: '';
-			display: block;
-			width: 730px;
-			height: 0;
-			border-top: 1px solid var( --studio-gray-5 );
-			top: 50%;
-			position: absolute;
-		}
-
-		&::before {
-			right: 100%;
-			margin-right: 1rem;
-		}
-
-		&::after {
-			left: 100%;
-			margin-left: 1rem;
-		}
-	}
+	padding: 3px;
+	margin: 0 auto;
 
 	.components-button {
-		margin-right: 1rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		flex: 1;
+		height: auto;
 		padding: 0.625rem 1rem;
-		/* stylelint-disable-next-line scales/radii */
 		border-radius: 4px;
-
-		@include break-small {
-			margin: 0 0.625rem;
-			padding: 0.625rem 2rem;
-		}
+		justify-content: center;
 	}
 }
 
-.cancel-purchase-form__actions .precancellation-chat-button__main-button {
-	font-size: 0;
-	float: none;
-	right: 1rem;
-	color: var( --studio-gray-50 );
-	display: inline-block;
-	position: absolute;
-
-	@include break-small {
-		margin: 1rem auto;
-		font-size: inherit;
-		position: relative;
-		display: block;
+.cancel-purchase-form__buttons.cancel-purchase-form__atomic_revert_step-buttons {
+	justify-content: center;
+	.components-button {
+		flex: initial;
 	}
+}
 
-	.material-icon {
-		fill: var( --studio-gray-50 );
-		width: 1.5rem;
-		height: 1.5rem;
-
-		@include break-small {
-			width: 1rem;
-			height: 1rem;
-		}
-	}
+.blank-canvas .formatted-header .formatted-header__title {
+	font-size: 2rem;
 }
 
 .cancel-purchase-form__upsell {
-	padding: 1.5rem;
-	background-color: var( --studio-green-0 );
-	border: 1px solid var( --studio-green-5 );
-	/* stylelint-disable-next-line scales/radii */
-	border-radius: 5px;
 	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	justify-content: center;
+	margin: 0 auto;
+	gap: 20px;
 
-	.cancel-purchase-form__upsell-image {
-		display: none;
-		width: 100px;
-		height: fit-content;
-		margin-right: 1.5rem;
+	.formatted-header.is-without-subhead {
+		text-align: initial;
+		margin: 20px 0;
+
+		> .formatted-header__title {
+			font-size: 2.25rem;
+			line-height: 1.1;
+
+			@include break-small {
+				font-size: 2.75rem;
+			}
+		}
+	}
+}
+
+.cancel-purchase-form__upsell-subheader {
+	color: var(--studio-gray-70);
+}
+
+.cancel-purchase-form__upsell-content {
+	display: flex;
+	flex-direction: column;
+	flex: 0 1 535px;
+}
+
+.cancel-purchase-form__upsell-text {
+	line-height: 1.8;
+}
+
+.cancel-purchase-form__upsell-buttons {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin: 2.2rem 0;
+
+	> .components-button {
+		flex-grow: 1;
+		padding: 0 1.5rem;
+		height: 40px;
+		justify-content: center;
 
 		@include break-small {
-			display: block;
+			flex-grow: 0;
+		}
+	}
+}
+
+.cancel-purchase-form__upsell-image-container {
+	flex: 0 1 400px;
+	text-align: center;
+}
+
+.blank-canvas.cancel-purchase-form {
+	.precancellation-chat-button__main-button {
+		color: var(--studio-gray-100);
+		span {
+			border-bottom: 1px solid var(--studio-gray-100);
 		}
 	}
 
-	.form-section-heading {
-		font-size: 1rem;
-		line-height: 1.25rem;
-		margin-bottom: 0.5rem;
-		font-weight: 600;
+	.blank-canvas__back {
+		z-index: 1;
+		font-size: 0.875rem;
 	}
 
-	.form-fieldset {
-		margin-bottom: 0;
+	.components-base-control__field {
+		.components-input-control__container {
+			color: var(--studio-gray-70);
+			border-radius: 4px;
+		}
 
-		p {
+		.components-input-control__label {
+			text-transform: initial;
 			font-size: 0.875rem;
-			line-height: 1.25rem;
-			margin-bottom: 0.5rem;
+			font-weight: 500;
+			line-height: 20px;
+			letter-spacing: -0.32px;
+			white-space: break-spaces;
+			color: var(--studio-gray-60);
+		}
+	}
 
-			&:last-child {
-				margin-bottom: 0;
+	.blank-canvas__header {
+		padding: 0 1rem;
+		margin-bottom: 3rem;
+		box-shadow: none;
+
+		.wordpress-logo {
+			display: none;
+
+			@include break-small {
+				display: block;
 			}
 		}
 	}
 
-	.components-button {
-		margin-top: 1rem;
-		padding: 0.625rem 2rem;
-		/* stylelint-disable-next-line scales/radii */
-		border-radius: 4px;
+	.blank-canvas__header-title {
+		z-index: 0;
+		top: 3rem;
+		left: 1rem;
 
-		&:not( .is-primary ) {
-			padding-left: 0.5rem;
-			padding-right: 0.5rem;
-			margin-left: 0.5rem;
+		@include break-small {
+			top: unset;
+			left: 0;
 		}
 	}
 
-	.button {
-		// Hide buttons rendered by old components, so we can still re-use them for rendering rest of content.
-		display: none;
+	.blank-canvas__content {
+		padding: 0 1rem;
 	}
+
+	.blank-canvas__footer {
+		padding: 0;
+		position: static;
+		box-shadow: none;
+	}
+}
+
+.cancel-purchase-form__edu {
+	display: flex;
+	flex-direction: column;
+	flex-wrap: wrap;
+	justify-content: center;
+	margin: 0 auto;
+	gap: 20px;
+	max-width: 600px;
+
+	.formatted-header.is-without-subhead {
+		text-align: initial;
+		margin: 0;
+
+		> .formatted-header__title {
+			font-size: 2.25rem;
+			line-height: 1.1;
+			margin: 0;
+
+			@include break-small {
+				font-size: 2.75rem;
+			}
+		}
+	}
+}
+
+.cancel-purchase-form__edu-header-group {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-end;
+	gap: 20px;
+}
+
+.cancel-purchase-form__edu-header-text-group {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.cancel-purchase-form__edu-image-container {
+	display: none;
+
+	@include break-small {
+		display: block;
+		width: 138px;
+		flex: 0 0 138px;
+	}
+}
+
+.cancel-purchase-form__edu-buttons {
+	border-top: 1px solid #f0f0f0;
+	text-align: center;
+	padding-top: 30px;
+	margin-top: 30px;
+
+	p {
+		margin-bottom: 0.5em;
+	}
+}
+
+.cancel-purchase-form__edu-icon-list {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	list-style: none;
+	margin: 0;
+
+	> li {
+		display: flex;
+		flex-direction: row;
+		gap: 15px;
+		margin: 0;
+	}
+}
+
+.cancel-purchase-form__edu-icon {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 44px;
+	height: 44px;
+	flex: 0 0 44px;
+	border-radius: 50%;
+	background-color: #50575e;
+
+	.material-icon {
+		width: 24px;
+		height: 24px;
+		fill: #fff;
+	}
+}
+
+.cancel-purchase-form__edu-text {
+	.components-button.is-link {
+		font-size: inherit;
+	}
+
+	ul {
+		margin-left: 2rem;
+	}
+
+	li {
+		margin: 0.75rem 0;
+	}
+}
+
+.cancel-purchase-form__remove-plan-text {
+	display: block;
+
+	&:not(:last-child) {
+		margin-bottom: 1rem;
+	}
+}
+
+.cancel-purchase-form__remove-plan-button {
+	margin-right: 1rem;
 }

@@ -1,5 +1,5 @@
 import { Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { values as objectValues } from 'lodash';
 import PropTypes from 'prop-types';
@@ -27,6 +27,7 @@ export class ImageEditorToolbar extends Component {
 		allowedAspectRatios: PropTypes.array,
 		onShowNotice: PropTypes.func,
 		isAspectRatioDisabled: PropTypes.bool,
+		displayOnlyIcon: PropTypes.bool,
 	};
 
 	static defaultProps = {
@@ -36,6 +37,7 @@ export class ImageEditorToolbar extends Component {
 		allowedAspectRatios: objectValues( AspectRatios ),
 		onShowNotice: noop,
 		isAspectRatioDisabled: false,
+		displayOnlyIcon: false,
 	};
 
 	constructor( props ) {
@@ -165,7 +167,7 @@ export class ImageEditorToolbar extends Component {
 			{
 				tool: 'rotate',
 				icon: 'rotate',
-				text: translate( 'Rotate' ),
+				text: this.props.displayOnlyIcon ? '' : translate( 'Rotate' ),
 				onClick: this.rotate,
 			},
 			allowedAspectRatios.length === 1
@@ -174,20 +176,20 @@ export class ImageEditorToolbar extends Component {
 						tool: 'aspect',
 						ref: this.setAspectMenuContext,
 						icon: 'crop',
-						text: translate( 'Crop' ),
+						text: this.props.displayOnlyIcon ? '' : translate( 'Crop' ),
 						onClick: this.onAspectOpen,
 						disabled: isAspectRatioDisabled,
 				  },
 			{
 				tool: 'flip-vertical',
 				icon: 'flip-vertical',
-				text: translate( 'Flip' ),
+				text: this.props.displayOnlyIcon ? '' : translate( 'Flip' ),
 				onClick: this.flip,
 			},
 		];
 
 		return buttons.map( ( button ) => {
-			const buttonClasses = classNames( 'image-editor__toolbar-button', {
+			const buttonClasses = clsx( 'image-editor__toolbar-button', {
 				'is-disabled': button && button.disabled,
 			} );
 			return button ? (
@@ -196,6 +198,7 @@ export class ImageEditorToolbar extends Component {
 					ref={ button.ref }
 					className={ buttonClasses }
 					onClick={ button.onClick }
+					type="button"
 				>
 					<Gridicon icon={ button.icon } />
 					<span>{ button.text }</span>

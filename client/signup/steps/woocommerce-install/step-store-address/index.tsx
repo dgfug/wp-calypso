@@ -1,12 +1,12 @@
+import { FormInputValidation } from '@automattic/components';
 import styled from '@emotion/styled';
 import { TextControl, ComboboxControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import emailValidator from 'email-validator';
-import { ReactElement, useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
+import { useEffect, useState } from 'react';
 import { LoadingEllipsis } from 'calypso/components/loading-ellipsis';
 import StepWrapper from 'calypso/signup/step-wrapper';
+import { useDispatch, useSelector } from 'calypso/state';
 import { fetchWooCommerceCountries } from 'calypso/state/countries/actions';
 import getCountries from 'calypso/state/selectors/get-countries';
 import { submitSignupStep } from 'calypso/state/signup/progress/actions';
@@ -25,6 +25,7 @@ import {
 	optionNameType,
 } from '../hooks/use-site-settings';
 import type { WooCommerceStoreAddressProps } from '..';
+import type { IAppState } from 'calypso/state/types';
 import './style.scss';
 
 const CityZipRow = styled.div`
@@ -37,9 +38,7 @@ const CityZipRow = styled.div`
 	justify-items: stretch;
 `;
 
-export default function StepStoreAddress(
-	props: WooCommerceStoreAddressProps
-): ReactElement | null {
+export default function StepStoreAddress( props: WooCommerceStoreAddressProps ) {
 	const { goToNextStep, isReskinned, signupDependencies } = props;
 	const { __ } = useI18n();
 	const dispatch = useDispatch();
@@ -50,7 +49,8 @@ export default function StepStoreAddress(
 
 	const siteId = useSelector( getSelectedSiteId ) as number;
 
-	const countriesList = useSelector( ( state ) => getCountries( state, 'woocommerce' ) ) || [];
+	const countriesList =
+		useSelector( ( state: IAppState ) => getCountries( state, 'woocommerce' ) ) || {};
 	const countriesAsOptions = Object.entries( countriesList ).map( ( [ key, value ] ) => {
 		return { value: key, label: value };
 	} );
@@ -166,8 +166,8 @@ export default function StepStoreAddress(
 						<ComboboxControl
 							label={ __( 'Country / State' ) }
 							value={ get( WOOCOMMERCE_DEFAULT_COUNTRY ) }
-							onChange={ ( value: string | null ) => {
-								update( WOOCOMMERCE_DEFAULT_COUNTRY, value || '' );
+							onChange={ ( value ) => {
+								update( WOOCOMMERCE_DEFAULT_COUNTRY, value ?? '' );
 								clearError( WOOCOMMERCE_DEFAULT_COUNTRY );
 							} }
 							options={ countriesAsOptions }
@@ -212,8 +212,8 @@ export default function StepStoreAddress(
 	return (
 		<StepWrapper
 			flowName="woocommerce-install"
-			hideSkip={ true }
-			allowBackFirstStep={ true }
+			hideSkip
+			allowBackFirstStep
 			backUrl={ backUrl }
 			headerText={ __( 'Add an address to accept payments' ) }
 			fallbackHeaderText={ __( 'Add an address to accept payments' ) }
@@ -231,10 +231,10 @@ export default function StepStoreAddress(
 	);
 }
 
-function ControlError( props: { error: string } ): ReactElement | null {
+function ControlError( props: { error: string } ) {
 	const { error } = props;
 	if ( error ) {
-		return <FormInputValidation isError={ true } isValid={ false } text={ error } />;
+		return <FormInputValidation isError isValid={ false } text={ error } />;
 	}
 	return null;
 }

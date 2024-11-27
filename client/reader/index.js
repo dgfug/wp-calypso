@@ -1,7 +1,13 @@
 import config from '@automattic/calypso-config';
-import page from 'page';
+import page from '@automattic/calypso-router';
 import { addMiddleware } from 'redux-dynamic-middlewares';
-import { makeLayout, render as clientRender } from 'calypso/controller';
+import {
+	makeLayout,
+	redirectLoggedOut,
+	redirectLoggedOutToSignup,
+	render as clientRender,
+	setSelectedSiteIdByOrigin,
+} from 'calypso/controller';
 import {
 	blogListing,
 	feedDiscovery,
@@ -9,11 +15,16 @@ import {
 	following,
 	incompleteUrlRedirects,
 	legacyRedirects,
-	prettyRedirects,
 	readA8C,
 	readFollowingP2,
+	redirectLoggedOutToDiscover,
 	sidebar,
 	updateLastRoute,
+	blogDiscoveryByFeedId,
+	siteSubscriptionsManager,
+	siteSubscription,
+	commentSubscriptionsManager,
+	pendingSubscriptionsManager,
 } from './controller';
 
 import './style.scss';
@@ -37,7 +48,16 @@ export default async function () {
 	await lazyLoadDependencies();
 
 	if ( config.isEnabled( 'reader' ) ) {
-		page( '/read', updateLastRoute, sidebar, following, makeLayout, clientRender );
+		page(
+			'/read',
+			redirectLoggedOutToDiscover,
+			updateLastRoute,
+			sidebar,
+			setSelectedSiteIdByOrigin,
+			following,
+			makeLayout,
+			clientRender
+		);
 
 		// Old and incomplete paths that should be redirected to /
 		page( '/read/following', '/read' );
@@ -52,8 +72,9 @@ export default async function () {
 		page( '/read/feeds/:feed_id/posts', incompleteUrlRedirects );
 		page(
 			'/read/feeds/:feed_id',
+			blogDiscoveryByFeedId,
+			redirectLoggedOutToSignup,
 			updateLastRoute,
-			prettyRedirects,
 			sidebar,
 			feedDiscovery,
 			feedListing,
@@ -66,8 +87,8 @@ export default async function () {
 		page( '/read/blogs/:blog_id/posts', incompleteUrlRedirects );
 		page(
 			'/read/blogs/:blog_id',
+			redirectLoggedOutToSignup,
 			updateLastRoute,
-			prettyRedirects,
 			sidebar,
 			blogListing,
 			makeLayout,
@@ -83,8 +104,72 @@ export default async function () {
 	}
 
 	// Automattic Employee Posts
-	page( '/read/a8c', updateLastRoute, sidebar, forceTeamA8C, readA8C, makeLayout, clientRender );
+	page(
+		'/read/a8c',
+		redirectLoggedOut,
+		updateLastRoute,
+		sidebar,
+		forceTeamA8C,
+		readA8C,
+		makeLayout,
+		clientRender
+	);
 
 	// new P2 Posts
-	page( '/read/p2', updateLastRoute, sidebar, readFollowingP2, makeLayout, clientRender );
+	page(
+		'/read/p2',
+		redirectLoggedOut,
+		updateLastRoute,
+		sidebar,
+		readFollowingP2,
+		makeLayout,
+		clientRender
+	);
+
+	// Sites subscription management
+	page(
+		'/read/subscriptions',
+		redirectLoggedOut,
+		updateLastRoute,
+		sidebar,
+		siteSubscriptionsManager,
+		makeLayout,
+		clientRender
+	);
+	page(
+		'/read/subscriptions/comments',
+		redirectLoggedOut,
+		updateLastRoute,
+		sidebar,
+		commentSubscriptionsManager,
+		makeLayout,
+		clientRender
+	);
+	page(
+		'/read/subscriptions/pending',
+		redirectLoggedOut,
+		updateLastRoute,
+		sidebar,
+		pendingSubscriptionsManager,
+		makeLayout,
+		clientRender
+	);
+	page(
+		'/read/subscriptions/:subscription_id',
+		redirectLoggedOut,
+		updateLastRoute,
+		sidebar,
+		siteSubscription,
+		makeLayout,
+		clientRender
+	);
+	page(
+		'/read/site/subscription/:blog_id',
+		redirectLoggedOut,
+		updateLastRoute,
+		sidebar,
+		siteSubscription,
+		makeLayout,
+		clientRender
+	);
 }

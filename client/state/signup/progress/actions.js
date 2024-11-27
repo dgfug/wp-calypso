@@ -1,4 +1,4 @@
-import { WPCOM_DIFM_LITE } from '@automattic/calypso-products';
+import { isTitanMail, WPCOM_DIFM_LITE } from '@automattic/calypso-products';
 import { resolveDeviceTypeByViewPort } from '@automattic/viewport';
 import { isEmpty, reduce, snakeCase } from 'lodash';
 import { assertValidDependencies } from 'calypso/lib/signup/asserts';
@@ -25,27 +25,48 @@ function addProvidedDependencies( step, providedDependencies ) {
 	return { ...step, providedDependencies };
 }
 
-function recordSubmitStep( stepName, providedDependencies, optionalProps ) {
+// These properties are never recorded in the tracks event for security reasons.
+const EXCLUDED_DEPENDENCIES = [
+	'bearer_token',
+	'token',
+	'password',
+	'password_confirm',
+	'domainCart',
+];
+
+function recordSubmitStep( flow, stepName, providedDependencies, optionalProps ) {
 	// Transform the keys since tracks events only accept snaked prop names.
 	// And anonymize personally identifiable information.
 	const inputs = reduce(
 		providedDependencies,
 		( props, propValue, propName ) => {
+			if ( EXCLUDED_DEPENDENCIES.includes( propName ) ) {
+				return props;
+			}
+
 			propName = snakeCase( propName );
 
 			if ( stepName === 'from-url' && propName === 'site_preview_image_blob' ) {
 				/**
 				 * There's no need to include a resource ID in our event.
 				 * Just record that a preview was fetched
-				 *
 				 * @see the `sitePreviewImageBlob` dependency
 				 */
 				propName = 'site_preview_image_fetched';
 				propValue = !! propValue;
 			}
 
+			// The segmentation_survey_answers are stored as an object with nested arrays. Which is not supported by tracks.
+			if ( stepName === 'initial-intent' && propName === 'segmentation_survey_answers' ) {
+				propValue = JSON.stringify( propValue );
+			}
+
 			// Ensure we don't capture identifiable user data we don't need.
 			if ( propName === 'email' ) {
+				propName = `user_entered_${ propName }`;
+				propValue = !! propValue;
+			}
+			if ( propName === 'username' ) {
 				propName = `user_entered_${ propName }`;
 				propValue = !! propValue;
 			}
@@ -55,7 +76,19 @@ function recordSubmitStep( stepName, providedDependencies, optionalProps ) {
 				propValue = otherProps;
 			}
 
-			if ( [ 'cart_item', 'domain_item' ].includes( propName ) && typeof propValue !== 'string' ) {
+			if ( propName === 'email_item' && propValue && isTitanMail( propValue ) ) {
+				const { extra, quantity, ...otherProps } = propValue;
+				propValue = otherProps;
+			}
+
+			if ( propName === 'selected_page_titles' && Array.isArray( propValue ) ) {
+				propValue = propValue.join( ',' );
+			}
+
+			if (
+				[ 'cart_items', 'domain_item', 'email_item' ].includes( propName ) &&
+				typeof propValue !== 'string'
+			) {
 				propValue = Object.entries( propValue || {} )
 					.map( ( pair ) => pair.join( ':' ) )
 					.join( ',' );
@@ -74,8 +107,10 @@ function recordSubmitStep( stepName, providedDependencies, optionalProps ) {
 	);
 
 	const device = resolveDeviceTypeByViewPort();
+
 	return recordTracksEvent( 'calypso_signup_actions_submit_step', {
 		device,
+		flow,
 		step: stepName,
 		...optionalProps,
 		...inputs,
@@ -94,14 +129,20 @@ export function saveSignupStep( step ) {
 	};
 }
 
-export function submitSignupStep( step, providedDependencies ) {
+export function submitSignupStep( step, providedDependencies, optionalProps ) {
 	assertValidDependencies( step.stepName, providedDependencies );
 	return ( dispatch, getState ) => {
 		const lastKnownFlow = getCurrentFlowName( getState() );
 		const lastUpdated = Date.now();
 		const { intent } = getSignupDependencyStore( getState() );
 
-		dispatch( recordSubmitStep( step.stepName, providedDependencies, { intent } ) );
+		dispatch(
+			recordSubmitStep( lastKnownFlow, step.stepName, providedDependencies, {
+				intent,
+				...optionalProps,
+				...( step.wasSkipped && { was_skipped: step.wasSkipped } ),
+			} )
+		);
 
 		dispatch( {
 			type: SIGNUP_PROGRESS_SUBMIT_STEP,

@@ -1,26 +1,29 @@
-import { Card } from '@automattic/components';
-import { ToggleControl } from '@wordpress/components';
+import { Card, FormLabel } from '@automattic/components';
+import { ExternalLink } from '@wordpress/components';
 import { localize } from 'i18n-calypso';
 import { flowRight as compose } from 'lodash';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import EditGravatar from 'calypso/blocks/edit-gravatar';
-import FormattedHeader from 'calypso/components/formatted-header';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
+import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import FormTextarea from 'calypso/components/forms/form-textarea';
 import InlineSupportLink from 'calypso/components/inline-support-link';
 import Main from 'calypso/components/main';
+import NavigationHeader from 'calypso/components/navigation-header';
 import SectionHeader from 'calypso/components/section-header';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import { protectForm } from 'calypso/lib/protect-form';
 import twoStepAuthorization from 'calypso/lib/two-step-authorization';
+import DomainUpsell from 'calypso/me/domain-upsell';
 import withFormBase from 'calypso/me/form-base/with-form-base';
 import ProfileLinks from 'calypso/me/profile-links';
 import ReauthRequired from 'calypso/me/reauth-required';
 import { recordGoogleEvent } from 'calypso/state/analytics/actions';
+import { isFetchingUserSettings } from 'calypso/state/user-settings/selectors';
+import WPAndGravatarLogo from './wp-and-gravatar-logo';
 
 import './style.scss';
 
@@ -33,21 +36,19 @@ class Profile extends Component {
 		return () => this.props.recordGoogleEvent( 'Me', 'Focused on ' + action );
 	}
 
-	toggleGravatarHidden = ( isHidden ) => {
-		this.props.setUserSetting( 'gravatar_profile_hidden', isHidden );
+	toggleIsDevAccount = ( isDevAccount ) => {
+		this.props.setUserSetting( 'is_dev_account', isDevAccount );
 	};
 
 	render() {
-		const gravatarProfileLink = 'https://gravatar.com/' + this.props.getSetting( 'user_login' );
-
 		return (
-			<Main className="profile">
+			<Main wideLayout className="profile">
 				<PageViewTracker path="/me" title="Me > My Profile" />
 				<ReauthRequired twoStepAuthorization={ twoStepAuthorization } />
-				<FormattedHeader
-					brandFont
-					headerText={ this.props.translate( 'My Profile' ) }
-					subHeaderText={ this.props.translate(
+				<NavigationHeader
+					navigationItems={ [] }
+					title={ this.props.translate( 'My Profile' ) }
+					subtitle={ this.props.translate(
 						'Set your name, bio, and other public-facing information. {{learnMoreLink}}Learn more{{/learnMoreLink}}.',
 						{
 							components: {
@@ -57,7 +58,6 @@ class Profile extends Component {
 							},
 						}
 					) }
-					align="left"
 				/>
 
 				<SectionHeader label={ this.props.translate( 'Profile' ) } />
@@ -101,6 +101,28 @@ class Profile extends Component {
 								onFocus={ this.getFocusHandler( 'Display Name Field' ) }
 								value={ this.props.getSetting( 'display_name' ) }
 							/>
+							<FormSettingExplanation>
+								{ this.props.translate( 'Shown publicly when you comment on blogs.' ) }
+							</FormSettingExplanation>
+						</FormFieldset>
+
+						<FormFieldset>
+							<FormLabel htmlFor="user_URL">
+								{ this.props.translate( 'Public web address' ) }
+							</FormLabel>
+							<FormTextInput
+								disabled={ this.props.getDisabledState() }
+								id="user_URL"
+								name="user_URL"
+								type="url"
+								onChange={ this.props.updateSetting }
+								onFocus={ this.getFocusHandler( 'Web Address Field' ) }
+								placeholder="https://example.com"
+								value={ this.props.getSetting( 'user_URL' ) }
+							/>
+							<FormSettingExplanation>
+								{ this.props.translate( 'Shown publicly when you comment on blogs.' ) }
+							</FormSettingExplanation>
 						</FormFieldset>
 
 						<FormFieldset>
@@ -115,31 +137,26 @@ class Profile extends Component {
 							/>
 						</FormFieldset>
 
-						<FormFieldset>
-							<ToggleControl
-								checked={ this.props.getSetting( 'gravatar_profile_hidden' ) }
-								onChange={ this.toggleGravatarHidden }
-								label={ this.props.translate(
-									'{{spanLead}}Hide my Gravatar profile.{{/spanLead}} {{spanExtra}}This will prevent your {{profileLink}}Gravatar profile{{/profileLink}} and photo from appearing on any site. It may take some time for the changes to take effect. Gravatar profiles can be deleted at {{deleteLink}}Gravatar.com{{/deleteLink}}.{{/spanExtra}}',
+						<p className="profile__gravatar-profile-description">
+							<span>
+								{ this.props.translate(
+									'Your WordPress.com profile is connected to Gravatar. Your Gravatar is public by default and may appear on any site using Gravatar when you’re logged in with {{strong}}%(email)s{{/strong}}.' +
+										' To manage your Gravatar profile and visibility settings, {{a}}visit your Gravatar profile{{/a}}.',
 									{
 										components: {
-											spanLead: <strong className="profile__link-destination-label-lead" />,
-											spanExtra: <span className="profile__link-destination-label-extra" />,
-											profileLink: (
-												<a href={ gravatarProfileLink } target="_blank" rel="noreferrer" />
-											),
-											deleteLink: (
-												<a
-													href="https://gravatar.com/account/disable/"
-													target="_blank"
-													rel="noreferrer"
-												/>
-											),
+											strong: <strong />,
+											a: <ExternalLink href="https://gravatar.com/profile" />,
+										},
+										args: {
+											email: this.props.getSetting( 'user_email' ),
 										},
 									}
 								) }
-							/>
-						</FormFieldset>
+							</span>
+							<span>
+								<WPAndGravatarLogo />
+							</span>
+						</p>
 
 						<p className="profile__submit-button-wrapper">
 							<FormButton
@@ -154,6 +171,8 @@ class Profile extends Component {
 					</form>
 				</Card>
 
+				<DomainUpsell context="profile" />
+
 				<ProfileLinks />
 			</Main>
 		);
@@ -161,7 +180,12 @@ class Profile extends Component {
 }
 
 export default compose(
-	connect( null, { recordGoogleEvent } ),
+	connect(
+		( state ) => ( {
+			isFetchingUserSettings: isFetchingUserSettings( state ),
+		} ),
+		{ recordGoogleEvent }
+	),
 	protectForm,
 	localize,
 	withFormBase

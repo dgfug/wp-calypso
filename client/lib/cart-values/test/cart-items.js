@@ -1,5 +1,5 @@
-import { GSUITE_BASIC_SLUG } from 'calypso/lib/gsuite/constants';
 import {
+	GSUITE_BASIC_SLUG,
 	PLAN_FREE,
 	PLAN_BLOGGER,
 	PLAN_BLOGGER_2_YEARS,
@@ -16,6 +16,7 @@ import {
 	PLAN_JETPACK_BUSINESS_MONTHLY,
 	PLAN_JETPACK_PERSONAL_MONTHLY,
 	PRODUCT_JETPACK_BACKUP_DAILY,
+	PLAN_ENTERPRISE_GRID_WPCOM,
 } from '@automattic/calypso-products';
 const { getPlan, getTermDuration } = require( '@automattic/calypso-products' );
 const cartItems = require( '../cart-items' );
@@ -34,6 +35,10 @@ const {
 describe( 'planItem()', () => {
 	test( 'should return null for free plan', () => {
 		expect( planItem( PLAN_FREE ) ).toBe( null );
+	} );
+
+	test( 'should return null for enterprise grid plan', () => {
+		expect( planItem( PLAN_ENTERPRISE_GRID_WPCOM ) ).toBe( null );
 	} );
 
 	[
@@ -242,6 +247,11 @@ describe( 'getDomainPriceRule()', () => {
 	} );
 
 	describe( 'general', () => {
+		test( 'should return FREE_WITH_PLAN for the domain and plan upsell flow', () => {
+			expect(
+				getDomainPriceRule( false, null, null, { product_slug: 'hi', cost: '14' }, false, '', true )
+			).toBe( 'FREE_WITH_PLAN' );
+		} );
 		test( 'should return FREE_DOMAIN when product slug is empty', () => {
 			expect( getDomainPriceRule( false, null, null, { product_slug: null, cost: '14' } ) ).toBe(
 				'FREE_DOMAIN'
@@ -635,7 +645,10 @@ describe( 'getRenewalItemFromProduct()', () => {
 	describe( 'isDomainProduct', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
-				getRenewalItemFromProduct( buildPurchase( { product_slug: 'domain_map' } ), properties )
+				getRenewalItemFromProduct(
+					buildPurchase( { product_slug: 'domain_map', isRenewable: true } ),
+					properties
+				)
 			).toEqual( {
 				extra: {
 					purchaseId: 123,
@@ -649,7 +662,10 @@ describe( 'getRenewalItemFromProduct()', () => {
 	describe( 'isPlan', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
-				getRenewalItemFromProduct( buildPurchase( { product_slug: PLAN_PERSONAL } ), properties )
+				getRenewalItemFromProduct(
+					buildPurchase( { product_slug: PLAN_PERSONAL, isRenewable: true } ),
+					properties
+				)
 			).toEqual( {
 				extra: {
 					purchaseId: 123,
@@ -663,7 +679,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
 				getRenewalItemFromProduct(
-					buildPurchase( { product_slug: GSUITE_BASIC_SLUG, users: 123 } ),
+					buildPurchase( { product_slug: GSUITE_BASIC_SLUG, users: 123, isRenewable: true } ),
 					properties
 				)
 			).toEqual( {
@@ -681,7 +697,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
 				getRenewalItemFromProduct(
-					buildPurchase( { product_slug: 'offsite_redirect' } ),
+					buildPurchase( { product_slug: 'offsite_redirect', isRenewable: true } ),
 					properties
 				)
 			).toEqual( {
@@ -698,7 +714,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
 				getRenewalItemFromProduct(
-					buildPurchase( { product_slug: 'no-adverts/no-adverts.php' } ),
+					buildPurchase( { product_slug: 'no-adverts/no-adverts.php', isRenewable: true } ),
 					properties
 				)
 			).toEqual( {
@@ -713,7 +729,10 @@ describe( 'getRenewalItemFromProduct()', () => {
 	describe( 'isCustomDesign', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
-				getRenewalItemFromProduct( buildPurchase( { product_slug: 'custom-design' } ), properties )
+				getRenewalItemFromProduct(
+					buildPurchase( { product_slug: 'custom-design', isRenewable: true } ),
+					properties
+				)
 			).toEqual( {
 				extra: {
 					purchaseId: 123,
@@ -726,7 +745,10 @@ describe( 'getRenewalItemFromProduct()', () => {
 	describe( 'isVideoPress', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
-				getRenewalItemFromProduct( buildPurchase( { product_slug: 'videopress' } ), properties )
+				getRenewalItemFromProduct(
+					buildPurchase( { product_slug: 'videopress', isRenewable: true } ),
+					properties
+				)
 			).toEqual( {
 				extra: {
 					purchaseId: 123,
@@ -740,7 +762,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
 				getRenewalItemFromProduct(
-					buildPurchase( { product_slug: 'unlimited_space' } ),
+					buildPurchase( { product_slug: 'unlimited_space', isRenewable: true } ),
 					properties
 				)
 			).toEqual( {
@@ -756,7 +778,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
 				getRenewalItemFromProduct(
-					buildPurchase( { product_slug: 'unlimited_themes' } ),
+					buildPurchase( { product_slug: 'unlimited_themes', isRenewable: true } ),
 					properties
 				)
 			).toEqual( {
@@ -772,7 +794,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
 				getRenewalItemFromProduct(
-					buildPurchase( { product_slug: PRODUCT_JETPACK_BACKUP_DAILY } ),
+					buildPurchase( { product_slug: PRODUCT_JETPACK_BACKUP_DAILY, isRenewable: true } ),
 					properties
 				)
 			).toEqual( {
@@ -788,7 +810,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 		test( 'should return the corresponding renewal item', () => {
 			expect(
 				getRenewalItemFromProduct(
-					buildPurchase( { product_slug: '1gb_space_upgrade' } ),
+					buildPurchase( { product_slug: '1gb_space_upgrade', isRenewable: true } ),
 					properties
 				)
 			).toEqual( {
@@ -800,6 +822,22 @@ describe( 'getRenewalItemFromProduct()', () => {
 			} );
 		} );
 	} );
+	describe( 'isRenewable', () => {
+		test( 'should return the corresponding renewal item', () => {
+			expect(
+				getRenewalItemFromProduct(
+					buildPurchase( { product_slug: 'woocommerce_subscriptions_monthly', isRenewable: true } ),
+					properties
+				)
+			).toEqual( {
+				extra: {
+					purchaseId: 123,
+					purchaseType: 'renewal',
+				},
+				product_slug: 'woocommerce_subscriptions_monthly',
+			} );
+		} );
+	} );
 
 	describe( 'renewal not supported', () => {
 		test( 'should return the corresponding renewal item', () => {
@@ -808,7 +846,7 @@ describe( 'getRenewalItemFromProduct()', () => {
 					buildPurchase( { product_slug: 'new_plan_does_not_exist' } ),
 					properties
 				)
-			).toThrowError( 'This product cannot be renewed' );
+			).toThrow( 'This product cannot be renewed' );
 		} );
 	} );
 } );

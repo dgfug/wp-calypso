@@ -1,17 +1,11 @@
-import getSiteOption from './get-site-option';
+import isJetpackConnectionPluginActive from './is-jetpack-connection-plugin-active';
 
 /**
  * Returns true if site has the Jetpack Backup Plugin active, false if it is not active
- *
- * @param  {object}   state  Global state tree
+ * @param  {Object}   state  Global state tree
  * @param  {?number}   siteId Site ID
  * @returns {?boolean}        Whether site has the Jetpack Backup plugin active
  */
 export default function isBackupPluginActive( state, siteId ) {
-	const activeJetpackPlugins = getSiteOption( state, siteId, 'jetpack_connection_active_plugins' );
-	if ( activeJetpackPlugins && activeJetpackPlugins.includes( 'jetpack-backup' ) ) {
-		return true;
-	}
-
-	return false;
+	return isJetpackConnectionPluginActive( state, siteId, 'jetpack-backup' );
 }

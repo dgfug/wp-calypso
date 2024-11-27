@@ -1,22 +1,26 @@
 /**
  * Component which handle remote credentials for installing Jetpack
  */
-import { Button, Card, Gridicon } from '@automattic/components';
-import classnames from 'classnames';
+import page from '@automattic/calypso-router';
+import {
+	Button,
+	Card,
+	FormInputValidation,
+	FormLabel,
+	Gridicon,
+	Spinner,
+} from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { flowRight } from 'lodash';
-import page from 'page';
 import { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import FormattedHeader from 'calypso/components/formatted-header';
 import FormButton from 'calypso/components/forms/form-button';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormPasswordInput from 'calypso/components/forms/form-password-input';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import LoggedOutFormLinkItem from 'calypso/components/logged-out-form/link-item';
 import LoggedOutFormLinks from 'calypso/components/logged-out-form/links';
-import Spinner from 'calypso/components/spinner';
 import WordPressLogo from 'calypso/components/wordpress-logo';
 import { addQueryArgs } from 'calypso/lib/route';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
@@ -48,6 +52,7 @@ export class OrgCredentialsForm extends Component {
 	state = {
 		username: '',
 		password: '',
+		isUnloading: false,
 	};
 
 	handleSubmit = ( event ) => {
@@ -74,6 +79,12 @@ export class OrgCredentialsForm extends Component {
 		this.props.recordTracksEvent( 'calypso_jpc_remoteinstall_view', {
 			url: siteToConnect,
 		} );
+
+		window.addEventListener( 'beforeunload', this.beforeUnloadHandler );
+	}
+
+	componentWillUnmount() {
+		window.removeEventListener( 'beforeunload', this.beforeUnloadHandler );
 	}
 
 	componentDidUpdate() {
@@ -176,10 +187,10 @@ export class OrgCredentialsForm extends Component {
 		const { translate, isRemoteInstalling } = this.props;
 		const { password, username } = this.state;
 
-		const userClassName = classnames( 'jetpack-connect__credentials-form-input', {
+		const userClassName = clsx( 'jetpack-connect__credentials-form-input', {
 			'is-error': this.isInvalidUsername(),
 		} );
-		const passwordClassName = classnames( 'jetpack-connect__password-form-input', {
+		const passwordClassName = clsx( 'jetpack-connect__password-form-input', {
 			'is-error': this.isInvalidPassword(),
 		} );
 		const removedProtocolURL = this.props.siteToConnect.replace( /(^\w+:|^)\/\//, '' );
@@ -260,12 +271,15 @@ export class OrgCredentialsForm extends Component {
 
 	formFooter() {
 		const { isRemoteInstalling } = this.props;
+		const { username, password, isUnloading } = this.state;
 		return (
 			<div className="jetpack-connect__creds-form-footer">
-				{ isRemoteInstalling && <Spinner className="jetpack-connect__creds-form-spinner" /> }
+				{ ( isRemoteInstalling || isUnloading ) && (
+					<Spinner className="jetpack-connect__creds-form-spinner" />
+				) }
 				<FormButton
 					className="jetpack-connect__credentials-submit"
-					disabled={ ! this.state.username || ! this.state.password || isRemoteInstalling }
+					disabled={ ! username || ! password || isRemoteInstalling || isUnloading }
 				>
 					{ this.renderButtonLabel() }
 				</FormButton>
@@ -280,6 +294,12 @@ export class OrgCredentialsForm extends Component {
 			return;
 		}
 		page.redirect( '/jetpack/connect' );
+	};
+
+	beforeUnloadHandler = () => {
+		this.setState( {
+			isUnloading: true,
+		} );
 	};
 
 	footerLink() {

@@ -1,142 +1,93 @@
 /**
  * @jest-environment jsdom
  */
-
 import { parse } from 'url';
-import { assert } from 'chai';
-import { shallow } from 'enzyme';
-import { createElement } from 'react';
-import ReactDom from 'react-dom';
-import TestUtils from 'react-dom/test-utils';
-import sinon from 'sinon';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Theme } from '../';
 
 jest.mock( 'calypso/components/popover-menu', () => 'components--popover--menu' );
 jest.mock( 'calypso/components/popover-menu/item', () => 'components--popover--menu-item' );
+jest.mock( 'calypso/components/theme-tier/theme-tier-badge', () => 'components--theme-tier-badge' );
 
 describe( 'Theme', () => {
-	let props;
-	let themeNode;
-
-	beforeEach( () => {
-		props = {
-			theme: {
-				id: 'twentyseventeen',
-				name: 'Twenty Seventeen',
-				screenshot:
-					'https://i0.wp.com/s0.wp.com/wp-content/themes/pub/twentyseventeen/screenshot.png?ssl=1',
-			},
-			buttonContents: { dummyAction: { label: 'Dummy action', action: sinon.spy() } }, // TODO: test if called when clicked
-			translate: ( string ) => string,
-			setThemesBookmark: () => {},
-		};
-	} );
+	const props = {
+		theme: {
+			id: 'twentyseventeen',
+			name: 'Twenty Seventeen',
+			screenshot:
+				'https://i0.wp.com/s0.wp.com/wp-content/themes/pub/twentyseventeen/screenshot.png?ssl=1',
+		},
+		translate: ( string ) => string,
+		setThemesBookmark: () => {},
+		onScreenshotClick: () => {},
+	};
 
 	describe( 'rendering', () => {
-		describe( 'with default display buttonContents', () => {
-			beforeEach( () => {
-				props.onScreenshotClick = sinon.spy();
-				const themeElement = TestUtils.renderIntoDocument( createElement( Theme, props ) );
-				themeNode = ReactDom.findDOMNode( themeElement );
-			} );
+		test( 'should render an element with a className of "theme"', () => {
+			const { container } = render( <Theme { ...props } /> );
+			expect( container.firstChild ).toHaveClass( 'theme-card--is-actionable' );
+			expect( container.getElementsByTagName( 'h2' )[ 0 ] ).toHaveTextContent( 'Twenty Seventeen' );
+		} );
 
-			test( 'should render a <div> with a className of "theme"', () => {
-				assert( themeNode !== null, "DOM node doesn't exist" );
-				assert( themeNode.nodeName === 'DIV', 'nodeName doesn\'t equal "DIV"' );
-				assert.include(
-					themeNode.className,
-					'theme is-actionable',
-					'className does not contain "theme is-actionable"'
-				);
+		test( 'should render a screenshot', () => {
+			render( <Theme { ...props } /> );
+			const img = screen.getByRole( 'presentation' );
+			expect( img ).toHaveAttribute( 'src', expect.stringContaining( '/screenshot.png' ) );
+		} );
 
-				assert( themeNode.getElementsByTagName( 'h2' )[ 0 ].textContent === 'Twenty Seventeen' );
-			} );
+		test( 'should include photon parameters', () => {
+			render( <Theme { ...props } /> );
+			const img = screen.getByRole( 'presentation' );
+			const { query } = parse( img.getAttribute( 'src' ), true );
 
-			test( 'should render a screenshot', () => {
-				const imgNode = themeNode.getElementsByTagName( 'img' )[ 0 ];
-				const src = imgNode.getAttribute( 'src' );
-				assert.include( src, '/screenshot.png' );
-			} );
-
-			test( 'should include photon parameters', () => {
-				const imgNode = themeNode.getElementsByTagName( 'img' )[ 0 ];
-				const src = imgNode.getAttribute( 'src' );
-				const { query } = parse( src, true );
-
-				expect( query ).toMatchObject( {
-					fit: expect.stringMatching( /\d+,\d+/ ),
-				} );
-			} );
-
-			test( 'should call onScreenshotClick() on click on screenshot', () => {
-				const imgNode = themeNode.getElementsByTagName( 'img' )[ 0 ];
-				TestUtils.Simulate.click( imgNode );
-				assert( props.onScreenshotClick.calledOnce, 'onClick did not trigger onScreenshotClick' );
-			} );
-
-			test( 'should not show a price when there is none', () => {
-				assert(
-					themeNode.getElementsByClassName( 'price' ).length === 0,
-					'price should not appear'
-				);
-			} );
-
-			test( 'should render a More button', () => {
-				const more = themeNode.getElementsByClassName( 'theme__more-button' );
-
-				assert( more.length === 1, 'More button container not found' );
-				assert( more[ 0 ].getElementsByTagName( 'button' ).length === 1, 'More button not found' );
-			} );
-
-			test( 'should match snapshot', () => {
-				const rendered = shallow( <Theme { ...props } /> );
-				expect( rendered ).toMatchSnapshot();
+			expect( query ).toMatchObject( {
+				fit: expect.stringMatching( /\d+,\d+/ ),
 			} );
 		} );
 
-		describe( 'with empty buttonContents', () => {
-			beforeEach( () => {
-				props.buttonContents = {};
-				const themeElement = TestUtils.renderIntoDocument( createElement( Theme, props ) );
-				themeNode = ReactDom.findDOMNode( themeElement );
-			} );
+		test( 'should call onScreenshotClick() on click on screenshot', async () => {
+			const onScreenshotClick = jest.fn();
+			render( <Theme { ...props } onScreenshotClick={ onScreenshotClick } index={ 1 } /> );
 
-			test( 'should not render a More button', () => {
-				const more = themeNode.getElementsByClassName( 'theme__more-button' );
+			const img = screen.getByRole( 'presentation' );
+			await userEvent.click( img );
+			expect( onScreenshotClick ).toHaveBeenCalledTimes( 1 );
+			expect( onScreenshotClick ).toHaveBeenCalledWith( props.theme.id, 1 );
+		} );
 
-				assert( more.length === 0, 'More button container found' );
-			} );
+		test( 'should not show a price when there is none', () => {
+			const { container } = render( <Theme { ...props } /> );
+
+			expect( container.getElementsByClassName( 'price' ) ).toHaveLength( 0 );
+		} );
+
+		test( 'should match snapshot', () => {
+			const { container } = render( <Theme { ...props } /> );
+			expect( container.firstChild ).toMatchSnapshot();
 		} );
 	} );
 
 	describe( 'when isPlaceholder is set to true', () => {
-		beforeEach( () => {
-			const themeElement = TestUtils.renderIntoDocument(
-				createElement( Theme, {
-					theme: { id: 'placeholder-1', name: 'Loading' },
-					isPlaceholder: true,
-					translate: ( string ) => string,
-				} )
-			);
-			themeNode = ReactDom.findDOMNode( themeElement );
-		} );
+		test( 'should render an element with an is-placeholder class', () => {
+			const theme = { id: 'placeholder-1', name: 'Loading' };
+			const { container } = render( <Theme { ...props } theme={ theme } isPlaceholder /> );
 
-		test( 'should render a <div> with an is-placeholder class', () => {
-			assert( themeNode.nodeName === 'DIV', 'nodeName doesn\'t equal "DIV"' );
-			assert.include( themeNode.className, 'is-placeholder', 'no is-placeholder' );
+			expect( container.firstChild ).toHaveClass( 'is-placeholder' );
 		} );
 	} );
 
-	describe( 'when the theme has a price', () => {
-		beforeEach( () => {
-			const themeElement = TestUtils.renderIntoDocument(
-				createElement( Theme, { ...props, price: '$50' } )
-			);
-			themeNode = ReactDom.findDOMNode( themeElement );
-		} );
-
-		test( 'should show a price', () => {
-			assert( themeNode.getElementsByClassName( 'theme__badge-price' )[ 0 ].textContent === '$50' );
+	describe( 'Update themes', () => {
+		test( 'Should show the update message', () => {
+			const updateThemeProps = {
+				...props,
+				theme: {
+					...props.theme,
+					update: {},
+				},
+			};
+			const { container } = render( <Theme { ...updateThemeProps } /> );
+			expect( container.getElementsByClassName( 'theme__update-alert' ).length ).toBe( 1 );
 		} );
 	} );
 } );

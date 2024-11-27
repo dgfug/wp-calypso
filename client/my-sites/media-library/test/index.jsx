@@ -1,10 +1,9 @@
 /**
  * @jest-environment jsdom
  */
-
-import { expect } from 'chai';
-import { mount } from 'enzyme';
+import media from 'calypso/state/media/reducer';
 import { requestKeyringConnections as requestStub } from 'calypso/state/sharing/keyring/actions';
+import { renderWithProvider } from 'calypso/test-helpers/testing-library';
 import MediaLibrary from '..';
 
 jest.mock( 'calypso/components/data/query-preferences', () =>
@@ -23,69 +22,62 @@ jest.mock( 'calypso/my-sites/media-library/filter-bar', () =>
 	require( 'calypso/components/empty-component' )
 );
 jest.mock( 'calypso/state/sharing/keyring/actions', () => ( {
-	requestKeyringConnections: require( 'sinon' ).stub(),
+	requestKeyringConnections: jest.fn().mockImplementation( () => () => ( {} ) ),
 } ) );
 jest.mock( 'calypso/state/sharing/keyring/selectors', () => ( {
 	getKeyringConnections: () => null,
 	isKeyringConnectionsFetching: () => null,
 } ) );
 
+jest.mock( 'calypso/state/media/actions', () => ( {
+	requestPhotosPickerFeatureStatus: jest.fn().mockImplementation( () => () => ( {} ) ),
+} ) );
+
 describe( 'MediaLibrary', () => {
-	const store = {
-		getState: () => ( {
-			media: {
-				errors: {},
-				queries: {},
-				selectedItems: {},
-			},
-			sites: [],
-		} ),
-		dispatch: () => false,
-		subscribe: () => false,
+	const props = {
+		site: { ID: 123 },
 	};
-
-	const site = {
-		ID: 123,
-	};
-
-	beforeEach( () => {
-		requestStub.resetHistory();
-	} );
 
 	const getItem = ( source ) =>
-		mount( <MediaLibrary site={ site } store={ store } source={ source } /> );
+		renderWithProvider( <MediaLibrary { ...props } source={ source } />, {
+			reducers: { media },
+		} );
 
 	describe( 'keyring request', () => {
+		afterEach( () => {
+			requestStub.mockClear();
+		} );
+
 		test( 'is issued when component mounted and viewing an external source', () => {
 			getItem( 'google_photos' );
 
-			expect( requestStub.callCount ).to.equal( 1 );
+			expect( requestStub ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		test( 'is not issued when component mounted and viewing wordpress', () => {
 			getItem( '' );
 
-			expect( requestStub.callCount ).to.equal( 0 );
+			expect( requestStub ).toHaveBeenCalledTimes( 0 );
 		} );
 
 		test( 'is issued when component source changes and now viewing an external source', () => {
-			const library = getItem( '' );
+			const { rerender } = getItem( '' );
 
-			library.setProps( { source: 'google_photos' } );
-			expect( requestStub.callCount ).to.equal( 1 );
+			rerender( <MediaLibrary { ...props } source="google_photos" /> );
+			expect( requestStub ).toHaveBeenCalledTimes( 1 );
 		} );
 
 		test( 'is not issued when component source changes and not viewing an external source', () => {
-			const library = getItem( '' );
+			const { rerender } = getItem( '' );
 
-			library.setProps( { source: '' } );
-			expect( requestStub.callCount ).to.equal( 0 );
+			rerender( <MediaLibrary { ...props } source="" /> );
+			expect( requestStub ).toHaveBeenCalledTimes( 0 );
 		} );
 
 		test( 'is not issued when the external source does not need user connection', () => {
 			getItem( 'pexels' );
 
-			expect( requestStub.callCount ).to.equal( 0 );
+			expect( requestStub ).toHaveBeenCalledTimes( 0 );
 		} );
 	} );
 } );

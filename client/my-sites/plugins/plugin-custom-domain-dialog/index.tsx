@@ -1,7 +1,7 @@
 import { Dialog } from '@automattic/components';
 import { useLocalizeUrl } from '@automattic/i18n-utils';
 import { useTranslate } from 'i18n-calypso';
-import { useSelector } from 'react-redux';
+import { useSelector } from 'calypso/state';
 import { getSelectedSiteSlug } from 'calypso/state/ui/selectors';
 import PluginIcon from '../plugin-icon/plugin-icon';
 import './style.scss';
@@ -20,11 +20,11 @@ export const PluginCustomDomainDialog = ( {
 	closeDialog,
 	isDialogVisible,
 	onProceed,
-}: Props ): JSX.Element => {
+}: Props ) => {
 	const translate = useTranslate();
 	const localizeUrl = useLocalizeUrl();
 
-	const selectedSiteUrl = useSelector( ( state ) => getSelectedSiteSlug( state ) );
+	const selectedSiteUrl = useSelector( getSelectedSiteSlug );
 
 	const hasNonPrimaryCustomDomain = domains.some(
 		( { isPrimary, isSubdomain } ) => ! isPrimary && ! isSubdomain
@@ -42,10 +42,9 @@ export const PluginCustomDomainDialog = ( {
 			label: translate( 'Manage domains' ),
 		},
 		{
+			className: 'plugin-custom-domain-dialog__install_plugin',
 			action: 'install-plugin',
-			label: translate( 'Install %(pluginName)s', {
-				args: { pluginName: plugin.name },
-			} ),
+			label: translate( 'Install' ),
 			isPrimary: true,
 			onClick: onProceed,
 		},
@@ -60,15 +59,15 @@ export const PluginCustomDomainDialog = ( {
 				<div className="plugin-custom-domain-dialog__description">
 					{ hasNonPrimaryCustomDomain
 						? translate(
-								'%(pluginName)s will help you optimize your site around your primary domain. We recommend setting your custom domain as your primary before installing.',
+								'{{pluginName/}} will help you optimize your site around your primary domain. We recommend setting your custom domain as your primary before installing.',
 								{
-									args: { pluginName: plugin.name },
+									components: { pluginName: <strong>{ plugin.name }</strong> },
 								}
 						  )
 						: translate(
-								'%(pluginName)s will help you optimize your site around your primary domain. We recommend adding a custom domain before installing.',
+								'{{pluginName/}} will help you optimize your site around your primary domain. We recommend adding a custom domain before installing.',
 								{
-									args: { pluginName: plugin.name },
+									components: { pluginName: <strong>{ plugin.name }</strong> },
 								}
 						  ) }
 				</div>

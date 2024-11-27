@@ -1,64 +1,73 @@
 .contact-information {
-    &__card {
-        padding: 0;
-        box-shadow: none;
-        margin-bottom: 0;
-    }
+	&__card {
+		padding: 0;
+		box-shadow: none;
+		margin-bottom: 0;
+	}
 
-    &__main {
-        padding-bottom: 24px;
+	&__main {
+		padding-bottom: 24px;
 
-        .contact-display {
-            padding-bottom: 16px;
+		.contact-display {
+			padding-bottom: 16px;
 
-            &__content {
-                background-color: transparent;
-                padding: 0;
-                line-height: 20px;
-                font-size: $font-body-small;
-                color: var( --studio-gray-80 );
+			&__content {
+				background-color: transparent;
+				padding: 0;
+				line-height: 20px;
+				font-size: $font-body-small;
+				color: var(--studio-gray-80);
 
-                p {
-                    margin-bottom: 0;
-                }
-            }
-        }
-    }
+				p {
+					margin-bottom: 0;
+				}
+			}
+		}
 
-    &__toggle {
-        &-container {
-            display: flex;
-            flex-wrap: wrap;
-            row-gap: 8px;
-        }
+		.contact-information__transfer-warn,
+		.contact-information__pending-update-warn {
+			margin-top: 1em;
+			margin-bottom: 0;
+			color: var(--studio-red-50);
+			font-size: $font-body-small;
+		}
+	}
 
-        &-item {
-            font-size: $font-body-small;
-            color: var( --studio-gray-80 );
-            margin-bottom: 0;
+	&__toggle {
+		&-container {
+			display: flex;
+			flex-wrap: wrap;
+			row-gap: 8px;
+		}
 
-            flex: 1 0 100%;
+		&-item {
+			font-size: $font-body-small;
+			color: var(--studio-gray-80);
+			margin-bottom: 0;
 
-            .components-base-control {
-                font-size: inherit;
-                color: inherit;
+			flex: 1 0 100%;
 
-                &__field {
-                    margin-bottom: 0;
-                }
-            }
-        }
-    }
+			.components-base-control {
+				font-size: inherit;
+				color: inherit;
 
-    &__button-container {
-        display: flex;
-        column-gap: 16px;
-    }
+				&__field {
+					margin-bottom: 0;
+				}
+			}
+		}
+	}
+
+	&__button-container {
+		display: flex;
+		column-gap: 16px;
+	}
 }
 
-.non-owner-card {
+.non-owner-card,
+.info-notice {
 	flex-basis: 100%;
-	background-color: var( --studio-gray-0 );
+	background-color: var(--studio-gray-0);
 	display: flex;
 	align-items: center;
 	padding: 8px;
@@ -68,7 +77,7 @@
 	&__icon.gridicon {
 		align-self: flex-start;
 		min-width: 18px;
-		fill: var( --studio-orange-40 );
+		fill: var(--studio-orange-40);
 		position: relative;
 		top: 2px;
 	}
@@ -76,6 +85,6 @@
 	&__message {
 		font-weight: 400;
 		font-size: $font-body-small;
-		color: var( --studio-gray-80 );
+		color: var(--studio-gray-80);
 	}
 }

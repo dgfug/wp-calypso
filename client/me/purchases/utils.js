@@ -1,5 +1,6 @@
-import { isDomainTransfer } from '@automattic/calypso-products';
+import { isDomainTransfer, is100Year } from '@automattic/calypso-products';
 import {
+	isCloseToExpiration,
 	isExpired,
 	isIncludedWithPlan,
 	isOneTimePurchase,
@@ -16,7 +17,8 @@ function canEditPaymentDetails( purchase ) {
 		! isExpired( purchase ) &&
 		! isOneTimePurchase( purchase ) &&
 		! isIncludedWithPlan( purchase ) &&
-		! isDomainTransfer( purchase )
+		! isDomainTransfer( purchase ) &&
+		( ! is100Year( purchase ) || isCloseToExpiration( purchase ) )
 	);
 }
 
@@ -36,8 +38,36 @@ function getAddNewPaymentMethodPath() {
 	return addNewPaymentMethod;
 }
 
-function isJetpackTemporarySitePurchase( domain ) {
-	return 'siteless.jetpack.com' === domain;
+function isTemporarySitePurchase( purchase ) {
+	const { domain } = purchase;
+	// Currently only Jeypack, Akismet and some Marketplace products allow siteless/userless(license-based) purchases which require a temporary
+	// site(s) to work. This function may need to be updated in the future as additional products types
+	// incorporate siteless/userless(licensebased) product based purchases..
+	return /^siteless.(jetpack|akismet|marketplace.wp).com$/.test( domain );
+}
+
+function getTemporarySiteType( purchase ) {
+	const { productType } = purchase;
+	return isTemporarySitePurchase( purchase ) ? productType : null;
+}
+
+function isAkismetTemporarySitePurchase( purchase ) {
+	const { productType } = purchase;
+	return isTemporarySitePurchase( purchase ) && productType === 'akismet';
+}
+
+function isMarketplaceTemporarySitePurchase( purchase ) {
+	const { productType } = purchase;
+	return isTemporarySitePurchase( purchase ) && productType === 'saas_plugin';
+}
+
+function isJetpackTemporarySitePurchase( purchase ) {
+	const { productType } = purchase;
+	return isTemporarySitePurchase( purchase ) && productType === 'jetpack';
+}
+
+function getCancelPurchaseSurveyCompletedPreferenceKey( purchaseId ) {
+	return `cancel-purchase-survey-completed-${ purchaseId }`;
 }
 
 export {
@@ -45,5 +75,10 @@ export {
 	getChangePaymentMethodPath,
 	getAddNewPaymentMethodPath,
 	isDataLoading,
+	isTemporarySitePurchase,
+	getCancelPurchaseSurveyCompletedPreferenceKey,
+	getTemporarySiteType,
 	isJetpackTemporarySitePurchase,
+	isAkismetTemporarySitePurchase,
+	isMarketplaceTemporarySitePurchase,
 };

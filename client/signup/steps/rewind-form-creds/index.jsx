@@ -25,12 +25,9 @@ class RewindFormCreds extends Component {
 
 	/**
 	 * Before component updates, check if credentials were correctly saved and go to next step.
-	 *
-	 * @param {object} nextProps Props received by component for next update.
 	 */
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillUpdate( nextProps ) {
-		if ( nextProps.rewindIsNowActive ) {
+	componentDidUpdate() {
+		if ( this.props.rewindIsNowActive ) {
 			this.props.submitSignupStep( { stepName: this.props.stepName }, { rewindconfig: true } );
 			this.props.goToNextStep();
 		}
@@ -38,8 +35,7 @@ class RewindFormCreds extends Component {
 
 	/**
 	 * Don't update the component if the Rewind state is the same.
-	 *
-	 * @param {object} nextProps Props received by component for next update.
+	 * @param {Object} nextProps Props received by component for next update.
 	 * @returns {boolean} False if the Rewind state is the same.
 	 */
 	shouldComponentUpdate( nextProps ) {
@@ -75,8 +71,8 @@ class RewindFormCreds extends Component {
 				stepName={ this.props.stepName }
 				positionInFlow={ this.props.positionInFlow }
 				stepContent={ this.stepContent() }
-				hideFormattedHeader={ true }
-				hideSkip={ true }
+				hideFormattedHeader
+				hideSkip
 				hideBack={ false }
 			/>
 		);

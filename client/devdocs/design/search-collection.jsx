@@ -1,6 +1,6 @@
 import { map, chunk } from 'lodash';
 import { Children } from 'react';
-import { InView } from 'react-intersection-observer';
+import { useInView } from 'react-intersection-observer';
 import ReadmeViewer from 'calypso/components/readme-viewer';
 import ComponentPlayground from 'calypso/devdocs/design/component-playground';
 import Placeholder from 'calypso/devdocs/devdocs-async-load/placeholder';
@@ -127,17 +127,24 @@ const Collection = ( {
 			{ map( chunk( examples.slice( examplesToMount ), examplesToMount ), ( exampleGroup ) => {
 				const groupKey = map( exampleGroup, ( example ) => example.key ).join( '_' );
 				return (
-					<InView key={ groupKey } triggerOnce>
-						{ ( { inView, ref } ) => (
-							<div ref={ ref }>
-								{ inView ? exampleGroup : <Placeholder count={ examplesToMount } /> }
-							</div>
-						) }
-					</InView>
+					<LazyExampleGroup
+						key={ groupKey }
+						exampleGroup={ exampleGroup }
+						examplesToMount={ examplesToMount }
+					/>
 				);
 			} ) }
 		</div>
 	);
 };
+
+function LazyExampleGroup( { exampleGroup, examplesToMount } ) {
+	const { ref, inView } = useInView( {
+		triggerOnce: true,
+	} );
+	return (
+		<div ref={ ref }>{ inView ? exampleGroup : <Placeholder count={ examplesToMount } /> }</div>
+	);
+}
 
 export default Collection;

@@ -23,10 +23,9 @@ const DEFAULT_ASYNC_TIMEOUT = 30000;
  * which needs to be retrieved via OAuth.
  *
  * Request Handler is optional and XHR is defined as default.
- *
  * @param {string} [token] - OAuth API access token
  * @param {Function} [reqHandler] - function Request Handler
- * @returns {WPCOM} wpcom instance
+ * @returns {WPCOM|undefined} wpcom instance
  */
 export default function WPCOM( token, reqHandler ) {
 	if ( ! ( this instanceof WPCOM ) ) {
@@ -62,8 +61,24 @@ export default function WPCOM( token, reqHandler ) {
 }
 
 /**
+ * Add a token to this instance of WPCOM.
+ * When loaded, the token is applied to the param object of each subsequent request.
+ * @param {string} [token] - oauth token
+ */
+WPCOM.prototype.loadToken = function ( token ) {
+	this.token = token;
+};
+
+/**
+ * Returns a boolean representing whether or not the token has been loaded.
+ * @returns {boolean} oauth token
+ */
+WPCOM.prototype.isTokenLoaded = function () {
+	return this.token !== undefined;
+};
+
+/**
  * Return `Me` object instance
- *
  * @returns {Me} Me instance
  */
 WPCOM.prototype.me = function () {
@@ -72,7 +87,6 @@ WPCOM.prototype.me = function () {
 
 /**
  * Return `Domains` object instance
- *
  * @returns {Domains} Domains instance
  */
 WPCOM.prototype.domains = function () {
@@ -81,7 +95,6 @@ WPCOM.prototype.domains = function () {
 
 /**
  * Return `Domain` object instance
- *
  * @param {string} domainId - domain identifier
  * @returns {Domain} Domain instance
  */
@@ -91,7 +104,6 @@ WPCOM.prototype.domain = function ( domainId ) {
 
 /**
  * Return `Site` object instance
- *
  * @param {string} id - site identifier
  * @returns {Site} Site instance
  */
@@ -101,7 +113,6 @@ WPCOM.prototype.site = function ( id ) {
 
 /**
  * Return `Users` object instance
- *
  * @returns {Users} Users instance
  */
 WPCOM.prototype.users = function () {
@@ -110,7 +121,6 @@ WPCOM.prototype.users = function () {
 
 /**
  * Return `Plans` object instance
- *
  * @returns {Plans} Plans instance
  */
 WPCOM.prototype.plans = function () {
@@ -119,7 +129,6 @@ WPCOM.prototype.plans = function () {
 
 /**
  * Return `Batch` object instance
- *
  * @returns {Batch} Batch instance
  */
 WPCOM.prototype.batch = function () {
@@ -128,8 +137,7 @@ WPCOM.prototype.batch = function () {
 
 /**
  * List Freshly Pressed Posts
- *
- * @param {object} [query] - query object
+ * @param {Object} [query] - query object
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -173,7 +181,6 @@ if ( ! Promise.prototype.timeout ) {
 	 * After the timeout interval, the promise will
 	 * reject. If the actual promise settles before
 	 * the deadline, the timer is cancelled.
-	 *
 	 * @param {number} delay how many ms to wait
 	 * @returns {Promise} promise
 	 */

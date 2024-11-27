@@ -1,12 +1,12 @@
 import {
 	CURRENT_USER_RECEIVE,
 	CURRENT_USER_SET_EMAIL_VERIFIED,
+	CURRENT_USER_SET_JETPACK_PARTNER_TYPE,
 	SITE_RECEIVE,
 	SITES_RECEIVE,
 } from 'calypso/state/action-types';
 import { combineReducers, withSchemaValidation } from 'calypso/state/utils';
 import emailVerification from './email-verification/reducer';
-import gravatarStatus from './gravatar-status/reducer';
 import { capabilitiesSchema, flagsSchema, idSchema, lasagnaSchema } from './schema';
 
 /**
@@ -14,13 +14,12 @@ import { capabilitiesSchema, flagsSchema, idSchema, lasagnaSchema } from './sche
  *
  * In development, if you are receiving Redux errors like this:
  *
- *     Error: Given action "CURRENT_USER_RECEIVE", reducer "id" returned undefined.
+ * Error: Given action "CURRENT_USER_RECEIVE", reducer "id" returned undefined.
  *
  * This is likely caused by a server-side error or stored state corruption/auth token expiry.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export const id = withSchemaValidation( idSchema, ( state = null, action ) => {
 	switch ( action.type ) {
@@ -39,6 +38,15 @@ export const user = ( state = null, action ) => {
 			return {
 				...state,
 				email_verified: action.verified,
+			};
+		case CURRENT_USER_SET_JETPACK_PARTNER_TYPE:
+			return {
+				...state,
+				jetpack_partner_types: [
+					...( state.jetpack_partner_types || [] ),
+					action.jetpack_partner_type,
+				],
+				has_jetpack_partner_access: true,
 			};
 	}
 
@@ -59,9 +67,8 @@ export const flags = withSchemaValidation( flagsSchema, ( state = [], action ) =
  *
  * Capability sets are simple objects with boolean flags,
  * so comparison is as simple as comparing objects at the first level.
- *
- * @param  {object} capA First set of capabilities
- * @param  {object} capB Second set of capabilities
+ * @param  {Object} capA First set of capabilities
+ * @param  {Object} capB Second set of capabilities
  * @returns {boolean} True if capability sets are the same, false otherwise.
  */
 function areCapabilitiesEqual( capA, capB ) {
@@ -78,10 +85,9 @@ function areCapabilitiesEqual( capA, capB ) {
  * Returns the updated capabilities state after an action has been dispatched.
  * The state maps site ID keys to an object of current user capabilities for
  * that site.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export const capabilities = withSchemaValidation( capabilitiesSchema, ( state = {}, action ) => {
 	switch ( action.type ) {
@@ -120,7 +126,6 @@ export default combineReducers( {
 	user,
 	capabilities,
 	flags,
-	gravatarStatus,
 	emailVerification,
 	lasagnaJwt,
 } );

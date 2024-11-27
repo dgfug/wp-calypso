@@ -1,7 +1,9 @@
-export * from './available-designs-config';
 export * from './available-designs';
-export * from './fonts';
+export * from './designs';
+export * from './global-styles';
+export * from './is-locked-style-variation';
 import { SHOW_ALL_SLUG } from '../constants';
+import { isBlankCanvasDesign } from './available-designs';
 import type { Category, Design } from '../types';
 
 export function gatherCategories( designs: Design[] ): Category[] {
@@ -29,8 +31,10 @@ export function filterDesignsByCategory(
 	}
 
 	return designs.filter(
-		( { categories, showFirst } ) =>
-			showFirst || categories.find( ( { slug } ) => slug === categorySlug )
+		( design ) =>
+			design.showFirst ||
+			isBlankCanvasDesign( design ) ||
+			design.categories.find( ( { slug } ) => slug === categorySlug )
 	);
 }
 

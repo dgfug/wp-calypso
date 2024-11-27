@@ -3,7 +3,6 @@ const root = '/domains/';
 class DomainDns {
 	/**
 	 * `DomainDns` constructor.
-	 *
 	 * @param {string} domainId - domain identifier
 	 * @param {WPCOM} wpcom - wpcom instance
 	 * @returns {undefined} undefined
@@ -20,9 +19,8 @@ class DomainDns {
 
 	/**
 	 * Adds a DNS record
-	 *
-	 * @param {object} record - record
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} record - record
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -37,9 +35,8 @@ class DomainDns {
 
 	/**
 	 * Delete a DNS record
-	 *
 	 * @param {string} record - record
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -49,8 +46,7 @@ class DomainDns {
 
 	/**
 	 * Sets the default A records also deleting any A and AAAA custom records.
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} [fn] - callback function
 	 * @returns {Function} request handler
 	 */

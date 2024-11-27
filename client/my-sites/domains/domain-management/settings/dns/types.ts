@@ -1,10 +1,11 @@
-import { DnsRequest, DnsRecord } from 'calypso/lib/domains/types';
-import type { SiteData } from 'calypso/state/ui/selectors/site-data';
+import { DnsRequest, DnsRecord, ResponseDomain } from 'calypso/lib/domains/types';
+import type { SiteDetails } from '@automattic/data-stores';
 
 export type DnsDetailsProps = {
 	dns: DnsRequest;
+	selectedDomain: ResponseDomain;
 	selectedDomainName: string;
-	selectedSite: SiteData;
+	selectedSite: SiteDetails;
 	currentRoute: string;
 };
 

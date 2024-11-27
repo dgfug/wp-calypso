@@ -2,7 +2,6 @@ import {
 	isFreeJetpackPlan,
 	isFreePlan,
 	isJetpackProduct,
-	getJetpackProductDisplayName,
 	getJetpackProductTagline,
 	isJetpackBackup,
 	isJetpackScan,
@@ -13,6 +12,7 @@ import {
 	PRODUCT_JETPACK_SCAN,
 	PRODUCT_JETPACK_BACKUP_REALTIME,
 	JETPACK_BACKUP_PRODUCTS,
+	JETPACK_BACKUP_ADDON_PRODUCTS,
 	TERM_MONTHLY,
 } from '@automattic/calypso-products';
 import { Button, Card, Gridicon } from '@automattic/components';
@@ -29,12 +29,12 @@ import { withLocalizedMoment } from 'calypso/components/localized-moment';
 import ProductExpiration from 'calypso/components/product-expiration';
 import {
 	isExpiring,
+	getDisplayName,
 	isPartnerPurchase,
 	shouldAddPaymentSourceInsteadOfRenewingNow,
 } from 'calypso/lib/purchases';
 import { managePurchase } from 'calypso/me/purchases/paths';
 import OwnerInfo from 'calypso/me/purchases/purchase-item/owner-info';
-import { isEligibleForProPlan } from 'calypso/my-sites/plans-comparison';
 import { getManagePurchaseUrlFor } from 'calypso/my-sites/purchases/paths';
 import { getCurrentUserId } from 'calypso/state/current-user/selectors';
 import { getSitePurchases } from 'calypso/state/purchases/selectors';
@@ -108,7 +108,7 @@ class PurchasesListing extends Component {
 		const { currentPlan, translate } = this.props;
 
 		if ( isJetpackProduct( purchase ) ) {
-			return getJetpackProductDisplayName( purchase );
+			return getDisplayName( purchase );
 		}
 
 		if ( currentPlan ) {
@@ -174,7 +174,7 @@ class PurchasesListing extends Component {
 	}
 
 	getActionButton( purchase ) {
-		const { selectedSiteSlug, translate, currentUserId, eligibleForProPlan } = this.props;
+		const { selectedSiteSlug, translate, currentUserId } = this.props;
 
 		// No action button if there's no site selected.
 		if ( ! selectedSiteSlug || ! purchase ) {
@@ -228,11 +228,11 @@ class PurchasesListing extends Component {
 						: '#'
 				}
 				disabled={ ! userIsPurchaseOwner }
-				compact={ ! eligibleForProPlan }
+				compact
 			>
 				{ label }
 				&nbsp;
-				<OwnerInfo purchaseId={ purchase?.id } />
+				<OwnerInfo purchase={ purchase } />
 			</Button>
 		);
 	}
@@ -250,9 +250,9 @@ class PurchasesListing extends Component {
 		const planHasScan = planHasFeature( plan.productSlug, PRODUCT_JETPACK_SCAN );
 
 		if ( planHasBackup && planHasScan ) {
-			serviceButtonText = translate( 'View Backup & Scan' );
+			serviceButtonText = translate( 'View VaultPress Backup & Scan' );
 		} else if ( planHasBackup ) {
-			serviceButtonText = translate( 'View Backup' );
+			serviceButtonText = translate( 'View VaultPress Backup' );
 		} else if ( planHasScan ) {
 			serviceButtonText = translate( 'View Scan' );
 		}
@@ -334,15 +334,13 @@ class PurchasesListing extends Component {
 	}
 
 	renderPlan() {
-		const { currentPlan, isPlanExpiring, translate, eligibleForProPlan } = this.props;
+		const { currentPlan, isPlanExpiring, translate } = this.props;
 
 		return (
 			<Fragment>
-				{ ! eligibleForProPlan && (
-					<Card compact>
-						<strong>{ translate( 'My Plan' ) }</strong>
-					</Card>
-				) }
+				<Card compact>
+					<strong>{ translate( 'My Plan' ) }</strong>
+				</Card>
 				{ this.isLoading() ? (
 					<MyPlanCard isPlaceholder />
 				) : (
@@ -360,15 +358,41 @@ class PurchasesListing extends Component {
 		);
 	}
 
+	sortBackupProducts( products ) {
+		//create a new array with the backup products first then the add-ons
+		let backupIndex = -1;
+		const backupSortedArray = [];
+		const addOnProducts = [];
+		products.forEach( ( product ) => {
+			if ( JETPACK_BACKUP_ADDON_PRODUCTS.includes( product.productSlug ) ) {
+				if ( backupIndex === -1 ) {
+					addOnProducts.push( product );
+				} else {
+					backupSortedArray.splice( backupIndex + 1, 0, product );
+				}
+			} else if ( JETPACK_BACKUP_PRODUCTS.includes( product.productSlug ) ) {
+				backupSortedArray.push( product );
+				backupIndex = backupSortedArray.length - 1;
+				if ( addOnProducts.length ) {
+					backupSortedArray.push( ...addOnProducts );
+				}
+			} else {
+				backupSortedArray.push( product );
+			}
+		} );
+		return backupSortedArray;
+	}
+
 	renderProducts() {
 		const { translate } = this.props;
 
 		// Get all products and filter out falsy items.
-		const productPurchases = this.getProductPurchases();
-
+		let productPurchases = this.getProductPurchases();
 		if ( productPurchases.length === 0 ) {
 			return null;
 		}
+
+		productPurchases = this.sortBackupProducts( productPurchases );
 
 		return (
 			<Fragment>
@@ -426,6 +450,5 @@ export default connect( ( state ) => {
 		selectedSiteSlug: getSelectedSiteSlug( state ),
 		isCloudEligible: isJetpackCloudEligible( state, selectedSiteId ),
 		currentUserId: getCurrentUserId( state ),
-		eligibleForProPlan: isEligibleForProPlan( state, selectedSiteId ),
 	};
 } )( localize( withLocalizedMoment( PurchasesListing ) ) );

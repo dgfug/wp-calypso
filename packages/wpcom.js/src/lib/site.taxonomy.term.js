@@ -5,7 +5,6 @@
 class SiteTaxonomyTerm {
 	/**
 	 * Create a SiteTaxonomyTerm instance
-	 *
 	 * @param {string} term - term slug
 	 * @param {string} taxonomy - taxonomy type
 	 * @param {string} siteId - site id
@@ -35,8 +34,7 @@ class SiteTaxonomyTerm {
 
 	/**
 	 * Get Term details
-	 *
-	 * @param {object} [query] - query parameters
+	 * @param {Object} [query] - query parameters
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */
@@ -57,8 +55,7 @@ class SiteTaxonomyTerm {
 
 	/**
 	 * Add new Term
-	 *
-	 * @param {object} [params] - term parameters
+	 * @param {Object} [params] - term parameters
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */
@@ -74,7 +71,6 @@ class SiteTaxonomyTerm {
 
 	/**
 	 * Delete Term
-	 *
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */
@@ -90,8 +86,7 @@ class SiteTaxonomyTerm {
 
 	/**
 	 * Update Term
-	 *
-	 * @param {object} [params] - term parameters
+	 * @param {Object} [params] - term parameters
 	 * @param {Function} fn - callback function
 	 * @returns {Promise} Promise
 	 */

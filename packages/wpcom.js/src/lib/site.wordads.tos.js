@@ -1,9 +1,8 @@
 /**
  * `SiteWordAdsTOS` constructor.
- *
  * @param {string} sid - site identifier
  * @param {WPCOM} wpcom - wpcom instance
- * @returns {null} null
+ * @returns {SiteWordAdsTOS|undefined}
  */
 export default function SiteWordAdsTOS( sid, wpcom ) {
 	if ( ! ( this instanceof SiteWordAdsTOS ) ) {
@@ -18,16 +17,15 @@ export default function SiteWordAdsTOS( sid, wpcom ) {
  * GET site's WordAds TOS
  *
  * Example:
- *    // Get site TOS information
- *    wpcom
- *    .site( 'my-blog.wordpress.com' )
- *    .wordAds()
- *    .tos()
- *    .get( function( err, data ) {
- *      // `settings` information object
- *    } );
- *
- * @param {object} [query] - query object parameter
+ * // Get site TOS information
+ * wpcom
+ * .site( 'my-blog.wordpress.com' )
+ * .wordAds()
+ * .tos()
+ * .get( function( err, data ) {
+ * // `settings` information object
+ * } );
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -39,17 +37,16 @@ SiteWordAdsTOS.prototype.get = function ( query, fn ) {
  * UPDATE site's WordAds TOS
  *
  * Example:
- *    // Update TOS
- *    wpcom
- *    .site( 'my-blog.wordpress.com' )
- *    .wordAds()
- *    .tos()
- *    .update( { tos: 'signed' }, function( err, data ) {
- *      // data settings information object
- *    } );
- *
- * @param {object} [query] - query object parameter
- * @param {object} body - body object parameter
+ * // Update TOS
+ * wpcom
+ * .site( 'my-blog.wordpress.com' )
+ * .wordAds()
+ * .tos()
+ * .update( { tos: 'signed' }, function( err, data ) {
+ * // data settings information object
+ * } );
+ * @param {Object} [query] - query object parameter
+ * @param {Object} body - body object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */
@@ -62,16 +59,15 @@ SiteWordAdsTOS.prototype.update = function ( query, body, fn ) {
  * SIGN site's WordAds TOS
  *
  * Example:
- *    // Sign TOS
- *    wpcom
- *    .site( 'my-blog.wordpress.com' )
- *    .wordAds()
- *    .tos()
- *    .sign( function( err, data ) {
- *      // data settings information object
- *    } );
- *
- * @param {object} [query] - query object parameter
+ * // Sign TOS
+ * wpcom
+ * .site( 'my-blog.wordpress.com' )
+ * .wordAds()
+ * .tos()
+ * .sign( function( err, data ) {
+ * // data settings information object
+ * } );
+ * @param {Object} [query] - query object parameter
  * @param {Function} fn - callback function
  * @returns {Function} request handler
  */

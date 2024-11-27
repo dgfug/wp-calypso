@@ -1,19 +1,22 @@
 import { recordTracksEvent } from '@automattic/calypso-analytics';
+import page from '@automattic/calypso-router';
 import { Button, Gridicon } from '@automattic/components';
 import styled from '@emotion/styled';
-import { useRef } from '@wordpress/element';
 import { sprintf, _x } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import { addQueryArgs } from '@wordpress/url';
-import page from 'page';
 import EmptyContent from 'calypso/components/empty-content';
-import FixedNavigationHeader from 'calypso/components/fixed-navigation-header';
 import FormattedHeader from 'calypso/components/formatted-header';
 import InlineSupportLink from 'calypso/components/inline-support-link';
+import NavigationHeader from 'calypso/components/navigation-header';
 import PromoSection, { Props as PromoSectionProps } from 'calypso/components/promo-section';
 import WarningCard from 'calypso/components/warning-card';
+import { useSendEmailVerification } from 'calypso/landing/stepper/hooks/use-send-email-verification';
+import useScrollAboveElement from 'calypso/lib/use-scroll-above-element';
 import useWooCommerceOnPlansEligibility from 'calypso/signup/steps/woocommerce-install/hooks/use-woop-handling';
-import { useIsSimpleSeller } from 'calypso/state/sites/hooks';
+import { useDispatch, useSelector } from 'calypso/state';
+import { errorNotice, successNotice } from 'calypso/state/notices/actions';
+import getSiteOption from 'calypso/state/sites/selectors/get-site-option';
 import WooCommerceColophon from './woocommerce-colophon';
 
 import './style.scss';
@@ -36,17 +39,13 @@ interface DisplayData {
 
 const LandingPage: React.FunctionComponent< Props > = ( { siteId } ) => {
 	const { __ } = useI18n();
-	const navigationItems = [ { label: 'WooCommerce' } ];
-	const ctaRef = useRef( null );
-	const simpleSeller = useIsSimpleSeller();
+	const currentIntent = useSelector( ( state ) => getSiteOption( state, siteId, 'site_intent' ) );
 
-	const {
-		isTransferringBlocked,
-		wpcomDomain,
-		isDataReady,
-		currentUserEmail,
-		isEmailVerified,
-	} = useWooCommerceOnPlansEligibility( siteId );
+	const dispatch = useDispatch();
+	const sendEmailVerification = useSendEmailVerification();
+
+	const { isTransferringBlocked, wpcomDomain, isDataReady, currentUserEmail, isEmailVerified } =
+		useWooCommerceOnPlansEligibility( siteId );
 
 	function onCTAClickHandler() {
 		recordTracksEvent( 'calypso_woocommerce_dashboard_action_click', {
@@ -62,23 +61,22 @@ const LandingPage: React.FunctionComponent< Props > = ( { siteId } ) => {
 		);
 	}
 
-	function renderWarningNotice() {
-		if ( currentUserEmail && ! isEmailVerified ) {
-			return (
-				<WarningsOrHoldsSection>
-					<WarningCard
-						message={ sprintf(
-							/* translators: %s: The user's primary email address (ex.: user@example.com) */
-							__(
-								"You need to confirm your email address before setting up a store. We've sent an email to %s with instructions for you to follow."
-							),
-							currentUserEmail
-						) }
-					/>
-				</WarningsOrHoldsSection>
+	function changeEmailClickHandler() {
+		page( '/me/account' );
+	}
+
+	async function resendVerificationEmail() {
+		try {
+			await sendEmailVerification();
+			dispatch( successNotice( __( 'The verification email has been sent.' ) ) );
+		} catch ( Error ) {
+			dispatch(
+				errorNotice( __( 'An error has occurred, please check your connection and retry.' ) )
 			);
 		}
+	}
 
+	function renderWarningNotice() {
 		if ( ! isTransferringBlocked || ! isDataReady ) {
 			return null;
 		}
@@ -130,9 +128,44 @@ const LandingPage: React.FunctionComponent< Props > = ( { siteId } ) => {
 		],
 	};
 
+	let secondaryAction = (
+		<InlineSupportLink
+			className="landing-page__learnmore empty-content__action button"
+			supportContext="introduction-to-woocommerce"
+			showIcon={ false }
+		>
+			{ __( 'Learn more' ) }
+		</InlineSupportLink>
+	);
+
+	let finalCTAHandler = onCTAClickHandler;
 	let displayData: DisplayData | null;
 
-	if ( simpleSeller ) {
+	if ( ! isEmailVerified ) {
+		secondaryAction = (
+			<Button
+				className="landing-page__secondary empty-content__action"
+				onClick={ changeEmailClickHandler }
+			>
+				Edit email address
+			</Button>
+		);
+
+		finalCTAHandler = resendVerificationEmail;
+
+		displayData = {
+			title: _x( 'Verify your email address before setting up a store', 'Header text' ),
+			illustration: '/calypso/images/illustrations/page-bag.svg',
+			line: sprintf(
+				/* translators: %s: The unverified email */
+				__(
+					'A verification email has been sent to %s. Follow the link in the verification email to confirm that you can access your email account.'
+				),
+				currentUserEmail
+			),
+			action: _x( 'Resend verification email', 'Button text' ),
+		};
+	} else if ( currentIntent === 'sell' ) {
 		displayData = {
 			title: _x( 'Upgrade your store', 'Header text' ),
 			illustration: '/calypso/images/illustrations/illustration-seller.svg',
@@ -152,13 +185,17 @@ const LandingPage: React.FunctionComponent< Props > = ( { siteId } ) => {
 		};
 	}
 
+	const { isAboveElement, targetRef: ctaRef, referenceRef: headerRef } = useScrollAboveElement();
+
 	return (
 		<div className="landing-page">
-			<FixedNavigationHeader navigationItems={ navigationItems } contentRef={ ctaRef }>
-				<Button onClick={ onCTAClickHandler } primary disabled={ isTransferringBlocked }>
-					{ displayData.action }
-				</Button>
-			</FixedNavigationHeader>
+			<NavigationHeader navigationItems={ [] } title={ __( 'WooCommerce' ) } ref={ headerRef }>
+				{ isAboveElement && (
+					<Button onClick={ finalCTAHandler } primary disabled={ isTransferringBlocked }>
+						{ displayData.action }
+					</Button>
+				) }
+			</NavigationHeader>
 			{ renderWarningNotice() }
 			<EmptyContent
 				title={ displayData.title }
@@ -166,18 +203,10 @@ const LandingPage: React.FunctionComponent< Props > = ( { siteId } ) => {
 				illustrationWidth={ 150 }
 				line={ displayData.line }
 				action={ displayData.action }
-				actionCallback={ onCTAClickHandler }
-				actionDisabled={ isTransferringBlocked || ! isEmailVerified }
+				actionCallback={ finalCTAHandler }
+				actionDisabled={ isTransferringBlocked }
 				actionRef={ ctaRef }
-				secondaryAction={
-					<InlineSupportLink
-						className="landing-page__learnmore empty-content__action button"
-						supportContext="introduction-to-woocommerce"
-						showIcon={ false }
-					>
-						{ __( 'Learn more' ) }
-					</InlineSupportLink>
-				}
+				secondaryAction={ secondaryAction }
 				className="landing-page__empty-content"
 			/>
 			<WooCommerceColophon wpcomDomain={ wpcomDomain || '' } />

@@ -5,60 +5,113 @@
 import {
 	DataHelper,
 	CommentsComponent,
-	GutenbergEditorPage,
 	TestAccount,
+	envVariables,
+	getTestAccountByFeature,
+	envToFeatureKey,
+	RestAPIClient,
+	NewCommentResponse,
+	PostResponse,
 } from '@automattic/calypso-e2e';
 import { Browser, Page } from 'playwright';
 
-const quote =
-	'The foolish man seeks happiness in the distance. The wise grows it under his feet.\n— James Oppenheim';
-
 declare const browser: Browser;
 
-describe( DataHelper.createSuiteTitle( 'Likes (Comment) ' ), function () {
-	const comment = DataHelper.getRandomPhrase();
+describe( 'Likes: Comment', function () {
+	const features = envToFeatureKey( envVariables );
+	// @todo Does it make sense to create a `simpleSitePersonalPlanUserEdge` with GB edge?
+	// for now, it will pick up the default `gutenbergAtomicSiteEdgeUser` if edge is set.
+	const accountName = getTestAccountByFeature( features, [
+		{
+			gutenberg: 'stable',
+			siteType: 'simple',
+			accountName: 'simpleSitePersonalPlanUser',
+		},
+	] );
+	const postContent =
+		'The foolish man seeks happiness in the distance. The wise grows it under his feet.\n— James Oppenheim';
 	let page: Page;
-	let publishedURL: URL;
 	let commentsComponent: CommentsComponent;
-	let gutenbergEditorPage: GutenbergEditorPage;
+	let testAccount: TestAccount;
+	let newPost: PostResponse;
+	let commentToBeLiked: NewCommentResponse;
+	let commentToBeUnliked: NewCommentResponse;
+	let restAPIClient: RestAPIClient;
 
-	beforeAll( async () => {
+	it( 'Setup the test', async function () {
 		page = await browser.newPage();
-		gutenbergEditorPage = new GutenbergEditorPage( page );
 
-		const testAccount = new TestAccount( 'simpleSitePersonalPlanUser' );
+		testAccount = new TestAccount( accountName );
+
+		restAPIClient = new RestAPIClient( testAccount.credentials );
+
+		newPost = await restAPIClient.createPost(
+			testAccount.credentials.testSites?.primary.id as number,
+			{
+				title: DataHelper.getTimestamp() as string,
+				content: postContent,
+			}
+		);
+
+		commentToBeLiked = await restAPIClient.createComment(
+			testAccount.credentials.testSites?.primary.id as number,
+			newPost.ID,
+			DataHelper.getRandomPhrase()
+		);
+		commentToBeUnliked = await restAPIClient.createComment(
+			testAccount.credentials.testSites?.primary.id as number,
+			newPost.ID,
+			DataHelper.getRandomPhrase()
+		);
+
+		// The comment takes some time to settle. If we request the like
+		// immediately we might be getting the `unknown_comment` error. Let's do
+		// a few retries to make sure the like is getting through.
+		const likeRetryCount = 10;
+		for ( let i = 0; i <= likeRetryCount; i++ ) {
+			try {
+				await restAPIClient.commentAction(
+					'like',
+					testAccount.credentials.testSites?.primary.id as number,
+					commentToBeUnliked.ID
+				);
+				break;
+			} catch ( error ) {
+				if ( i === likeRetryCount ) {
+					throw error;
+				}
+				await page.waitForTimeout( 1000 );
+			}
+		}
+
 		await testAccount.authenticate( page );
 	} );
 
-	it( 'Go to the new post page', async function () {
-		await gutenbergEditorPage.visit( 'post' );
-	} );
-
-	it( 'Enter post title', async function () {
-		gutenbergEditorPage = new GutenbergEditorPage( page );
-		const title = DataHelper.getRandomPhrase();
-		await gutenbergEditorPage.enterTitle( title );
-	} );
-
-	it( 'Enter post text', async function () {
-		await gutenbergEditorPage.enterText( quote );
-	} );
-
-	it( 'Publish and visit post', async function () {
-		publishedURL = await gutenbergEditorPage.publish( { visit: true } );
-		expect( publishedURL.href ).toStrictEqual( page.url() );
-	} );
-
-	it( 'Post a comment', async function () {
-		commentsComponent = new CommentsComponent( page );
-		await commentsComponent.postComment( comment );
+	it( 'View the post', async function () {
+		await page.goto( newPost.URL );
 	} );
 
 	it( 'Like the comment', async function () {
-		await commentsComponent.like( comment );
+		commentsComponent = new CommentsComponent( page );
+		await commentsComponent.like( commentToBeLiked.raw_content );
 	} );
 
 	it( 'Unlike the comment', async function () {
-		await commentsComponent.unlike( comment );
+		if ( envVariables.TEST_ON_ATOMIC ) {
+			// AT comments appear unable to respond to `scrollIntoViewIfNeeded`
+			// unless the focus is "unstuck" by shiting the page.
+			await page.mouse.wheel( 0, 120 );
+		}
+		await commentsComponent.unlike( commentToBeUnliked.raw_content );
+	} );
+
+	afterAll( async function () {
+		if ( ! newPost ) {
+			return;
+		}
+		await restAPIClient.deletePost(
+			testAccount.credentials.testSites?.primary.id as number,
+			newPost.ID
+		);
 	} );
 } );

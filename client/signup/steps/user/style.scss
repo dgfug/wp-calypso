@@ -1,59 +1,35 @@
 body.is-section-signup.is-white-signup .signup {
 	.signup-form.is-horizontal {
 		.signup-form__terms-of-service-link,
-		.signup-form__terms-of-service-link a,
-		.signup-form__social-buttons-tos,
-		.signup-form__social-buttons-tos a,
-		.signup-form__social p,
+		.auth-form__social-buttons-tos,
+		.auth-form__social p,
 		.signup-form__recaptcha-tos,
 		.logged-out-form__links .logged-out-form__link-item {
-			color: var( --studio-gray-40 );
+			color: var(--studio-gray-40);
 			font-weight: normal;
 		}
 
 		.form-label {
-			color: var( --studio-gray-60 );
-			font-weight: 500; /* stylelint-disable-line */
+			color: var(--studio-gray-60);
+			font-weight: 500;
 			margin-bottom: 8px;
 			line-height: 20px;
 			letter-spacing: -0.16px;
 		}
 
 		.signup-form__terms-of-service-link a,
-		.signup-form__social-buttons-tos a,
+		.auth-form__social-buttons-tos a,
 		.signup-form__recaptcha-tos a {
-			color: inherit;
 			text-decoration: underline;
 		}
 	}
-}
-
-.user__simpler-mobile-form {
-
-	.signup-form {
-		flex-direction: column-reverse !important;
-
-		.signup-form__social-buttons-tos {
-			display: none;
-		}
-	}
-
-	.signup-form__terms-of-service-link {
-		margin-bottom: 0 !important;
-	}
-
-	p.signup-form__social-buttons-tos {
-		font-size: 0.75rem;
-		text-align: left;
-		padding: 0 16px;
-		max-width: 408px;
-		color: var( --studio-gray-40 );
-		font-weight: 400;
-		margin-top: -60px;
-		margin-bottom: 80px;
-
-		a {
-			color: var( --studio-gray-40 );
+	// ::::: Onboarding_PM_Passwordless_Experiment ::::::
+	// This selector is part of an experiment which is supposed to be cleaned up
+	// https://github.com/Automattic/wp-calypso/pull/83886
+	.signup__step.is-user.is-passwordless-experiment,
+	.signup__step.is-user-social {
+		.step-wrapper__navigation.action-buttons {
+			height: 60px;
 		}
 	}
 }

@@ -1,5 +1,5 @@
 import { recordTracksEvent } from '@automattic/calypso-analytics';
-import { Dialog } from '@automattic/components';
+import { Dialog, MaterialIcon } from '@automattic/components';
 import { useTranslate } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { useState } from 'react';
@@ -11,13 +11,12 @@ import googleDriveIcon from 'calypso/assets/images/email-providers/google-worksp
 import gmailIcon from 'calypso/assets/images/email-providers/google-workspace/services/flat/gmail.svg';
 import googleSheetsIcon from 'calypso/assets/images/email-providers/google-workspace/services/flat/sheets.svg';
 import googleSlidesIcon from 'calypso/assets/images/email-providers/google-workspace/services/flat/slides.svg';
-import titanCalendarIcon from 'calypso/assets/images/email-providers/titan/services/flat/calendar.svg';
-import titanContactsIcon from 'calypso/assets/images/email-providers/titan/services/flat/contacts.svg';
 import titanMailIcon from 'calypso/assets/images/email-providers/titan/services/flat/mail.svg';
 import EllipsisMenu from 'calypso/components/ellipsis-menu';
-import MaterialIcon from 'calypso/components/material-icon';
 import PopoverMenuItem from 'calypso/components/popover-menu/item';
+import useRemoveEmailForwardMutation from 'calypso/data/emails/use-remove-email-forward-mutation';
 import { useRemoveTitanMailboxMutation } from 'calypso/data/emails/use-remove-titan-mailbox-mutation';
+import { canCurrentUserAddEmail } from 'calypso/lib/domains';
 import { hasEmailForwards } from 'calypso/lib/domains/email-forwarding';
 import {
 	getEmailAddress,
@@ -35,26 +34,9 @@ import {
 	getGoogleSlidesUrl,
 	hasGSuiteWithUs,
 } from 'calypso/lib/gsuite';
-import {
-	getTitanCalendarUrl,
-	getTitanContactsUrl,
-	getTitanEmailUrl,
-	hasTitanMailWithUs,
-	useTitanAppsUrlPrefix,
-} from 'calypso/lib/titan';
+import { getTitanEmailUrl, hasTitanMailWithUs, useTitanAppsUrlPrefix } from 'calypso/lib/titan';
 import { recordEmailAppLaunchEvent } from 'calypso/my-sites/email/email-management/home/utils';
-import { removeEmailForward } from 'calypso/state/email-forwarding/actions';
 import { errorNotice, successNotice } from 'calypso/state/notices/actions';
-
-const removeEmailForwardMailbox = ( { dispatch, mailbox } ) => {
-	recordTracksEvent( 'calypso_email_management_email_forwarding_delete_click', {
-		destination: getEmailForwardAddress( mailbox ),
-		domain_name: mailbox.domain,
-		mailbox: mailbox.mailbox,
-	} );
-
-	dispatch( removeEmailForward( mailbox.domain, mailbox.mailbox ) );
-};
 
 const getGoogleClickHandler = ( app ) => {
 	return () => {
@@ -78,8 +60,8 @@ const getTitanClickHandler = ( app ) => {
 
 /**
  * Returns the available menu items for Titan Emails
- *
  * @param {Object} titanMenuParams The argument for this function.
+ * @param {import('calypso/lib/domains/types').ResponseDomain} titanMenuParams.domain The domain object.
  * @param {Object} titanMenuParams.mailbox The mailbox object.
  * @param {Function} titanMenuParams.showRemoveMailboxDialog The function that removes modal dialogs for confirming mailbox removals
  * @param {string} titanMenuParams.titanAppsUrlPrefix The URL prefix for Titan Apps
@@ -87,6 +69,7 @@ const getTitanClickHandler = ( app ) => {
  * @returns Array of menu items
  */
 const getTitanMenuItems = ( {
+	domain,
 	mailbox,
 	showRemoveMailboxDialog,
 	titanAppsUrlPrefix,
@@ -96,7 +79,7 @@ const getTitanMenuItems = ( {
 
 	return [
 		{
-			href: getTitanEmailUrl( titanAppsUrlPrefix, email ),
+			href: getTitanEmailUrl( titanAppsUrlPrefix, email, false, window.location.href ),
 			image: titanMailIcon,
 			imageAltText: translate( 'Titan Mail icon' ),
 			title: translate( 'View Mail', {
@@ -105,26 +88,9 @@ const getTitanMenuItems = ( {
 			onClick: getTitanClickHandler( 'webmail' ),
 		},
 		{
-			href: getTitanCalendarUrl( titanAppsUrlPrefix, email ),
-			image: titanCalendarIcon,
-			imageAltText: translate( 'Titan Calendar icon' ),
-			title: translate( 'View Calendar', {
-				comment: 'View the Calendar application for Titan',
-			} ),
-			onClick: getTitanClickHandler( 'calendar' ),
-		},
-		{
-			href: getTitanContactsUrl( titanAppsUrlPrefix, email ),
-			image: titanContactsIcon,
-			imageAltText: translate( 'Titan Contacts icon' ),
-			title: translate( 'View Contacts', {
-				comment: 'View the Contacts application for Titan',
-			} ),
-			onClick: getTitanClickHandler( 'contacts' ),
-		},
-		{
 			isInternalLink: true,
 			materialIcon: 'delete',
+			disabled: ! canCurrentUserAddEmail( domain ),
 			onClick: () => {
 				showRemoveMailboxDialog?.();
 
@@ -141,7 +107,6 @@ const getTitanMenuItems = ( {
 
 /**
  * Get the list of applicable menu items for a G Suite or Google Workspace mailbox.
- *
  * @param {Object} gSuiteMenuParams Parameter for this function.
  * @param {Object} gSuiteMenuParams.account The account the current mailbox is linked to.
  * @param {Object} gSuiteMenuParams.mailbox The mailbox object.
@@ -212,13 +177,19 @@ const getGSuiteMenuItems = ( { account, mailbox, translate } ) => {
 	];
 };
 
-const getEmailForwardMenuItems = ( { dispatch, mailbox, translate } ) => {
+const getEmailForwardMenuItems = ( { mailbox, removeEmailForward, translate } ) => {
 	return [
 		{
 			isInternalLink: true,
 			materialIcon: 'delete',
 			onClick: () => {
-				removeEmailForwardMailbox( { dispatch, mailbox } );
+				recordTracksEvent( 'calypso_email_management_email_forwarding_delete_click', {
+					destination: getEmailForwardAddress( mailbox ),
+					domain_name: mailbox.domain,
+					mailbox: mailbox.mailbox,
+				} );
+
+				removeEmailForward( mailbox );
 			},
 			key: `remove_forward:${ mailbox.mailbox }`,
 			title: translate( 'Remove email forward', {
@@ -266,15 +237,19 @@ const RemoveTitanMailboxConfirmationDialog = ( { mailbox, visible, setVisible } 
 		{ duration: noticeDuration }
 	);
 
-	const { removeTitanMailbox } = useRemoveTitanMailboxMutation( mailbox.domain, mailbox.mailbox, {
-		onSettled: ( data ) => {
-			if ( data?.status === 202 ) {
-				dispatch( successMessage );
-				return;
-			}
-			dispatch( errorMessage );
-		},
-	} );
+	const { mutate: removeTitanMailbox } = useRemoveTitanMailboxMutation(
+		mailbox.domain,
+		mailbox.mailbox,
+		{
+			onSettled: ( data ) => {
+				if ( data?.status === 202 ) {
+					dispatch( successMessage );
+					return;
+				}
+				dispatch( errorMessage );
+			},
+		}
+	);
 
 	const onClose = ( action ) => {
 		setVisible( false );
@@ -327,17 +302,18 @@ RemoveTitanMailboxConfirmationDialog.propTypes = {
 };
 
 const EmailMailboxActionMenu = ( { account, domain, mailbox } ) => {
-	const dispatch = useDispatch();
 	const translate = useTranslate();
 	const titanAppsUrlPrefix = useTitanAppsUrlPrefix();
 
 	const [ removeTitanMailboxDialogVisible, setRemoveTitanMailboxDialogVisible ] = useState( false );
-
 	const domainHasTitanMailWithUs = hasTitanMailWithUs( domain );
+
+	const { mutate: removeEmailForward } = useRemoveEmailForwardMutation( mailbox.domain );
 
 	const getMenuItems = () => {
 		if ( domainHasTitanMailWithUs ) {
 			return getTitanMenuItems( {
+				domain,
 				mailbox,
 				showRemoveMailboxDialog: () => setRemoveTitanMailboxDialogVisible( true ),
 				titanAppsUrlPrefix,
@@ -351,8 +327,8 @@ const EmailMailboxActionMenu = ( { account, domain, mailbox } ) => {
 
 		if ( hasEmailForwards( domain ) ) {
 			return getEmailForwardMenuItems( {
-				dispatch,
 				mailbox,
+				removeEmailForward,
 				translate,
 			} );
 		}
@@ -375,7 +351,7 @@ const EmailMailboxActionMenu = ( { account, domain, mailbox } ) => {
 					visible={ removeTitanMailboxDialogVisible }
 				/>
 			) }
-			<EllipsisMenu position="bottom" className="email-mailbox-action-menu__main">
+			<EllipsisMenu position="bottom left" className="email-mailbox-action-menu__main">
 				{ menuItems.map(
 					( {
 						href,
@@ -386,11 +362,13 @@ const EmailMailboxActionMenu = ( { account, domain, mailbox } ) => {
 						materialIcon,
 						onClick,
 						title,
+						disabled,
 					} ) => (
 						<PopoverMenuItem
 							key={ href || key }
 							className="email-mailbox-action-menu__menu-item"
 							isExternalLink={ ! isInternalLink }
+							disabled={ disabled }
 							href={ href }
 							onClick={ onClick }
 						>

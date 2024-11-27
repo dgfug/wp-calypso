@@ -1,3 +1,4 @@
+import { translate } from 'i18n-calypso';
 import {
 	ACTIVATE_PLUGIN,
 	DEACTIVATE_PLUGIN,
@@ -13,6 +14,10 @@ import {
 	PLUGINS_REQUEST,
 	PLUGINS_REQUEST_SUCCESS,
 	PLUGINS_REQUEST_FAILURE,
+	PLUGINS_ALL_RECEIVE,
+	PLUGINS_ALL_REQUEST,
+	PLUGINS_ALL_REQUEST_SUCCESS,
+	PLUGINS_ALL_REQUEST_FAILURE,
 	PLUGIN_ACTIVATE_REQUEST,
 	PLUGIN_ACTIVATE_REQUEST_SUCCESS,
 	PLUGIN_ACTIVATE_REQUEST_FAILURE,
@@ -22,6 +27,7 @@ import {
 	PLUGIN_UPDATE_REQUEST,
 	PLUGIN_UPDATE_REQUEST_SUCCESS,
 	PLUGIN_UPDATE_REQUEST_FAILURE,
+	PLUGIN_ALREADY_UP_TO_DATE,
 	PLUGIN_AUTOUPDATE_ENABLE_REQUEST,
 	PLUGIN_AUTOUPDATE_ENABLE_REQUEST_SUCCESS,
 	PLUGIN_AUTOUPDATE_ENABLE_REQUEST_FAILURE,
@@ -34,8 +40,11 @@ import {
 	PLUGIN_REMOVE_REQUEST,
 	PLUGIN_REMOVE_REQUEST_SUCCESS,
 	PLUGIN_REMOVE_REQUEST_FAILURE,
+	PLUGIN_ACTION_STATUS_UPDATE,
+	PLUGIN_INSTALL_REQUEST_PARTIAL_SUCCESS,
 } from 'calypso/state/action-types';
 import { bumpStat, recordTracksEvent } from 'calypso/state/analytics/actions';
+import { errorNotice } from 'calypso/state/notices/actions';
 import { canCurrentUser } from 'calypso/state/selectors/can-current-user';
 import getNetworkSites from 'calypso/state/selectors/get-network-sites';
 import { sitePluginUpdated } from 'calypso/state/sites/actions';
@@ -44,9 +53,26 @@ import { getSite } from 'calypso/state/sites/selectors';
 import 'calypso/state/plugins/init';
 
 /**
+ * Determines the truthiness of a site specific property regardless of whether it is on the plugin object
+ * or on one of the plugin's site objects.
+ * @param {string} prop - The site property to check. One of 'active', 'autoupdate', 'update', or 'version'.
+ * @param {Object} plugin - The plugin object
+ * @param {number} siteId - The ID of the site
+ * @returns {boolean} True if the plugin object has the prop, false otherwise.
+ */
+const pluginHasTruthySiteProp = ( prop, plugin, siteId ) => {
+	if ( ! [ 'active', 'autoupdate', 'update', 'version' ].includes( prop ) ) {
+		throw new Error( `${ prop } is not a site property.` );
+	}
+
+	return !! ( plugin.hasOwnProperty( prop )
+		? plugin[ prop ]
+		: siteId && plugin.sites?.[ siteId ]?.[ prop ] );
+};
+
+/**
  * Return a SitePlugin instance used to handle the plugin
- *
- * @param {object} siteId - site ID
+ * @param {Object} siteId - site ID
  * @param {string} pluginId - plugin identifier
  * @returns {any} SitePlugin instance
  */
@@ -58,11 +84,10 @@ const getPluginHandler = ( siteId, pluginId ) => {
 /**
  * Helper thunk for recording tracks events and bumping stats for plugin events.
  * Useful to record events and bump stats by following a certain naming pattern.
- *
  * @param {string} eventType The type of event
- * @param {object} plugin    The plugin object
+ * @param {Object} plugin    The plugin object
  * @param {number} siteId    ID of the site
- * @param {object} error     Error object
+ * @param {Object} error     Error object
  * @returns {Function}       Action thunk
  */
 const recordEvent = ( eventType, plugin, siteId, error ) => {
@@ -88,6 +113,31 @@ const recordEvent = ( eventType, plugin, siteId, error ) => {
 	};
 };
 
+/**
+ * Function to dispatch actions to set the statusRecentlyChanged value based on the type.
+ * First, dispatch the action to set statusRecentlyChanged to true.
+ * Next, dispatch the action to set the statusRecentlyChanged to false with delay(setTimeout).
+ * Used to show the plugin status before the plugin is filtered based on the status.
+ * The idea here is to filter the plugins also when statusRecentlyChanged is true.
+ * @param {Object} defaultAction The default action params
+ * @param {Object} data   The API response
+ * @returns {Function}    The dispatch actions
+ */
+export const handleDispatchSuccessCallback = ( defaultAction, data ) => ( dispatch ) => {
+	dispatch( {
+		...defaultAction,
+		type: PLUGIN_ACTION_STATUS_UPDATE,
+		data: { ...data, statusRecentlyChanged: true },
+	} );
+	setTimeout( () => {
+		dispatch( {
+			...defaultAction,
+			type: PLUGIN_ACTION_STATUS_UPDATE,
+			data: { ...data, statusRecentlyChanged: false },
+		} );
+	}, 3000 );
+};
+
 export function activatePlugin( siteId, plugin ) {
 	return ( dispatch ) => {
 		const pluginId = plugin.id;
@@ -96,6 +146,11 @@ export function activatePlugin( siteId, plugin ) {
 			siteId,
 			pluginId,
 		};
+
+		if ( pluginHasTruthySiteProp( 'active', plugin, siteId ) ) {
+			return dispatch( { ...defaultAction, type: PLUGIN_ACTIVATE_REQUEST_SUCCESS, data: plugin } );
+		}
+
 		dispatch( { ...defaultAction, type: PLUGIN_ACTIVATE_REQUEST } );
 
 		const afterActivationCallback = ( error, data ) => {
@@ -129,7 +184,7 @@ export function activatePlugin( siteId, plugin ) {
 
 		const successCallback = ( data ) => {
 			dispatch( { ...defaultAction, type: PLUGIN_ACTIVATE_REQUEST_SUCCESS, data } );
-
+			dispatch( handleDispatchSuccessCallback( defaultAction, data ) );
 			afterActivationCallback( undefined, data );
 		};
 
@@ -158,6 +213,15 @@ export function deactivatePlugin( siteId, plugin ) {
 			siteId,
 			pluginId,
 		};
+
+		if ( ! pluginHasTruthySiteProp( 'active', plugin, siteId ) ) {
+			return dispatch( {
+				...defaultAction,
+				type: PLUGIN_DEACTIVATE_REQUEST_SUCCESS,
+				data: plugin,
+			} );
+		}
+
 		dispatch( { ...defaultAction, type: PLUGIN_DEACTIVATE_REQUEST } );
 
 		const afterDeactivationCallback = ( error ) => {
@@ -187,6 +251,7 @@ export function deactivatePlugin( siteId, plugin ) {
 
 		const successCallback = ( data ) => {
 			dispatch( { ...defaultAction, type: PLUGIN_DEACTIVATE_REQUEST_SUCCESS, data } );
+			dispatch( handleDispatchSuccessCallback( defaultAction, data ) );
 			afterDeactivationCallback( undefined );
 		};
 
@@ -212,7 +277,7 @@ export function togglePluginActivation( siteId, plugin ) {
 			return;
 		}
 
-		if ( ! plugin.active ) {
+		if ( ! pluginHasTruthySiteProp( 'active', plugin, siteId ) ) {
 			dispatch( activatePlugin( siteId, plugin ) );
 		} else {
 			dispatch( deactivatePlugin( siteId, plugin ) );
@@ -221,38 +286,34 @@ export function togglePluginActivation( siteId, plugin ) {
 }
 
 export function updatePlugin( siteId, plugin ) {
-	return ( dispatch ) => {
-		if ( ! plugin.update ) {
-			return Promise.reject( 'Error: Plugin already up-to-date.' );
-		}
-
+	return async ( dispatch ) => {
 		const pluginId = plugin.id;
 		const defaultAction = {
 			action: UPDATE_PLUGIN,
 			siteId,
 			pluginId,
 		};
+
+		if (
+			! pluginHasTruthySiteProp( 'update', plugin, siteId ) ||
+			( siteId && plugin?.sites?.[ siteId ]?.update?.recentlyUpdated )
+		) {
+			dispatch( { ...defaultAction, type: PLUGIN_ALREADY_UP_TO_DATE, data: plugin } );
+			return;
+		}
+
 		dispatch( { ...defaultAction, type: PLUGIN_UPDATE_REQUEST } );
 
-		const afterUpdateCallback = ( error ) => {
-			dispatch( recordEvent( 'calypso_plugin_updated', plugin, siteId, error ) );
-		};
-
-		const successCallback = ( data ) => {
+		try {
+			const data = await getPluginHandler( siteId, pluginId ).updateVersion();
 			dispatch( { ...defaultAction, type: PLUGIN_UPDATE_REQUEST_SUCCESS, data } );
-			afterUpdateCallback( undefined );
+			dispatch( handleDispatchSuccessCallback( defaultAction, data ) );
+			dispatch( recordEvent( 'calypso_plugin_updated', plugin, siteId ) );
 			dispatch( sitePluginUpdated( siteId ) );
-		};
-
-		const errorCallback = ( error ) => {
+		} catch ( error ) {
 			dispatch( { ...defaultAction, type: PLUGIN_UPDATE_REQUEST_FAILURE, error } );
-			afterUpdateCallback( error );
-		};
-
-		return getPluginHandler( siteId, pluginId )
-			.updateVersion()
-			.then( successCallback )
-			.catch( errorCallback );
+			dispatch( recordEvent( 'calypso_plugin_updated', plugin, siteId, error ) );
+		}
 	};
 }
 
@@ -265,6 +326,14 @@ export function enableAutoupdatePlugin( siteId, plugin ) {
 			pluginId,
 		};
 
+		if ( pluginHasTruthySiteProp( 'autoupdate', plugin, siteId ) ) {
+			return dispatch( {
+				...defaultAction,
+				type: PLUGIN_AUTOUPDATE_ENABLE_REQUEST_SUCCESS,
+				data: plugin,
+			} );
+		}
+
 		dispatch( { ...defaultAction, type: PLUGIN_AUTOUPDATE_ENABLE_REQUEST } );
 
 		const afterEnableAutoupdateCallback = ( error ) => {
@@ -274,7 +343,7 @@ export function enableAutoupdatePlugin( siteId, plugin ) {
 		const successCallback = ( data ) => {
 			dispatch( { ...defaultAction, type: PLUGIN_AUTOUPDATE_ENABLE_REQUEST_SUCCESS, data } );
 			afterEnableAutoupdateCallback( undefined );
-			if ( data.update ) {
+			if ( pluginHasTruthySiteProp( 'update', data, siteId ) ) {
 				updatePlugin( siteId, data )( dispatch );
 			}
 		};
@@ -299,6 +368,14 @@ export function disableAutoupdatePlugin( siteId, plugin ) {
 			siteId,
 			pluginId,
 		};
+
+		if ( ! pluginHasTruthySiteProp( 'autoupdate', plugin, siteId ) ) {
+			return dispatch( {
+				...defaultAction,
+				type: PLUGIN_AUTOUPDATE_DISABLE_REQUEST_SUCCESS,
+				data: { ...plugin },
+			} );
+		}
 
 		dispatch( { ...defaultAction, type: PLUGIN_AUTOUPDATE_DISABLE_REQUEST } );
 
@@ -333,7 +410,7 @@ export function togglePluginAutoUpdate( siteId, plugin ) {
 			return;
 		}
 
-		if ( ! plugin.autoupdate ) {
+		if ( ! pluginHasTruthySiteProp( 'autoupdate', plugin, siteId ) ) {
 			dispatch( enableAutoupdatePlugin( siteId, plugin ) );
 		} else {
 			dispatch( disableAutoupdatePlugin( siteId, plugin ) );
@@ -366,19 +443,25 @@ function installPluginHelper(
 		};
 		dispatch( { ...defaultAction, type: PLUGIN_INSTALL_REQUEST } );
 
+		let lastStep = '';
+
 		const doInstall = function ( pluginData ) {
+			lastStep = 'doInstall';
 			return getPluginHandler( siteId, pluginData.slug ).install();
 		};
 
 		const doActivate = function ( pluginData ) {
+			lastStep = 'doActivate';
 			return getPluginHandler( siteId, pluginData.id ).activate();
 		};
 
 		const doUpdate = function ( pluginData ) {
+			lastStep = 'doUpdate';
 			return getPluginHandler( siteId, pluginData.id ).updateVersion();
 		};
 
 		const doAutoupdates = function ( pluginData ) {
+			lastStep = 'doAutoupdates';
 			return getPluginHandler( siteId, pluginData.id ).enableAutoupdate();
 		};
 
@@ -391,6 +474,7 @@ function installPluginHelper(
 
 		const successCallback = ( data ) => {
 			dispatch( { ...defaultAction, type: PLUGIN_INSTALL_REQUEST_SUCCESS, data } );
+			dispatch( handleDispatchSuccessCallback( defaultAction, data ) );
 			recordInstallPluginEvent( 'RECEIVE_INSTALLED_PLUGIN' );
 			refreshNetworkSites( siteId );
 		};
@@ -415,7 +499,15 @@ function installPluginHelper(
 					.then( successCallback )
 					.catch( errorCallback );
 			}
-			dispatch( { ...defaultAction, type: PLUGIN_INSTALL_REQUEST_FAILURE, error } );
+			let type = PLUGIN_INSTALL_REQUEST_FAILURE;
+			let data = {};
+			// If the error is a ServerError, the plugin was installed but not activated
+			if ( error.name === 'ServerError' && lastStep === 'doActivate' ) {
+				type = PLUGIN_INSTALL_REQUEST_PARTIAL_SUCCESS;
+				error.error = 'server_error_during_activation';
+				data = { ...plugin, active: false };
+			}
+			dispatch( { ...defaultAction, type, error, data } );
 			recordInstallPluginEvent( 'RECEIVE_INSTALLED_PLUGIN', error );
 			return Promise.reject( error );
 		};
@@ -437,10 +529,6 @@ function installPluginHelper(
 
 export function installPlugin( siteId, plugin, shouldActivatePlugin = true ) {
 	return installPluginHelper( siteId, plugin, false, shouldActivatePlugin );
-}
-
-export function installPluginOnMultisite( siteId, plugin ) {
-	return installPluginHelper( siteId, plugin, true );
 }
 
 export function removePlugin( siteId, plugin ) {
@@ -503,6 +591,13 @@ export function receiveSitePlugins( siteId, plugins ) {
 	};
 }
 
+export function receiveAllSitesPlugins( allSitesPlugins ) {
+	return {
+		type: PLUGINS_ALL_RECEIVE,
+		allSitesPlugins,
+	};
+}
+
 export function fetchSitePlugins( siteId ) {
 	return ( dispatch ) => {
 		const defaultAction = {
@@ -513,12 +608,6 @@ export function fetchSitePlugins( siteId ) {
 		const receivePluginsDispatchSuccess = ( data ) => {
 			dispatch( receiveSitePlugins( siteId, data.plugins ) );
 			dispatch( { ...defaultAction, type: PLUGINS_REQUEST_SUCCESS } );
-
-			data.plugins.map( ( plugin ) => {
-				if ( plugin.update && plugin.autoupdate ) {
-					updatePlugin( siteId, plugin )( dispatch );
-				}
-			} );
 		};
 
 		const receivePluginsDispatchFail = ( error ) => {
@@ -535,4 +624,26 @@ export function fetchSitePlugins( siteId ) {
 
 export function fetchPlugins( siteIds ) {
 	return ( dispatch ) => siteIds.map( ( siteId ) => dispatch( fetchSitePlugins( siteId ) ) );
+}
+
+export function fetchAllPlugins() {
+	return ( dispatch ) => {
+		dispatch( { type: PLUGINS_ALL_REQUEST } );
+
+		const receivePluginsDispatchSuccess = ( { sites } ) => {
+			dispatch( { type: PLUGINS_ALL_REQUEST_SUCCESS } );
+
+			dispatch( receiveAllSitesPlugins( sites ) );
+		};
+
+		const receivePluginsDispatchFail = ( error ) => {
+			dispatch( { type: PLUGINS_ALL_REQUEST_FAILURE, error } );
+			dispatch( errorNotice( translate( 'Failed to retrieve plugins. Please try again later.' ) ) );
+		};
+
+		return wpcom.req
+			.get( `/me/sites/plugins` )
+			.then( receivePluginsDispatchSuccess )
+			.catch( receivePluginsDispatchFail );
+	};
 }

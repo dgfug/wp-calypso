@@ -1,14 +1,14 @@
+import page from '@automattic/calypso-router';
 import styled from '@emotion/styled';
 import { useI18n } from '@wordpress/react-i18n';
-import page from 'page';
-import { ReactElement, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useEffect } from 'react';
 import DomainEligibilityWarning from 'calypso/components/eligibility-warnings/domain-warning';
 import PlanWarning from 'calypso/components/eligibility-warnings/plan-warning';
 import EligibilityWarningsList from 'calypso/components/eligibility-warnings/warnings-list';
 import { LoadingEllipsis } from 'calypso/components/loading-ellipsis';
 import WarningCard from 'calypso/components/warning-card';
 import StepWrapper from 'calypso/signup/step-wrapper';
+import { useSelector, useDispatch } from 'calypso/state';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import { submitSignupStep } from 'calypso/state/signup/progress/actions';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
@@ -28,7 +28,7 @@ const WarningsOrHoldsSection = styled.div`
 	margin-bottom: 40px;
 `;
 
-export default function Confirm( props: WooCommerceInstallProps ): ReactElement | null {
+export default function Confirm( props: WooCommerceInstallProps ) {
 	const { goToNextStep, isReskinned } = props;
 	const { __ } = useI18n();
 	const dispatch = useDispatch();
@@ -146,7 +146,7 @@ export default function Confirm( props: WooCommerceInstallProps ): ReactElement 
 	return (
 		<StepWrapper
 			flowName="woocommerce-install"
-			hideSkip={ true }
+			hideSkip
 			nextLabelText={ __( 'Confirm' ) }
 			headerText={ __( 'One final step' ) }
 			fallbackHeaderText={ __( 'One final step' ) }

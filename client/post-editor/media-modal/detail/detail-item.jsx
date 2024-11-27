@@ -2,7 +2,7 @@
 
 import { getUrlParts } from '@automattic/calypso-url';
 import { Button, Gridicon, ScreenReaderText } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { flowRight } from 'lodash';
 import PropTypes from 'prop-types';
@@ -50,8 +50,7 @@ export class EditorMediaModalDetailItem extends Component {
 
 	/**
 	 * This function returns true if the video editor can be enabled/shown.
-	 *
-	 * @param  {object}  item Media item
+	 * @param  {Object}  item Media item
 	 * @returns {boolean} Whether the video editor can be enabled
 	 */
 	shouldShowVideoEditingButtons( item ) {
@@ -78,8 +77,7 @@ export class EditorMediaModalDetailItem extends Component {
 	/**
 	 * This function returns true if the image editor can be
 	 * enabled/shown
-	 *
-	 * @param  {object} item - media item
+	 * @param  {Object} item - media item
 	 * @returns {boolean} `true` if the image-editor can be enabled.
 	 */
 	shouldShowImageEditingButtons( item ) {
@@ -112,7 +110,7 @@ export class EditorMediaModalDetailItem extends Component {
 		}
 
 		const isVideoMime = 'video' === mimePrefix;
-		const editText = isVideoMime ? translate( 'Edit Thumbnail' ) : translate( 'Edit Image' );
+		const editText = isVideoMime ? translate( 'Edit Poster' ) : translate( 'Edit Image' );
 
 		return (
 			<Button
@@ -143,7 +141,7 @@ export class EditorMediaModalDetailItem extends Component {
 
 		return (
 			<Button
-				className={ classNames( 'editor-media-modal-detail__restore' ) }
+				className={ clsx( 'editor-media-modal-detail__restore' ) }
 				onClick={ this.handleOnRestoreClick }
 				disabled={ isItemBeingUploaded( item ) }
 			>
@@ -172,7 +170,7 @@ export class EditorMediaModalDetailItem extends Component {
 			return null;
 		}
 
-		const classes = classNames( 'editor-media-modal-detail__edition-bar', classname );
+		const classes = clsx( 'editor-media-modal-detail__edition-bar', classname );
 
 		return (
 			<div className={ classes }>
@@ -187,7 +185,7 @@ export class EditorMediaModalDetailItem extends Component {
 			return null;
 		}
 
-		const classes = classNames( 'editor-media-modal-detail__edition-bar', classname );
+		const classes = clsx( 'editor-media-modal-detail__edition-bar', classname );
 
 		return <div className={ classes }>{ this.renderEditButton() }</div>;
 	}
@@ -200,7 +198,12 @@ export class EditorMediaModalDetailItem extends Component {
 		}
 
 		return (
-			<EditorMediaModalDetailFields site={ site } item={ item } onUpdate={ this.props.onUpdate } />
+			<EditorMediaModalDetailFields
+				key={ `detail-fields-${ site.ID }-${ item?.ID }` }
+				site={ site }
+				item={ item }
+				onUpdate={ this.props.onUpdate }
+			/>
 		);
 	}
 
@@ -271,7 +274,7 @@ export class EditorMediaModalDetailItem extends Component {
 	render() {
 		const { isJetpack, item, siteId } = this.props;
 
-		const classes = classNames( 'editor-media-modal-detail__item', {
+		const classes = clsx( 'editor-media-modal-detail__item', {
 			'is-loading': ! item,
 		} );
 

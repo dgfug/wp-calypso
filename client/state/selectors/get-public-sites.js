@@ -4,8 +4,7 @@ import { getSite } from 'calypso/state/sites/selectors';
 
 /**
  * Get all public sites
- *
- * @param {object} state  Global state tree
+ * @param {Object} state  Global state tree
  * @returns {Array}        Site objects
  */
 export default createSelector(

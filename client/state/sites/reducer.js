@@ -3,6 +3,11 @@ import {
 	MEDIA_DELETE,
 	SITE_DELETE_RECEIVE,
 	JETPACK_DISCONNECT_RECEIVE,
+	JETPACK_SITE_DISCONNECT_REQUEST,
+	JETPACK_SITES_FEATURES_FETCH,
+	JETPACK_SITES_FEATURES_FETCH_FAILURE,
+	JETPACK_SITES_FEATURES_FETCH_SUCCESS,
+	SITE_PURCHASES_UPDATE,
 	SITE_RECEIVE,
 	SITE_REQUEST,
 	SITE_REQUEST_FAILURE,
@@ -10,6 +15,7 @@ import {
 	SITE_SETTINGS_RECEIVE,
 	SITE_SETTINGS_UPDATE,
 	SITES_RECEIVE,
+	ODYSSEY_SITE_RECEIVE,
 	SITES_REQUEST,
 	SITES_REQUEST_FAILURE,
 	SITES_REQUEST_SUCCESS,
@@ -20,24 +26,27 @@ import {
 } from 'calypso/state/action-types';
 import { THEME_ACTIVATE_SUCCESS } from 'calypso/state/themes/action-types';
 import { combineReducers, withSchemaValidation } from 'calypso/state/utils';
-import blogStickers from './blog-stickers/reducer';
-import connection from './connection/reducer';
 import domains from './domains/reducer';
 import { featuresReducer as features } from './features/reducer';
 import introOffers from './intro-offers/reducer';
+import launch from './launch/reducers';
 import { plans } from './plans/reducer';
 import { products } from './products/reducer';
 import { sitesSchema, hasAllSitesListSchema } from './schema';
 
 /**
  * Tracks all known site objects, indexed by site ID.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action payload
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action payload
+ * @returns {Object}        Updated state
  */
 export const items = withSchemaValidation( sitesSchema, ( state = null, action ) => {
-	if ( state === null && action.type !== SITE_RECEIVE && action.type !== SITES_RECEIVE ) {
+	if (
+		state === null &&
+		action.type !== SITE_RECEIVE &&
+		action.type !== SITES_RECEIVE &&
+		action.type !== ODYSSEY_SITE_RECEIVE
+	) {
 		return null;
 	}
 	switch ( action.type ) {
@@ -79,6 +88,35 @@ export const items = withSchemaValidation( sitesSchema, ( state = null, action )
 					return memo;
 				},
 				initialNextState || {}
+			);
+		}
+
+		case ODYSSEY_SITE_RECEIVE: {
+			// Treat the site info from WPCOM as default values for the site, and the info from Odyssey as the source of truth.
+			// This is because the site info from WPCOM is more complete, but the info from Odyssey is more up-to-date.
+			// For example, `options.is_commercial` is not present in the Odyssey site info, but is a remote option value stored in WPCOM.
+			return reduce(
+				[ action.site ],
+				( memo, site ) => {
+					// Bypass if site object hasn't changed
+					if ( isEqual( memo[ site.ID ], site ) ) {
+						return memo;
+					}
+
+					// Avoid mutating state
+					if ( memo === state ) {
+						memo = { ...state };
+					}
+
+					memo[ site.ID ] = {
+						...site,
+						...memo[ site.ID ],
+						options: { ...site?.options, ...memo[ site.ID ]?.options },
+						capabilities: { ...site?.capabilities, ...memo[ site.ID ]?.capabilities },
+					};
+					return memo;
+				},
+				state
 			);
 		}
 
@@ -264,6 +302,19 @@ export const items = withSchemaValidation( sitesSchema, ( state = null, action )
 				},
 			};
 		}
+
+		// Partial updates for purchases of the site as `site.products`.
+		case SITE_PURCHASES_UPDATE: {
+			const { siteId, purchases } = action;
+
+			return {
+				...state,
+				[ siteId ]: {
+					...state[ siteId ],
+					products: purchases,
+				},
+			};
+		}
 	}
 
 	return state;
@@ -273,10 +324,9 @@ export const items = withSchemaValidation( sitesSchema, ( state = null, action )
  * Returns the updated requesting state after an action has been dispatched.
  * Requesting state tracks whether a network request is in progress for all
  * sites.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action object
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action object
+ * @returns {Object}        Updated state
  */
 export const requestingAll = ( state = false, action ) => {
 	switch ( action.type ) {
@@ -294,10 +344,9 @@ export const requestingAll = ( state = false, action ) => {
 /**
  * Returns the updated requesting state after an action has been dispatched.
  * Requesting state tracks whether a network request is in progress for a site.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action object
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action object
+ * @returns {Object}        Updated state
  */
 export const requesting = ( state = {}, action ) => {
 	switch ( action.type ) {
@@ -320,10 +369,9 @@ export const requesting = ( state = {}, action ) => {
 
 /**
  * Tracks whether all sites have been fetched.
- *
- * @param  {object} state  Current state
- * @param  {object} action Action object
- * @returns {object}        Updated state
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action object
+ * @returns {Object}        Updated state
  */
 export const hasAllSitesList = withSchemaValidation(
 	hasAllSitesListSchema,
@@ -337,8 +385,38 @@ export const hasAllSitesList = withSchemaValidation(
 	}
 );
 
+/**
+ * Returns the updated disconnected state after an action has been dispatched.
+ * Tracks whether a network request is completed or not.
+ * @param  {Object} state  Current state
+ * @param  {Object} action Action object
+ * @returns {Object}        Updated state
+ */
+export const jetpackSiteDisconnected = ( state = false, action ) => {
+	switch ( action.type ) {
+		case JETPACK_SITE_DISCONNECT_REQUEST: {
+			return false;
+		}
+		case JETPACK_DISCONNECT_RECEIVE: {
+			return true;
+		}
+	}
+	return state;
+};
+
+export const isRequestingJetpackSitesFeatures = ( state = false, action ) => {
+	switch ( action.type ) {
+		case JETPACK_SITES_FEATURES_FETCH:
+			return true;
+		case JETPACK_SITES_FEATURES_FETCH_SUCCESS:
+		case JETPACK_SITES_FEATURES_FETCH_FAILURE:
+			return false;
+	}
+
+	return state;
+};
+
 export default combineReducers( {
-	connection,
 	domains,
 	requestingAll,
 	introOffers,
@@ -347,6 +425,8 @@ export default combineReducers( {
 	products,
 	features,
 	requesting,
-	blogStickers,
 	hasAllSitesList,
+	jetpackSiteDisconnected,
+	isRequestingJetpackSitesFeatures,
+	launch,
 } );

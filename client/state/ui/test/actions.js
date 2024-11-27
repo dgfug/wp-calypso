@@ -1,6 +1,6 @@
-import { expect } from 'chai';
 import {
 	NOTIFICATIONS_PANEL_TOGGLE,
+	MOST_RECENTLY_SELECTED_SITE_SET,
 	SECTION_SET,
 	SELECTED_SITE_SET,
 } from 'calypso/state/action-types';
@@ -13,10 +13,16 @@ import {
 
 describe( 'actions', () => {
 	describe( 'setAllSitesSelected()', () => {
-		test( 'should return an action object with a null siteId', () => {
-			const action = setAllSitesSelected();
+		test( 'should dispatch actions for clearing the selected site ID', () => {
+			const dispatch = jest.fn();
 
-			expect( action ).to.eql( {
+			setAllSitesSelected()( dispatch );
+
+			expect( dispatch ).not.toHaveBeenCalledWith( {
+				type: MOST_RECENTLY_SELECTED_SITE_SET,
+				siteId: null,
+			} );
+			expect( dispatch ).toHaveBeenCalledWith( {
 				type: SELECTED_SITE_SET,
 				siteId: null,
 			} );
@@ -27,7 +33,7 @@ describe( 'actions', () => {
 		test( 'should return an action object with the section specified', () => {
 			const section = { name: 'me' };
 
-			expect( setSection( section ) ).to.eql( {
+			expect( setSection( section ) ).toEqual( {
 				type: SECTION_SET,
 				section,
 			} );
@@ -35,11 +41,17 @@ describe( 'actions', () => {
 	} );
 
 	describe( 'setSelectedSiteId()', () => {
-		test( 'should return an action object with the siteId set', () => {
+		test( 'should dispatch actions for selected site IDs', () => {
 			const siteId = 2916284;
-			const action = setSelectedSiteId( siteId );
+			const dispatch = jest.fn();
 
-			expect( action ).to.eql( {
+			setSelectedSiteId( siteId )( dispatch );
+
+			expect( dispatch ).toHaveBeenCalledWith( {
+				type: MOST_RECENTLY_SELECTED_SITE_SET,
+				siteId,
+			} );
+			expect( dispatch ).toHaveBeenCalledWith( {
 				type: SELECTED_SITE_SET,
 				siteId,
 			} );
@@ -48,7 +60,7 @@ describe( 'actions', () => {
 
 	describe( 'toggleNotificationsPanel()', () => {
 		test( 'should return an action object with just the action type', () => {
-			expect( toggleNotificationsPanel() ).to.eql( {
+			expect( toggleNotificationsPanel() ).toEqual( {
 				type: NOTIFICATIONS_PANEL_TOGGLE,
 			} );
 		} );

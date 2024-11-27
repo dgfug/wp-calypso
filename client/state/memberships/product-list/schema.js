@@ -8,13 +8,13 @@ export const metadataSchema = {
 	status: { type: 'string', metaKey: 'spay_status' },
 	email: { type: 'string', metaKey: 'spay_email' },
 	formatted_price: { type: 'string', metaKey: 'spay_formatted_price' },
-	stripe_account: { type: 'string' },
 	renewal_schedule: { type: 'string' },
+	type: { type: 'string' },
+	tier: { type: 'number' },
 };
 
 /**
  * Schema of one product stored in custom post type.
- *
  * @type {{type: string, properties: *}}
  */
 const productSchema = {
@@ -40,8 +40,7 @@ const productListSchema = {
 
 /**
  * Map that maps custom field keys to corresponding keys in redux representation of a product
- *
- * @type {object}
+ * @type {Object}
  */
 export const metaKeyToSchemaKeyMap = Object.keys( metadataSchema ).reduce( ( prev, curr ) => {
 	prev[ metadataSchema[ curr ].metaKey ] = curr;

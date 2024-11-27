@@ -1,48 +1,42 @@
-import { Frame, Page } from 'playwright';
-import { envVariables } from '../..';
+import { Page } from 'playwright';
+import { EditorComponent, envVariables } from '../..';
 
-type TemplateCategory = 'About';
-
-const selectors = {
-	templateCategoryButton: ( category: TemplateCategory ) =>
-		`.page-pattern-modal__category-list button:has-text("${ category }")`,
-	mobileTemplateCategorySelectBox: '.page-pattern-modal__mobile-category-dropdown',
-	template: ( label: string ) => `button.pattern-selector-item__label:has-text("${ label }")`,
-	blankPageButton: 'button:has-text("Blank page")',
-};
+export type TemplateCategory = 'About';
 
 /**
  * Represents the page template selection modal when first loading a new page in the editor.
  */
-export class PageTemplateModalComponent {
+export class EditorTemplateModalComponent {
 	private page: Page;
-	private editorIframe: Frame;
+	private editor: EditorComponent;
 
 	/**
-	 * Creates an instance of the page.
+	 * Constructs an instance of the component.
 	 *
-	 * @param {Frame} editorIframe Iframe from the gutenberg editor.
-	 * @param {Page} page Object representing the base page.
+	 * @param {Page} page The underlying page.
+	 * @param {EditorComponent} editor The EditorComponent instance.
 	 */
-	constructor( editorIframe: Frame, page: Page ) {
+	constructor( page: Page, editor: EditorComponent ) {
 		this.page = page;
-		this.editorIframe = editorIframe;
+		this.editor = editor;
 	}
 
 	/**
 	 * Select a template category from the sidebar of options.
 	 *
 	 * @param {TemplateCategory} category Name of the category to select.
+	 * @param {number} timeout Timeout for the action.
 	 */
-	async selectTemplateCatagory( category: TemplateCategory ): Promise< void > {
+	async selectTemplateCategory( category: TemplateCategory, timeout: number ): Promise< void > {
+		const editorParent = await this.editor.parent();
 		if ( envVariables.VIEWPORT_NAME === 'mobile' ) {
-			await this.editorIframe.selectOption(
-				selectors.mobileTemplateCategorySelectBox,
-				category.toLowerCase()
-			);
+			await editorParent
+				.locator( '.page-pattern-modal__mobile-category-dropdown' )
+				.selectOption( category.toLowerCase(), { timeout: timeout } );
 		} else {
-			const locator = this.editorIframe.locator( selectors.templateCategoryButton( category ) );
-			await locator.click();
+			await editorParent
+				.getByRole( 'menuitem', { name: category, exact: true } )
+				.click( { timeout: timeout } );
 		}
 	}
 
@@ -50,17 +44,22 @@ export class PageTemplateModalComponent {
 	 * Select a template from the grid of options.
 	 *
 	 * @param {string} label Label for the template (the string underneath the preview).
+	 * @param {number} timeout Timeout for the action.
 	 */
-	async selectTemplate( label: string ): Promise< void > {
-		const locator = this.editorIframe.locator( selectors.template( label ) );
-		await locator.click();
+	async selectTemplate( label: string, timeout: number ): Promise< void > {
+		const editorParent = await this.editor.parent();
+		await editorParent
+			.getByRole( 'listbox', { name: 'Block patterns' } )
+			.getByRole( 'option', { name: label, exact: true } )
+			.first()
+			.click( { timeout: timeout } );
 	}
 
 	/**
 	 * Select a blank page as your template.
 	 */
 	async selectBlankPage(): Promise< void > {
-		const locator = this.editorIframe.locator( selectors.blankPageButton );
-		await locator.click();
+		const editorParent = await this.editor.parent();
+		await editorParent.getByRole( 'button', { name: 'Blank page' } ).click();
 	}
 }

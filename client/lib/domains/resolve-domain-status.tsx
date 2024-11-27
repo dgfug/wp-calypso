@@ -1,31 +1,32 @@
 import { Button } from '@automattic/components';
-import { translate } from 'i18n-calypso';
+import { localizeUrl, englishLocales } from '@automattic/i18n-utils';
+import {
+	SETTING_PRIMARY_DOMAIN,
+	INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS,
+	GDPR_POLICIES,
+	DOMAIN_EXPIRATION_AUCTION,
+} from '@automattic/urls';
+import i18n, { getLocaleSlug } from 'i18n-calypso';
 import moment from 'moment';
-import { modeType, stepSlug } from 'calypso/components/domains/connect-domain-step/constants';
-import { isSubdomain } from 'calypso/lib/domains';
+import { useMyDomainInputMode } from 'calypso/components/domains/connect-domain-step/constants';
 import { isExpiringSoon } from 'calypso/lib/domains/utils/is-expiring-soon';
 import { isRecentlyRegistered } from 'calypso/lib/domains/utils/is-recently-registered';
 import { shouldRenderExpiringCreditCard, handleRenewNowClick } from 'calypso/lib/purchases';
 import {
-	SETTING_PRIMARY_DOMAIN,
-	INCOMING_DOMAIN_TRANSFER_STATUSES,
-	INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS,
-	GDPR_POLICIES,
-	DOMAIN_EXPIRATION_AUCTION,
-} from 'calypso/lib/url/support';
-import {
+	domainManagementEdit,
 	domainManagementEditContactInfo,
-	domainManagementNameServers,
 	domainMappingSetup,
+	domainUseMyDomain,
 } from 'calypso/my-sites/domains/paths';
 import { transferStatus, type as domainTypes, gdprConsentStatus } from './constants';
 import type { ResponseDomain } from './types';
 import type { Purchase } from 'calypso/lib/purchases/types';
-import type { ReactChild } from 'react';
+import type { CalypsoDispatch } from 'calypso/state/types';
+import type { I18N, TranslateResult } from 'i18n-calypso';
 
-export type ResolveDomainStatusReturn =
+type ResolveDomainStatusReturn =
 	| {
-			statusText: ReactChild | Array< ReactChild >;
+			statusText: TranslateResult | TranslateResult[];
 			statusClass:
 				| 'status-error'
 				| 'status-warning'
@@ -33,12 +34,11 @@ export type ResolveDomainStatusReturn =
 				| 'status-success'
 				| 'status-neutral'
 				| 'status-premium';
-			status: ReactChild;
+			status: TranslateResult;
 			icon: 'info' | 'verifying' | 'check_circle' | 'cached' | 'cloud_upload' | 'download_done';
-			listStatusText?: ReactChild | Array< ReactChild >;
-			listStatusClass?: 'alert' | 'warning' | 'verifying' | 'info' | 'premium' | 'transfer-warning';
 			listStatusWeight?: number;
-			noticeText?: ReactChild | Array< ReactChild > | null;
+			noticeText?: TranslateResult | Array< TranslateResult > | null;
+			isDismissable?: boolean;
 	  }
 	| Record< string, never >;
 
@@ -47,18 +47,26 @@ export type ResolveDomainStatusOptionsBag = {
 	isSiteAutomatedTransfer?: boolean | null;
 	isDomainOnlySite?: boolean | null;
 	siteSlug?: string | null;
+	currentRoute?: string | null;
 	getMappingErrors?: boolean | null;
+	dismissPreferences?: any;
+	isVipSite?: boolean | null;
 };
 
 export function resolveDomainStatus(
 	domain: ResponseDomain,
 	purchase: Purchase | null = null,
+	translate: I18N[ 'translate' ],
+	dispatch: CalypsoDispatch,
 	{
 		isJetpackSite = null,
 		isSiteAutomatedTransfer = null,
 		isDomainOnlySite = null,
 		siteSlug = null,
 		getMappingErrors = false,
+		currentRoute = null,
+		dismissPreferences = null,
+		isVipSite = false,
 	}: ResolveDomainStatusOptionsBag = {}
 ): ResolveDomainStatusReturn {
 	const transferOptions = {
@@ -66,10 +74,9 @@ export function resolveDomainStatus(
 			strong: <strong />,
 			a: (
 				<a
-					href={ INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS }
+					href={ localizeUrl( INCOMING_DOMAIN_TRANSFER_STATUSES_IN_PROGRESS ) }
 					rel="noopener noreferrer"
 					target="_blank"
-					onClick={ ( e ) => e.stopPropagation() }
 				/>
 			),
 		},
@@ -78,25 +85,9 @@ export function resolveDomainStatus(
 		},
 	};
 
-	let mappingSetupStep: string =
-		domain.connectionMode === modeType.ADVANCED
-			? stepSlug.ADVANCED_UPDATE
-			: stepSlug.SUGGESTED_UPDATE;
-	if ( isSubdomain( domain.domain ) ) {
-		mappingSetupStep =
-			domain.connectionMode === modeType.ADVANCED
-				? stepSlug.SUBDOMAIN_ADVANCED_UPDATE
-				: stepSlug.SUBDOMAIN_SUGGESTED_UPDATE;
-	}
-
 	const mappingSetupComponents = {
 		strong: <strong />,
-		a: (
-			<a
-				href={ domainMappingSetup( siteSlug as string, domain.domain, mappingSetupStep ) }
-				onClick={ ( e ) => e.stopPropagation() }
-			/>
-		),
+		a: <a href={ domainMappingSetup( siteSlug as string, domain.domain ) } />,
 	};
 
 	switch ( domain.type ) {
@@ -118,39 +109,31 @@ export function resolveDomainStatus(
 
 				let noticeText = null;
 
-				if ( ! domain.pointsToWpcom ) {
+				if ( ! isVipSite && ! domain.pointsToWpcom ) {
 					noticeText = translate(
 						"We noticed that something wasn't updated correctly. Please try {{a}}this setup{{/a}} again.",
 						{ components: mappingSetupComponents }
 					);
 				}
 
-				if ( isExpiringSoon( domain, 5 ) ) {
-					return {
-						statusText: expiresMessage,
-						statusClass: 'status-error',
-						status: translate( 'Expiring soon' ),
-						icon: 'info',
-						listStatusText: expiresMessage,
-						listStatusClass: 'alert',
-						listStatusWeight: 1000,
-						noticeText,
-					};
+				let status = translate( 'Active' );
+				if ( ! domain.autoRenewing ) {
+					status = domain.bundledPlanSubscriptionId
+						? translate( 'Expires with your plan' )
+						: translate( 'Expiring soon' );
 				}
 
 				return {
 					statusText: expiresMessage,
-					statusClass: 'status-warning',
-					status: translate( 'Expiring soon' ),
+					statusClass: `status-${ domain.autoRenewing ? 'success' : 'error' }`,
+					status: status,
 					icon: 'info',
-					listStatusText: expiresMessage,
-					listStatusClass: 'warning',
-					listStatusWeight: 800,
+					listStatusWeight: isExpiringSoon( domain, 7 ) ? 1000 : 800,
 					noticeText,
 				};
 			}
 
-			if ( getMappingErrors && siteSlug !== null ) {
+			if ( getMappingErrors && siteSlug !== null && ! isVipSite ) {
 				const registrationDatePlus3Days = moment.utc( domain.registrationDate ).add( 3, 'days' );
 
 				const hasMappingError =
@@ -159,45 +142,30 @@ export function resolveDomainStatus(
 					moment.utc().isAfter( registrationDatePlus3Days );
 
 				if ( hasMappingError ) {
-					let status;
-					if ( domain?.connectionMode === 'advanced' ) {
-						status = translate(
-							'{{strong}}Connection error:{{/strong}} The A records are incorrect. Please {{a}}try this step{{/a}} again.',
-							{ components: mappingSetupComponents }
-						);
-					} else {
-						status = translate(
-							'{{strong}}Connection error:{{/strong}} The name servers are incorrect. Please {{a}}try this step{{/a}} again.',
-							{ components: mappingSetupComponents }
-						);
-					}
 					return {
 						statusText: translate( 'Connection error' ),
 						statusClass: 'status-alert',
 						status: translate( 'Error' ),
 						icon: 'info',
-						listStatusText: status,
 						noticeText: translate(
 							"We noticed that something wasn't updated correctly. Please try {{a}}this setup{{/a}} again.",
 							{ components: mappingSetupComponents }
 						),
-						listStatusClass: 'alert',
 						listStatusWeight: 1000,
 					};
 				}
 			}
 
-			if ( ( ! isJetpackSite || isSiteAutomatedTransfer ) && ! domain.pointsToWpcom ) {
-				const status = translate(
-					'{{strong}}Verifying connection:{{/strong}} You can continue to work on your site, but your domain won’t be reachable just yet. You can review the {{a}}setup instructions{{/a}} to ensure everything is correct.',
-					{ components: mappingSetupComponents }
-				);
+			if (
+				! isVipSite &&
+				( ! isJetpackSite || isSiteAutomatedTransfer ) &&
+				! domain.pointsToWpcom
+			) {
 				return {
 					statusText: translate( 'Verifying' ),
 					statusClass: 'status-success',
 					status: translate( 'Verifying' ),
 					icon: 'verifying',
-					listStatusText: status,
 					noticeText: translate(
 						'It can take between a few minutes to 72 hours to verify the connection. You can continue to work on your site, but {{strong}}%(domainName)s{{/strong}} won’t be reachable just yet. You can review the {{a}}setup instructions{{/a}} to ensure everything is correct.',
 						{
@@ -207,7 +175,6 @@ export function resolveDomainStatus(
 							},
 						}
 					),
-					listStatusClass: 'verifying',
 					listStatusWeight: 600,
 				};
 			}
@@ -220,28 +187,54 @@ export function resolveDomainStatus(
 			};
 
 		case domainTypes.REGISTERED:
+			if ( domain.isMoveToNewSitePending ) {
+				return {
+					statusText: translate( 'Pending' ),
+					statusClass: 'status-warning',
+					status: translate( 'Pending' ),
+					icon: 'info',
+					noticeText: translate(
+						"This domain is being disconnected. It should be updated within a few minutes. Once the disconnect is complete, you'll be able to manage it {{a}}here{{/a}}.",
+						{
+							components: {
+								a: (
+									<a
+										href={ domainManagementEdit( '', domain.domain, currentRoute ) }
+										rel="noopener noreferrer"
+									/>
+								),
+							},
+						}
+					),
+					listStatusWeight: 400,
+				};
+			}
+
 			if ( domain.aftermarketAuction ) {
-				const statusMessage = translate( 'Expiry auction' );
+				const statusMessage = translate( 'Expired', { context: 'domain status' } );
 				return {
 					statusText: statusMessage,
 					statusClass: 'status-warning',
 					status: statusMessage,
 					icon: 'info',
 					noticeText: translate(
-						'Your domain expired over 30 days ago and has been offered for sale at auction. If it is not sold you may be able to restore the domain to your account by paying a redemption fee starting on {{strong}}%(renewableUntil)s{{/strong}}. Until then, you will not be able to make any changes or transfer the domain. {{a}}Learn more{{/a}}',
+						'This domain expired more than 30 days ago and is no longer available to manage or renew. We may be able to restore it after {{strong}}%(aftermarketAuctionEnd)s{{/strong}}. {{a}}Learn more{{/a}}',
 						{
 							components: {
 								strong: <strong />,
 								a: (
-									<a href={ DOMAIN_EXPIRATION_AUCTION } rel="noopener noreferrer" target="_blank" />
+									<a
+										href={ localizeUrl( DOMAIN_EXPIRATION_AUCTION ) }
+										rel="noopener noreferrer"
+										target="_blank"
+									/>
 								),
 							},
 							args: {
-								renewableUntil: moment.utc( domain.renewableUntil ).format( 'LL' ),
+								aftermarketAuctionEnd: moment.utc( domain.aftermarketAuctionEnd ).format( 'LL' ),
 							},
 						}
 					),
-					listStatusClass: 'warning',
 					listStatusWeight: 400,
 				};
 			}
@@ -253,9 +246,7 @@ export function resolveDomainStatus(
 					statusClass: 'status-success',
 					status: translate( 'Renewing' ),
 					icon: 'info',
-					listStatusText: pendingRenewalMessage,
 					noticeText: translate( 'Attempting to get it renewed for you.' ),
-					listStatusClass: 'warning',
 					listStatusWeight: 400,
 				};
 			}
@@ -266,16 +257,6 @@ export function resolveDomainStatus(
 					statusClass: 'status-success',
 					status: translate( 'In progress' ),
 					icon: 'cached',
-				};
-			}
-
-			if ( purchase && shouldRenderExpiringCreditCard( purchase ) ) {
-				return {
-					statusText: translate( 'Action required' ),
-					statusClass: 'status-error',
-					status: translate( 'Action required' ),
-					icon: 'info',
-					listStatusWeight: 600,
 				};
 			}
 
@@ -297,7 +278,11 @@ export function resolveDomainStatus(
 								components: {
 									a: (
 										<a
-											href={ domainManagementEditContactInfo( siteSlug as string, domain.name ) }
+											href={ domainManagementEditContactInfo(
+												siteSlug as string,
+												domain.name,
+												currentRoute
+											) }
 										></a>
 									),
 								},
@@ -334,7 +319,10 @@ export function resolveDomainStatus(
 										components: {
 											strong: <strong />,
 											a: (
-												<Button plain onClick={ () => handleRenewNowClick( purchase, siteSlug ) } />
+												<Button
+													plain
+													onClick={ () => dispatch( handleRenewNowClick( purchase, siteSlug ) ) }
+												/>
 											),
 										},
 										args: { renewableUntil },
@@ -360,7 +348,10 @@ export function resolveDomainStatus(
 										components: {
 											strong: <strong />,
 											a: (
-												<Button plain onClick={ () => handleRenewNowClick( purchase, siteSlug ) } />
+												<Button
+													plain
+													onClick={ () => dispatch( handleRenewNowClick( purchase, siteSlug ) ) }
+												/>
 											),
 										},
 										args: { redeemableUntil },
@@ -385,7 +376,6 @@ export function resolveDomainStatus(
 						},
 						args: {
 							expiryDate: moment.utc( domain.expiry ).format( 'LL' ),
-							renewCta,
 						},
 					}
 				);
@@ -398,17 +388,9 @@ export function resolveDomainStatus(
 				return {
 					statusText: translate( 'Action required' ),
 					statusClass: 'status-error',
-					status: translate( 'Expired' ),
+					status: translate( 'Expired', { context: 'domain status' } ),
 					icon: 'info',
-					listStatusText: translate( 'Expired %(timeSinceExpiry)s', {
-						args: {
-							timeSinceExpiry: moment.utc( domain.expiry ).fromNow(),
-						},
-						comment:
-							'timeSinceExpiry is of the form "[number] [time-period] ago" e.g. "3 days ago"',
-					} ),
 					noticeText,
-					listStatusClass: 'alert',
 					listStatusWeight: 1000,
 				};
 			}
@@ -418,7 +400,12 @@ export function resolveDomainStatus(
 					purchase && siteSlug && domain.currentUserIsOwner
 						? translate( '{{a}}Renew now{{/a}}', {
 								components: {
-									a: <Button plain onClick={ () => handleRenewNowClick( purchase, siteSlug ) } />,
+									a: (
+										<Button
+											plain
+											onClick={ () => dispatch( handleRenewNowClick( purchase, siteSlug ) ) }
+										/>
+									),
 								},
 						  } )
 						: translate( 'It can be renewed by the owner.' );
@@ -442,9 +429,7 @@ export function resolveDomainStatus(
 						statusClass: 'status-error',
 						status: translate( 'Expiring soon' ),
 						icon: 'info',
-						listStatusText: domainExpirationMessage,
 						noticeText: expiresMessage,
-						listStatusClass: 'alert',
 						listStatusWeight: 1000,
 					};
 				}
@@ -454,14 +439,12 @@ export function resolveDomainStatus(
 					statusClass: 'status-warning',
 					status: translate( 'Expiring soon' ),
 					icon: 'info',
-					listStatusText: expiresMessage,
 					noticeText: expiresMessage,
-					listStatusClass: 'warning',
 					listStatusWeight: 800,
 				};
 			}
 
-			if ( isRecentlyRegistered( domain.registrationDate ) ) {
+			if ( isRecentlyRegistered( domain.registrationDate ) || domain.pendingRegistration ) {
 				let noticeText;
 				if ( domain.isPrimary ) {
 					noticeText = translate(
@@ -473,7 +456,11 @@ export function resolveDomainStatus(
 							components: {
 								strong: <strong />,
 								learnMore: (
-									<a href={ SETTING_PRIMARY_DOMAIN } rel="noopener noreferrer" target="_blank" />
+									<a
+										href={ localizeUrl( SETTING_PRIMARY_DOMAIN ) }
+										rel="noopener noreferrer"
+										target="_blank"
+									/>
 								),
 								try: (
 									<a href={ `http://${ domain.name }` } rel="noopener noreferrer" target="_blank" />
@@ -492,9 +479,7 @@ export function resolveDomainStatus(
 					statusClass: 'status-success',
 					status: translate( 'Activating' ),
 					icon: 'cloud_upload',
-					listStatusText: translate( 'Activating' ),
 					noticeText,
-					listStatusClass: 'info',
 					listStatusWeight: 400,
 				};
 			}
@@ -514,48 +499,64 @@ export function resolveDomainStatus(
 					statusClass: 'status-premium',
 					status: translate( 'Active' ),
 					icon: 'check_circle',
-					listStatusClass: 'premium',
 				};
 			}
 
-			if ( domain.transferStatus === transferStatus.COMPLETED && ! domain.pointsToWpcom ) {
+			// We use the statusClass to save which notice we dismissed. We plan to add a new option if we add the dismiss option to more notices
+			if (
+				! dismissPreferences?.[ 'status-success' ] &&
+				domain.transferStatus === transferStatus.COMPLETED &&
+				! domain.pointsToWpcom
+			) {
+				const hasTranslation =
+					englishLocales.includes( String( getLocaleSlug() ) ) ||
+					i18n.hasTranslation(
+						'{{strong}}Transfer successful!{{/strong}} To make this domain work with your WordPress.com site you need to {{a}}point it to WordPress.com.{{/a}}'
+					);
+
+				const oldCopy = translate(
+					'{{strong}}Transfer successful!{{/strong}} To make this domain work with your WordPress.com site you need to {{a}}point it to WordPress.com name servers.{{/a}}',
+					{
+						components: {
+							strong: <strong />,
+							a: (
+								<a
+									href={ domainManagementEdit( siteSlug as string, domain.domain, currentRoute, {
+										nameservers: true,
+									} ) }
+								/>
+							),
+						},
+					}
+				);
+
+				const newCopy = translate(
+					'{{strong}}Transfer successful!{{/strong}} To make this domain work with your WordPress.com site you need to {{a}}point it to WordPress.com.{{/a}}',
+					{
+						components: {
+							strong: <strong />,
+							a: (
+								<a
+									href={ domainManagementEdit( siteSlug as string, domain.domain, currentRoute, {
+										nameservers: true,
+									} ) }
+								/>
+							),
+						},
+					}
+				);
 				return {
 					statusText: translate( 'Action required' ),
 					statusClass: 'status-success',
 					status: translate( 'Active' ),
 					icon: 'info',
-					listStatusText: translate(
-						'{{strong}}Point to WordPress.com:{{/strong}} To point this domain to your WordPress.com site, you need to update the name servers. {{a}}Update now{{/a}} or do this later.',
-						{
-							components: {
-								strong: <strong />,
-								a: (
-									<a
-										href={ domainManagementNameServers( siteSlug as string, domain.domain ) }
-										onClick={ ( e ) => e.stopPropagation() }
-									/>
-								),
-							},
-						}
-					),
-					noticeText: translate(
-						'{{strong}}Transfer successful!{{/strong}} To make this domain work with your WordPress.com site you need {{a}}point it to WordPress.com name servers.{{/a}}',
-						{
-							components: {
-								strong: <strong />,
-								a: <a href={ domainManagementNameServers( siteSlug as string, domain.domain ) } />,
-							},
-						}
-					),
-					listStatusClass: 'transfer-warning',
+					noticeText: hasTranslation ? newCopy : oldCopy,
 					listStatusWeight: 600,
+					isDismissable: true,
 				};
 			}
 
-			if (
-				gdprConsentStatus.PENDING_ASYNC === domain.gdprConsentStatus ||
-				domain.pendingRegistration
-			) {
+			if ( gdprConsentStatus.PENDING_ASYNC === domain.gdprConsentStatus ) {
 				const detailCta = domain.currentUserIsOwner
 					? translate( 'Please check the email sent to you for further details' )
 					: translate( 'Please check the email sent to the domain owner for further details' );
@@ -564,7 +565,7 @@ export function resolveDomainStatus(
 					'This domain requires explicit user consent to complete the registration. %(detailCta)s. {{a}}Learn more{{/a}}',
 					{
 						components: {
-							a: <a href={ GDPR_POLICIES } />,
+							a: <a href={ localizeUrl( GDPR_POLICIES ) } />,
 						},
 						args: { detailCta },
 					}
@@ -574,10 +575,18 @@ export function resolveDomainStatus(
 					statusClass: 'status-warning',
 					status: translate( 'Pending' ),
 					icon: 'info',
-					listStatusText: noticeText,
 					noticeText: noticeText,
-					listStatusClass: 'warning',
 					listStatusWeight: 400,
+				};
+			}
+
+			if ( purchase && shouldRenderExpiringCreditCard( purchase ) ) {
+				return {
+					statusText: translate( 'Action required' ),
+					statusClass: 'status-error',
+					status: translate( 'Action required' ),
+					icon: 'info',
+					listStatusWeight: 600,
 				};
 			}
 
@@ -615,46 +624,49 @@ export function resolveDomainStatus(
 			};
 
 		case domainTypes.TRANSFER:
+			if ( domain.lastTransferError ) {
+				return {
+					statusText: translate( 'Complete setup' ),
+					statusClass: 'status-warning',
+					status: translate( 'Complete setup' ),
+					icon: 'info',
+					noticeText: translate(
+						'There was an error when initiating your domain transfer. Please {{a}}see the details or retry{{/a}}.',
+						{
+							components: {
+								a: (
+									<a
+										href={ domainManagementEdit( siteSlug as string, domain.domain, currentRoute ) }
+									/>
+								),
+							},
+						}
+					),
+					listStatusWeight: 600,
+				};
+			}
+
 			if ( domain.transferStatus === transferStatus.PENDING_START ) {
 				return {
 					statusText: translate( 'Complete setup' ),
 					statusClass: 'status-warning',
 					status: translate( 'Complete setup' ),
 					icon: 'info',
-					listStatusText: translate(
-						'{{strong}}Transfer waiting:{{/strong}} Follow {{a}}these steps{{/a}} by %(beginTransferUntilDate)s to start the transfer.',
-						{
-							components: {
-								strong: <strong />,
-								a: (
-									<a
-										href={ INCOMING_DOMAIN_TRANSFER_STATUSES }
-										rel="noopener noreferrer"
-										target="_blank"
-										onClick={ ( e ) => e.stopPropagation() }
-									/>
-								),
-							},
-							args: {
-								beginTransferUntilDate: moment.utc( domain.beginTransferUntilDate ).format( 'LL' ),
-							},
-						}
-					),
 					noticeText: translate(
-						'Please follow {{a}}these instructions{{/a}} to start the transfer.',
+						'You need to {{a}}start the domain transfer{{/a}} for your domain.',
 						{
 							components: {
 								a: (
 									<a
-										href={ INCOMING_DOMAIN_TRANSFER_STATUSES }
-										rel="noopener noreferrer"
-										target="_blank"
+										href={ domainUseMyDomain( siteSlug as string, {
+											domain: domain.name,
+											initialMode: useMyDomainInputMode.startPendingTransfer,
+										} ) }
 									/>
 								),
 							},
 						}
 					),
-					listStatusClass: 'transfer-warning',
 					listStatusWeight: 600,
 				};
 			} else if ( domain.transferStatus === transferStatus.CANCELLED ) {
@@ -663,15 +675,10 @@ export function resolveDomainStatus(
 					statusClass: 'status-error',
 					status: translate( 'Failed' ),
 					icon: 'info',
-					listStatusText: translate(
-						'{{strong}}Transfer failed:{{/strong}} this transfer has failed. {{a}}Learn more{{/a}}',
-						transferOptions
-					),
 					noticeText: translate(
 						'Transfer failed. Learn the possible {{a}}reasons why{{/a}}.',
 						transferOptions
 					),
-					listStatusClass: 'alert',
 					listStatusWeight: 1000,
 				};
 			} else if ( domain.transferStatus === transferStatus.PENDING_REGISTRY ) {
@@ -681,15 +688,10 @@ export function resolveDomainStatus(
 						statusClass: 'status-success',
 						status: translate( 'In progress' ),
 						icon: 'info',
-						listStatusText: translate(
-							'{{strong}}Transfer in progress:{{/strong}} the transfer should be completed by %(transferFinishDate)s. We are waiting for approval from your current domain provider to proceed. {{a}}Learn more{{/a}}',
-							transferOptions
-						),
 						noticeText: translate(
 							'The transfer should complete by {{strong}}%(transferFinishDate)s{{/strong}}. We are waiting for authorization from your current domain provider to proceed. {{a}}Learn more{{/a}}',
 							transferOptions
 						),
-						listStatusClass: 'verifying',
 						listStatusWeight: 200,
 					};
 				}
@@ -698,15 +700,10 @@ export function resolveDomainStatus(
 					statusClass: 'status-success',
 					status: translate( 'In progress' ),
 					icon: 'info',
-					listStatusText: translate(
-						'{{strong}}Transfer in progress:{{/strong}} We are waiting for approval from your current domain provider to proceed. {{a}}Learn more{{/a}}',
-						transferOptions
-					),
 					noticeText: translate(
 						'We are waiting for authorization from your current domain provider to proceed. {{a}}Learn more{{/a}}',
 						transferOptions
 					),
-					listStatusClass: 'verifying',
 					listStatusWeight: 200,
 				};
 			}
@@ -716,17 +713,12 @@ export function resolveDomainStatus(
 				statusClass: 'status-success',
 				status: translate( 'In progress' ),
 				icon: 'cached',
-				listStatusText: translate(
-					'{{strong}}Transfer in progress.{{/strong}} {{a}}Learn more{{/a}}',
-					transferOptions
-				),
 				noticeText: domain.transferEndDate
 					? translate(
 							'The transfer should complete by {{strong}}%(transferFinishDate)s{{/strong}}. {{a}}Learn more{{/a}}',
 							transferOptions
 					  )
 					: null,
-				listStatusClass: 'verifying',
 				listStatusWeight: 200,
 			};
 

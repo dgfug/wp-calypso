@@ -1,25 +1,20 @@
-import { Dialog } from '@automattic/components';
+import { Dialog, FormInputValidation, FormLabel } from '@automattic/components';
 import { Icon, trash } from '@wordpress/icons';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component, Fragment } from 'react';
 import { connect } from 'react-redux';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormSectionHeading from 'calypso/components/forms/form-section-heading';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import { getSelectedDomain } from 'calypso/lib/domains';
 import { getName } from 'calypso/lib/purchases';
 import { hasTitanMailWithUs } from 'calypso/lib/titan';
 import wpcom from 'calypso/lib/wp';
-import {
-	domainManagementTransferOut,
-	domainManagementNameServers,
-} from 'calypso/my-sites/domains/paths';
+import { domainManagementEdit, domainManagementTransferOut } from 'calypso/my-sites/domains/paths';
 import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 import { getDomainsBySiteId } from 'calypso/state/sites/domains/selectors';
-import { getSelectedSiteSlug } from 'calypso/state/ui/selectors';
+import { getSiteSlug } from 'calypso/state/sites/selectors';
 
 class RemoveDomainDialog extends Component {
 	static propTypes = {
@@ -37,18 +32,22 @@ class RemoveDomainDialog extends Component {
 	};
 
 	renderDomainDeletionWarning( productName ) {
-		const { translate, slug, currentRoute } = this.props;
+		const { translate, slug, currentRoute, isGravatarDomain } = this.props;
 
 		return (
 			<Fragment>
 				<p>
 					{ translate(
-						'Deleting a domain will make all services connected to it unreachable, including your email and website. It will also make the domain available for someone else to register.',
-						{
-							args: { domain: productName },
-						}
+						'Deleting a domain will make all services connected to it unreachable, including your email and website. It will also make the domain available for someone else to register.'
 					) }
 				</p>
+				{ isGravatarDomain && (
+					<p>
+						{ translate(
+							'This domain is provided at no cost for the first year for use with your Gravatar profile. This offer is limited to one free domain per user. If you cancel this domain, you will have to pay the standard price to register another domain for your Gravatar profile.'
+						) }
+					</p>
+				) }
 				<p>
 					{ translate(
 						'If you want to use {{strong}}%(domain)s{{/strong}} with another provider you can {{moveAnchor}}move it to another service{{/moveAnchor}} or {{transferAnchor}}transfer it to another provider{{/transferAnchor}}.',
@@ -56,9 +55,7 @@ class RemoveDomainDialog extends Component {
 							args: { domain: productName },
 							components: {
 								strong: <strong />,
-								moveAnchor: (
-									<a href={ domainManagementNameServers( slug, productName, currentRoute ) } />
-								),
+								moveAnchor: <a href={ domainManagementEdit( slug, productName, currentRoute ) } />,
 								transferAnchor: (
 									<a href={ domainManagementTransferOut( slug, productName, currentRoute ) } />
 								),
@@ -191,7 +188,9 @@ class RemoveDomainDialog extends Component {
 				} );
 				break;
 			case 2:
-				if ( isEmailBasedOnDomain ) break;
+				if ( isEmailBasedOnDomain ) {
+					break;
+				}
 				this.setState( {
 					step: 3,
 				} );
@@ -247,6 +246,10 @@ class RemoveDomainDialog extends Component {
 			},
 		];
 
+		if ( ! purchase ) {
+			return;
+		}
+
 		if ( chatButton ) {
 			buttons.unshift( chatButton );
 		}
@@ -272,8 +275,9 @@ export default connect( ( state, ownProps ) => {
 	const selectedDomainName = getName( ownProps.purchase );
 	const selectedDomain = getSelectedDomain( { domains, selectedDomainName } );
 	return {
+		isGravatarDomain: selectedDomain?.isGravatarDomain,
 		hasTitanWithUs: hasTitanMailWithUs( selectedDomain ),
 		currentRoute: getCurrentRoute( state ),
-		slug: getSelectedSiteSlug( state ),
+		slug: getSiteSlug( state, ownProps.purchase.siteId ),
 	};
 } )( localize( RemoveDomainDialog ) );

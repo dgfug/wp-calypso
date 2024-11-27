@@ -1,10 +1,9 @@
 import { getTracksAnonymousUserId, getCurrentUser } from '@automattic/calypso-analytics';
 import cookie from 'cookie';
 import { v4 as uuid } from 'uuid';
-import { isAdTrackingAllowed } from 'calypso/lib/analytics/utils';
+import { mayWeTrackByTracker } from '../tracker-buckets';
 import {
 	debug,
-	isFloodlightEnabled,
 	DCM_FLOODLIGHT_SESSION_COOKIE_NAME,
 	DCM_FLOODLIGHT_SESSION_LENGTH_IN_SECONDS,
 } from './constants';
@@ -14,11 +13,10 @@ import './setup';
 
 /**
  * Records Floodlight events using Gtag and automatically adds `u4`, `u5`, and `allow_custom_scripts: true`.
- *
- * @param {object} params An object of Floodlight params.
+ * @param {Object} params An object of Floodlight params.
  */
 export function recordParamsInFloodlightGtag( params ) {
-	if ( ! isAdTrackingAllowed() || ! isFloodlightEnabled ) {
+	if ( ! mayWeTrackByTracker( 'floodlight' ) ) {
 		return;
 	}
 
@@ -38,8 +36,7 @@ export function recordParamsInFloodlightGtag( params ) {
 
 /**
  * Returns an object with DCM Floodlight user params
- *
- * @returns {object} With the WordPress.com user id and/or the logged out Tracks id
+ * @returns {Object} With the WordPress.com user id and/or the logged out Tracks id
  */
 function floodlightUserParams() {
 	const params = {};
@@ -59,7 +56,6 @@ function floodlightUserParams() {
 
 /**
  * Returns the DCM Floodlight session id, generating a new one if there's not already one
- *
  * @returns {string} The session id
  */
 function floodlightSessionId() {
@@ -79,12 +75,11 @@ function floodlightSessionId() {
 
 /**
  * Track a page view in DCM Floodlight
- *
  * @param {string} urlPath - The URL path
  * @returns {void}
  */
 export function recordPageViewInFloodlight( urlPath ) {
-	if ( ! isAdTrackingAllowed() || ! isFloodlightEnabled ) {
+	if ( ! mayWeTrackByTracker( 'floodlight' ) ) {
 		return;
 	}
 

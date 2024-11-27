@@ -1,18 +1,24 @@
 import styled from '@emotion/styled';
-import PropTypes from 'prop-types';
 
 // Disabling this to make migration easier
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
 export const PaymentMethodLogos = styled.span`
+	display: flex;
+	flex: 1;
 	text-align: right;
-	transform: translateY( 3px );
+	align-items: center;
+	justify-content: flex-end;
+
 	.rtl & {
 		text-align: left;
 	}
 
 	svg {
-		display: block;
+		display: inline-block;
+		&.has-background {
+			padding-inline-end: 5px;
+		}
 	}
 
 	&.google-pay__logo svg {
@@ -20,13 +26,7 @@ export const PaymentMethodLogos = styled.span`
 	}
 `;
 
-export function PaymentLogo( {
-	brand,
-	isSummary,
-}: {
-	brand: string;
-	isSummary?: boolean;
-} ): JSX.Element | null {
+export function PaymentLogo( { brand, isSummary }: { brand: string; isSummary?: boolean } ) {
 	let cardFieldIcon = null;
 
 	switch ( brand ) {
@@ -34,6 +34,13 @@ export function PaymentLogo( {
 			cardFieldIcon = (
 				<BrandLogo isSummary={ isSummary }>
 					<VisaLogo />
+				</BrandLogo>
+			);
+			break;
+		case 'cartes_bancaires':
+			cardFieldIcon = (
+				<BrandLogo isSummary={ isSummary }>
+					<CBLogo />
 				</BrandLogo>
 			);
 			break;
@@ -136,7 +143,7 @@ function LockIcon( { className }: { className?: string } ) {
 	);
 }
 
-export function VisaLogo( { className }: { className?: string } ): JSX.Element {
+export function VisaLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }
@@ -160,11 +167,73 @@ export function VisaLogo( { className }: { className?: string } ): JSX.Element {
 	);
 }
 
-VisaLogo.propTypes = {
-	className: PropTypes.string,
-};
+export function CBLogo( { className }: { className?: string } ) {
+	// We need to provide a unique ID to any svg that uses an id prop
+	// especially if we expect multiple instances of the component to render on the page
+	const uniqueID = `${ Math.floor( 10000 + Math.random() * 90000 ) }`;
 
-export function MastercardLogo( { className }: { className?: string } ): JSX.Element {
+	return (
+		<svg
+			className={ className }
+			aria-hidden="true"
+			focusable="false"
+			viewBox="0 0 60 38"
+			width="42"
+			height="26.6"
+			xmlns="http://www.w3.org/2000/svg"
+		>
+			<defs>
+				<clipPath id={ `${ uniqueID }paths` }>
+					<rect
+						xmlns="http://www.w3.org/2000/svg"
+						x="0.5"
+						y="0.5"
+						width="59"
+						height="37"
+						rx="3"
+						fill="none"
+					/>
+				</clipPath>
+				<radialGradient
+					id={ `${ uniqueID }b` }
+					cx="-5"
+					cy="70"
+					gradientUnits="userSpaceOnUse"
+					r="140"
+				>
+					<stop offset=".09" stopColor="#009245" />
+					<stop offset=".23" stopColor="#049552" stopOpacity=".89" />
+					<stop offset=".52" stopColor="#0d9e74" stopOpacity=".59" />
+					<stop offset=".91" stopColor="#1bacab" stopOpacity=".12" />
+					<stop offset="1" stopColor="#1fb0b8" stopOpacity="0" />
+				</radialGradient>
+				<radialGradient
+					id={ `${ uniqueID }c` }
+					cx="-5"
+					cy="70"
+					gradientUnits="userSpaceOnUse"
+					r="140"
+				>
+					<stop offset=".15" stopColor="#1fb0b8" stopOpacity="0" />
+					<stop offset=".35" stopColor="#1c7491" stopOpacity=".4" />
+					<stop offset=".56" stopColor="#1a4471" stopOpacity=".73" />
+					<stop offset=".74" stopColor="#18265e" stopOpacity=".93" />
+					<stop offset=".87" stopColor="#181b57" />
+				</radialGradient>
+			</defs>
+			<g clipPath={ `url(#${ uniqueID }paths)` }>
+				<path d="M0 0h60v38H0z" fill="#29abe2" />
+				<path d="M0 0h60v38H0z" fill={ `url(#${ uniqueID }b)` } />
+				<path d="M0 0h60v38H0z" fill={ `url(#${ uniqueID }c)` } />
+			</g>
+			<g fill="#fff" transform="scale(1.8) translate(3, 1.5)">
+				<path d="M14.39 3.86h7.07a2.47 2.47 0 0 1 2.47 2.47 2.47 2.47 0 0 1-2.47 2.47h-7.07V3.86zM14.39 9.36h7.07a2.47 2.47 0 0 1 2.47 2.47 2.47 2.47 0 0 1-2.47 2.47h-7.07V9.36zM8.23 9.36V8.8h5.69a5.51 5.51 0 0 0-5.69-4.94 5.47 5.47 0 0 0-5.69 5.22 5.47 5.47 0 0 0 5.69 5.22 5.51 5.51 0 0 0 5.69-4.94z" />
+			</g>
+		</svg>
+	);
+}
+
+export function MastercardLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }
@@ -189,11 +258,7 @@ export function MastercardLogo( { className }: { className?: string } ): JSX.Ele
 	);
 }
 
-MastercardLogo.propTypes = {
-	className: PropTypes.string,
-};
-
-export function AmexLogo( { className }: { className?: string } ): JSX.Element {
+export function AmexLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }
@@ -213,11 +278,7 @@ export function AmexLogo( { className }: { className?: string } ): JSX.Element {
 	);
 }
 
-AmexLogo.propTypes = {
-	className: PropTypes.string,
-};
-
-export function JcbLogo( { className }: { className?: string } ): JSX.Element {
+export function JcbLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }
@@ -249,11 +310,7 @@ export function JcbLogo( { className }: { className?: string } ): JSX.Element {
 	);
 }
 
-JcbLogo.propTypes = {
-	className: PropTypes.string,
-};
-
-export function DinersLogo( { className }: { className?: string } ): JSX.Element {
+export function DinersLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }
@@ -285,11 +342,7 @@ export function DinersLogo( { className }: { className?: string } ): JSX.Element
 	);
 }
 
-DinersLogo.propTypes = {
-	className: PropTypes.string,
-};
-
-export function UnionpayLogo( { className }: { className?: string } ): JSX.Element {
+export function UnionpayLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }
@@ -317,11 +370,7 @@ export function UnionpayLogo( { className }: { className?: string } ): JSX.Eleme
 	);
 }
 
-UnionpayLogo.propTypes = {
-	className: PropTypes.string,
-};
-
-export function DiscoverLogo( { className }: { className?: string } ): JSX.Element {
+export function DiscoverLogo( { className }: { className?: string } ) {
 	return (
 		<svg
 			className={ className }
@@ -344,7 +393,3 @@ export function DiscoverLogo( { className }: { className?: string } ): JSX.Eleme
 		</svg>
 	);
 }
-
-DiscoverLogo.propTypes = {
-	className: PropTypes.string,
-};

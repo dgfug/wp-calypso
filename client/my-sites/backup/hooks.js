@@ -1,16 +1,11 @@
-import { useCallback, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import useActivityLogQuery from 'calypso/data/activity-log/use-activity-log-query';
+import { WPCOM_FEATURES_REAL_TIME_BACKUPS } from '@automattic/calypso-products';
+import { useSelector } from 'react-redux';
+import useRewindableActivityLogQuery from 'calypso/data/activity-log/use-rewindable-activity-log-query';
 import {
 	SUCCESSFUL_BACKUP_ACTIVITIES,
 	BACKUP_ATTEMPT_ACTIVITIES,
 } from 'calypso/lib/jetpack/backup-utils';
-import { applySiteOffset } from 'calypso/lib/site/timezone';
-import { requestRewindCapabilities } from 'calypso/state/rewind/capabilities/actions';
-import getActivityLogVisibleDays from 'calypso/state/rewind/selectors/get-activity-log-visible-days';
-import getRewindCapabilities from 'calypso/state/selectors/get-rewind-capabilities';
-import getSiteGmtOffset from 'calypso/state/selectors/get-site-gmt-offset';
-import getSiteTimezoneValue from 'calypso/state/selectors/get-site-timezone-value';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
 
 const byActivityTsDescending = ( a, b ) => ( a.activityTs > b.activityTs ? -1 : 1 );
 
@@ -52,30 +47,29 @@ const getRealtimeAttemptFilter = ( { before, after, sortOrder } = {} ) => {
 // Find all the backup attempts in a given date range
 export const useMatchingBackupAttemptsInRange = ( siteId, { before, after, sortOrder } = {} ) => {
 	const filter = getSuccessfulBackupsFilter( { before, after, sortOrder } );
-	const { data: backups, isLoading } = useActivityLogQuery( siteId, filter );
+	const { data: backups, isLoading } = useRewindableActivityLogQuery( siteId, filter );
 
 	return { isLoading, backups };
 };
 
 export const useFirstMatchingBackupAttempt = (
 	siteId,
-	{ before, after, successOnly, sortOrder } = {}
+	{ before, after, successOnly, sortOrder } = {},
+	queryOptions = {}
 ) => {
-	const dispatch = useDispatch();
-
-	useEffect( () => {
-		dispatch( requestRewindCapabilities( siteId ) );
-	}, [ siteId ] );
-
-	const rewindCapabilities = useSelector( ( state ) => getRewindCapabilities( state, siteId ) );
-	const hasRealtimeBackups =
-		Array.isArray( rewindCapabilities ) && rewindCapabilities.includes( 'backup-realtime' );
+	const hasRealtimeBackups = useSelector( ( state ) =>
+		siteHasFeature( state, siteId, WPCOM_FEATURES_REAL_TIME_BACKUPS )
+	);
 
 	const filter = hasRealtimeBackups
 		? getRealtimeAttemptFilter( { before, after, sortOrder } )
 		: getDailyAttemptFilter( { before, after, successOnly, sortOrder } );
 
-	const { data, isLoading } = useActivityLogQuery( siteId, filter );
+	const { data, isLoading, refetch } = useRewindableActivityLogQuery(
+		siteId,
+		filter,
+		queryOptions
+	);
 
 	let backupAttempt = undefined;
 	if ( data ) {
@@ -103,30 +97,5 @@ export const useFirstMatchingBackupAttempt = (
 		}
 	}
 
-	return { isLoading, backupAttempt };
-};
-
-/**
- * A React hook that creates a callback to test whether or not a given date
- * should be visible in the Backup UI (if display rules are enabled).
- *
- * @param {number|null} siteId The site whose display rules we'll be testing against.
- * @returns A callback that returns true if a given date should be visible, and false otherwise.
- */
-export const useIsDateVisible = ( siteId ) => {
-	const gmtOffset = useSelector( ( state ) => getSiteGmtOffset( state, siteId ) );
-	const timezone = useSelector( ( state ) => getSiteTimezoneValue( state, siteId ) );
-	const visibleDays = useSelector( ( state ) => getActivityLogVisibleDays( state, siteId ) );
-
-	return useCallback(
-		( date ) => {
-			if ( visibleDays === undefined ) {
-				return true;
-			}
-
-			const today = applySiteOffset( Date.now(), { gmtOffset, timezone } ).startOf( 'day' );
-			return today.diff( date, 'days' ) <= visibleDays;
-		},
-		[ gmtOffset, timezone, visibleDays ]
-	);
+	return { isLoading, backupAttempt, refetch };
 };

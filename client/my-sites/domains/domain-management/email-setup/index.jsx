@@ -1,8 +1,8 @@
+import { FoldableCard } from '@automattic/components';
 import { Icon, chevronDown, chevronUp } from '@wordpress/icons';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
-import FoldableCard from 'calypso/components/foldable-card';
 import SectionNav from 'calypso/components/section-nav';
 import NavItem from 'calypso/components/section-nav/item';
 import NavTabs from 'calypso/components/section-nav/tabs';
@@ -28,12 +28,15 @@ class EmailSetup extends Component {
 				{
 					name: googleServiceName,
 					label: translate(
-						'%(serviceName)s Verification Token - from the TXT record verification',
+						'Paste the verification token provided by %(serviceName)s for the {{strong}}TXT{{/strong}} record:',
 						{
 							args: { serviceName: googleServiceName },
 							comment:
 								'%(serviceName)s will be replaced with the name of the service ' +
 								'that this token applies to, for example G Suite or Office 365',
+							components: {
+								strong: <strong />,
+							},
 						}
 					),
 					placeholder: 'google-site-verification=...',
@@ -42,14 +45,36 @@ class EmailSetup extends Component {
 					dnsTemplateService: dnsTemplates.G_SUITE.SERVICE,
 				},
 				{
+					name: 'iCloud Mail',
+					label: translate(
+						'Paste the verification token provided by %(serviceName)s for the {{strong}}TXT{{/strong}} record:',
+						{
+							args: { serviceName: 'iCloud Mail' },
+							comment:
+								'%(serviceName)s will be replaced with the name of the service ' +
+								'that this token applies to, for example G Suite or Office 365',
+							components: {
+								strong: <strong />,
+							},
+						}
+					),
+					placeholder: 'apple-domain=...',
+					validationPattern: /^apple-domain=[A-Za-z0-9]{16}$/,
+					dnsTemplateProvider: dnsTemplates.ICLOUD_MAIL.PROVIDER,
+					dnsTemplateService: dnsTemplates.ICLOUD_MAIL.SERVICE,
+				},
+				{
 					name: 'Office 365',
 					label: translate(
-						'%(serviceName)s Verification Token - from the TXT record verification',
+						'Paste the verification token provided by %(serviceName)s for the {{strong}}TXT{{/strong}} record:',
 						{
 							args: { serviceName: 'Office 365' },
 							comment:
 								'%(serviceName)s will be replaced with the name of the service ' +
 								'that this token applies to, for example G Suite or Office 365',
+							components: {
+								strong: <strong />,
+							},
 						}
 					),
 					placeholder: 'MS=ms...',
@@ -58,12 +83,23 @@ class EmailSetup extends Component {
 					dnsTemplateService: dnsTemplates.MICROSOFT_OFFICE365.SERVICE,
 					modifyVariables: ( variables ) =>
 						Object.assign( {}, variables, {
-							mxdata: variables.domain.replace( '.', '-' ) + '.mail.protection.outlook.com',
+							mxdata: variables.domain.replaceAll( '.', '-' ) + '.mail.protection.outlook.com',
 						} ),
 				},
 				{
 					name: 'Zoho Mail',
-					label: translate( 'Zoho Mail CNAME zb code' ),
+					label: translate(
+						'Paste the verification code provided by %(serviceName)s for the {{strong}}CNAME{{/strong}} record:',
+						{
+							args: { serviceName: 'Zoho Mail' },
+							comment:
+								'%(serviceName)s will be replaced with the name of the service ' +
+								'that this token applies to, for example G Suite or Office 365',
+							components: {
+								strong: <strong />,
+							},
+						}
+					),
 					placeholder: 'zb...',
 					validationPattern: /^zb\w{1,100}$/,
 					dnsTemplateProvider: dnsTemplates.ZOHO_MAIL.PROVIDER,
@@ -105,7 +141,9 @@ class EmailSetup extends Component {
 		const selectedTemplate = this.state.templates.find(
 			( template ) => this.state.selectedTab === template.name
 		);
-		if ( ! selectedTemplate ) return null;
+		if ( ! selectedTemplate ) {
+			return null;
+		}
 
 		return <EmailProvider template={ selectedTemplate } domain={ this.props.selectedDomainName } />;
 	};

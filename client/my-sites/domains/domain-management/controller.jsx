@@ -1,16 +1,16 @@
-import page from 'page';
+import page from '@automattic/calypso-router';
+import { isFreeUrlDomainName } from '@automattic/domains-table/src/utils/is-free-url-domain-name';
 import DomainManagementData from 'calypso/components/data/domain-management';
-import { isFreeUrlDomainName } from 'calypso/lib/domains/utils';
 import { decodeURIComponentIfValid } from 'calypso/lib/url';
 import {
-	domainManagementContactsPrivacy,
+	domainManagementAllEditSelectedContactInfo,
+	domainManagementEditSelectedContactInfo,
 	domainManagementDns,
 	domainManagementDnsAddRecord,
 	domainManagementDnsEditRecord,
 	domainManagementEdit,
 	domainManagementEditContactInfo,
 	domainManagementList,
-	domainManagementNameServers,
 	domainManagementRedirectSettings,
 	domainManagementSecurity,
 	domainManagementSiteRedirect,
@@ -18,28 +18,22 @@ import {
 	domainManagementTransferIn,
 	domainManagementTransferOut,
 	domainManagementTransferToAnotherUser,
+	domainManagementTransferToAnyUser,
 	domainManagementTransferToOtherSite,
 	domainManagementManageConsent,
 	domainManagementDomainConnectMapping,
 	domainManagementRoot,
-	domainManagementAllEditContactInfo,
 } from 'calypso/my-sites/domains/paths';
-import { emailManagement } from 'calypso/my-sites/email/paths';
+import { getEmailManagementPath } from 'calypso/my-sites/email/paths';
 import { getSelectedSiteSlug } from 'calypso/state/ui/selectors';
 import DomainManagement from '.';
 
 export default {
 	domainManagementList( pageContext, next ) {
 		pageContext.primary = (
-			<DomainManagementData
-				analyticsPath={ domainManagementList( ':site' ) }
+			<DomainManagement.BulkSiteDomains
+				analyticsPath={ domainManagementRoot( ':site' ) }
 				analyticsTitle="Domain Management"
-				component={ DomainManagement.SiteDomains }
-				context={ pageContext }
-				needsContactDetails
-				needsDomains
-				needsPlans
-				needsProductsList
 			/>
 		);
 		next();
@@ -47,25 +41,9 @@ export default {
 
 	domainManagementListAllSites( pageContext, next ) {
 		pageContext.primary = (
-			<DomainManagementData
+			<DomainManagement.BulkAllDomains
 				analyticsPath={ domainManagementRoot() }
 				analyticsTitle="Domain Management > All Domains"
-				component={ DomainManagement.AllDomains }
-				context={ pageContext }
-			/>
-		);
-		next();
-	},
-
-	domainManagementBulkEditContactInfo( pageContext, next ) {
-		pageContext.primary = (
-			<DomainManagementData
-				analyticsPath={ domainManagementAllEditContactInfo() }
-				analyticsTitle="Domain Management > All Domains > Edit Contact Info"
-				component={ DomainManagement.BulkEditContactInfo }
-				context={ pageContext }
-				needsDomains
-				selectedDomainName={ pageContext.params.domain }
 			/>
 		);
 		next();
@@ -85,7 +63,6 @@ export default {
 				analyticsTitle="Domain Management > Edit"
 				component={ DomainManagement.Settings }
 				context={ pageContext }
-				needsContactDetails
 				needsDomains
 				needsPlans
 				needsProductsList
@@ -102,7 +79,6 @@ export default {
 				analyticsTitle="Domain Management > Edit"
 				component={ DomainManagement.Settings }
 				context={ pageContext }
-				needsContactDetails
 				needsDomains
 				needsPlans
 				needsProductsList
@@ -119,25 +95,10 @@ export default {
 				analyticsTitle="Domain Management > Edit"
 				component={ DomainManagement.Settings }
 				context={ pageContext }
-				needsContactDetails
 				needsDomains
 				needsPlans
 				needsProductsList
 				selectedDomainName={ decodeURIComponentIfValid( pageContext.params.domain ) }
-			/>
-		);
-		next();
-	},
-
-	domainManagementContactsPrivacy( pageContext, next ) {
-		pageContext.primary = (
-			<DomainManagementData
-				analyticsPath={ domainManagementContactsPrivacy( ':site', ':domain' ) }
-				analyticsTitle="Domain Management > Contacts"
-				component={ DomainManagement.ContactsPrivacy }
-				context={ pageContext }
-				needsDomains
-				selectedDomainName={ pageContext.params.domain }
 			/>
 		);
 		next();
@@ -150,7 +111,6 @@ export default {
 				analyticsTitle="Domain Management > Contacts and Privacy > Manage Consent for Personal Data Use"
 				component={ DomainManagement.ManageConsent }
 				context={ pageContext }
-				needsContactDetails
 				needsDomains
 				needsPlans
 				needsProductsList
@@ -174,8 +134,34 @@ export default {
 		next();
 	},
 
+	domainManagementAllEditSelectedContactInfo( pageContext, next ) {
+		pageContext.primary = (
+			<DomainManagementData
+				analyticsPath={ domainManagementAllEditSelectedContactInfo() }
+				analyticsTitle="Domain Management > Edit Selected Contact Info"
+				component={ DomainManagement.BulkEditContactInfoPage }
+				context={ pageContext }
+				needsDomains
+			/>
+		);
+		next();
+	},
+
+	domainManagementEditSelectedContactInfo( pageContext, next ) {
+		pageContext.primary = (
+			<DomainManagementData
+				analyticsPath={ domainManagementEditSelectedContactInfo( ':site' ) }
+				analyticsTitle="Domain Management > Edit Selected Contact Info"
+				component={ DomainManagement.BulkEditContactInfoPage }
+				context={ pageContext }
+				needsDomains
+			/>
+		);
+		next();
+	},
+
 	domainManagementEmailRedirect( pageContext ) {
-		page.redirect( emailManagement( pageContext.params.site, pageContext.params.domain ) );
+		page.redirect( getEmailManagementPath( pageContext.params.site, pageContext.params.domain ) );
 	},
 
 	domainManagementDns( pageContext, next ) {
@@ -186,6 +172,7 @@ export default {
 				component={ DomainManagement.DnsRecords }
 				context={ pageContext }
 				selectedDomainName={ pageContext.params.domain }
+				needsDomains
 			/>
 		);
 		next();
@@ -199,6 +186,7 @@ export default {
 				component={ DomainManagement.AddDnsRecord }
 				context={ pageContext }
 				selectedDomainName={ pageContext.params.domain }
+				needsDomains
 			/>
 		);
 		next();
@@ -226,20 +214,6 @@ export default {
 				context={ pageContext }
 				needsDomains
 				selectedDomainName={ decodeURIComponentIfValid( pageContext.params.domain ) }
-			/>
-		);
-		next();
-	},
-
-	domainManagementNameServers( pageContext, next ) {
-		pageContext.primary = (
-			<DomainManagementData
-				analyticsPath={ domainManagementNameServers( ':site', ':domain' ) }
-				analyticsTitle="Domain Management > Name Servers and DNS"
-				component={ DomainManagement.NameServers }
-				context={ pageContext }
-				needsDomains
-				selectedDomainName={ pageContext.params.domain }
 			/>
 		);
 		next();
@@ -313,6 +287,20 @@ export default {
 				analyticsPath={ domainManagementTransferToAnotherUser( ':site', ':domain' ) }
 				analyticsTitle="Domain Management > Transfer To Other User"
 				component={ DomainManagement.TransferDomainToOtherUser }
+				context={ pageContext }
+				needsDomains
+				selectedDomainName={ pageContext.params.domain }
+			/>
+		);
+		next();
+	},
+
+	domainManagementTransferToAnyUser( pageContext, next ) {
+		pageContext.primary = (
+			<DomainManagementData
+				analyticsPath={ domainManagementTransferToAnyUser( ':site', ':domain' ) }
+				analyticsTitle="Domain Management > Transfer To Another User"
+				component={ DomainManagement.TransferDomainToAnyUser }
 				context={ pageContext }
 				needsDomains
 				selectedDomainName={ pageContext.params.domain }

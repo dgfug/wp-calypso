@@ -3,14 +3,16 @@
  */
 
 const path = require( 'path' );
-const BuildMetaPlugin = require( '@automattic/calypso-apps-builder/build-meta-webpack-plugin.cjs' );
 const getBaseWebpackConfig = require( '@automattic/calypso-build/webpack.config.js' );
 const DependencyExtractionWebpackPlugin = require( '@wordpress/dependency-extraction-webpack-plugin' );
+const webpack = require( 'webpack' );
+const { BundleAnalyzerPlugin } = require( 'webpack-bundle-analyzer' );
 
 /**
  * Internal variables
  */
 const isDevelopment = process.env.NODE_ENV !== 'production';
+const shouldEmitStats = process.env.EMIT_STATS && process.env.EMIT_STATS !== 'false';
 
 /**
  * Return a webpack config object
@@ -18,15 +20,14 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
  * Arguments to this function replicate webpack's so this config can be used on the command line,
  * with individual options overridden by command line args. Note that webpack-cli seems to convert
  * kebab-case (like `--ouput-path`) to camelCase (`outputPath`)
- *
  * @see {@link https://webpack.js.org/configuration/configuration-types/#exporting-a-function}
  * @see {@link https://webpack.js.org/api/cli/}
- * @param   {object}  env                           environment options
- * @param   {object}  argv                          options map
- * @param   {object}  argv.entry                    Entry point(s)
+ * @param   {Object}  env                           environment options
+ * @param   {Object}  argv                          options map
+ * @param   {Object}  argv.entry                    Entry point(s)
  * @param   {string}  argv.outputPath               Output path
  * @param   {string}  argv.outputFilename           Output filename pattern
- * @returns {object}                                webpack config
+ * @returns {Object}                                webpack config
  */
 function getWebpackConfig(
 	env = { WP: true },
@@ -50,7 +51,7 @@ function getWebpackConfig(
 
 	return {
 		...webpackConfig,
-		devtool: isDevelopment ? 'inline-cheap-source-map' : false,
+		devtool: isDevelopment ? 'inline-cheap-source-map' : 'source-map',
 		optimization: {
 			...webpackConfig.optimization,
 			// disable module concatenation so that instances of `__()` are not renamed
@@ -60,6 +61,13 @@ function getWebpackConfig(
 			...webpackConfig.plugins.filter(
 				( plugin ) => plugin.constructor.name !== 'DependencyExtractionWebpackPlugin'
 			),
+			/**
+			 * This is needed for import-ing ThemeUpgradeModal,
+			 * which is directly due to the use of NODE_DEBUG in the package called `util`.
+			 */
+			new webpack.DefinePlugin( {
+				'process.env.NODE_DEBUG': JSON.stringify( process.env.NODE_DEBUG || false ),
+			} ),
 			new DependencyExtractionWebpackPlugin( {
 				requestToExternal( request ) {
 					if ( request === 'tinymce/tinymce' ) {
@@ -72,7 +80,17 @@ function getWebpackConfig(
 					}
 				},
 			} ),
-			BuildMetaPlugin( { outputPath } ),
+			shouldEmitStats &&
+				new BundleAnalyzerPlugin( {
+					analyzerMode: 'server',
+					statsOptions: {
+						source: false,
+						reasons: false,
+						optimizationBailout: false,
+						chunkOrigins: false,
+						chunkGroups: true,
+					},
+				} ),
 		],
 	};
 }

@@ -1,0 +1,31 @@
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
+
+.jetpack-product-store__pricing-banner {
+	height: auto;
+	margin-top: rem(64px);
+
+	@include break-large {
+		height: 32px;
+	}
+}
+
+.jetpack-product-store__pricing-banner .intro-pricing-banner:not(.is-sticky) .intro-pricing-banner__content {
+	height: auto;
+	gap: 0.75rem;
+
+	@include break-large {
+		row-gap: 1rem;
+		column-gap: 2rem;
+		max-height: 2rem;
+	}
+}
+
+.jetpack-product-store__pricing-banner .intro-pricing-banner:not(.is-sticky) .intro-pricing-banner__item {
+	max-height: 32px;
+	margin: 0;
+}
+
+.jetpack-product-store__pricing-banner .intro-pricing-banner__item-icon {
+	margin-right: 10px;
+}

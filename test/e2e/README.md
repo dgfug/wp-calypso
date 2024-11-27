@@ -1,3 +1,5 @@
+<img alt="Abstract concept" src="https://cldup.com/gBB3Y0iOWl.jpg" />
+
 # WordPress.com End to End Tests
 
 Automated end-to-end acceptance tests for the [wp-calypso](https://github.com/Automattic/wp-calypso) client and WordPress.com.
@@ -21,90 +23,84 @@ Automated end-to-end acceptance tests for the [wp-calypso](https://github.com/Au
 
 Calypso E2E requires the following:
 
-- [NodeJS 16.13](https://nodejs.org/en/blog/release/v16.13.2/) or higher
-- [TypeScript 4.5](https://www.staging-typescript.org/docs/handbook/release-notes/typescript-4-5.html) or higher
-- [Playwright 1.18](https://playwright.dev/docs/release-notes#version-118) or higher
-- [yarn 3.1](https://github.com/yarnpkg/berry) or higher
+- [NodeJS](https://nodejs.org/) at the version in the root package.json "engines" field. (Typically latest LTS.)
+- The [yarn](https://github.com/yarnpkg/berry) version available in the repo.
+- Dependencies such as [Typescript](https://typescript.org) and [Playwright](https://playwright.dev) are installed via yarn, and you can find information about the versions we use in ./package.json.
 
 ## Quick start
 
 1. install `homebrew`.
 
-```
+```bash
 mkdir homebrew && curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C homebrew
 ```
 
 2. install `nvm`.
 
-```
+```bash
 brew install nvm
 ```
 
 3. install the required nodeJS version.
 
-```
+```bash
 nvm install <node_version>
 ```
 
 4. use the installed nodeJS version.
 
-```
+```bash
 nvm use <node_version>
 ```
 
-5. install `yarn`.
+5. enable `yarn` package manager.
 
-```
-npm install yarn
+```bash
+corepack enable
 ```
 
 6. clone this repository
 
-```
+```bash
 git clone https://github.com/Automattic/wp-calypso.git
 ```
 
-7. navigate to top source directory.
+7. navigate to the cloned directory.
 
-```
+```bash
 cd wp-calypso
 ```
 
+_From this point on, all commands are executed within the `wp-calypso` root directory._
+
 8. install project dependencies.
 
-```
+```bash
 yarn install
 ```
 
-9. export required [environment variables](docs/test_environment.md).
+9. obtain the secrets decryption key.
 
-```
-export NODE_CONFIG_ENV=<name_of_decrypted_config_to_use>
-export CONFIG_KEY=<decryption_key_from_a8c_store>
-```
-
-10. navigate to e2e directory.
-
-```
-cd test/e2e
+```bash
+export E2E_SECRETS_KEY='Calypso E2E Config decode key from the Automattic secret store>'
 ```
 
-11. [decrypt](docs/test_environment.md) the secrets file.
+10. [decrypt](docs/test_environment.md) the secrets file.
 
-```
-npm run decryptconfig
-```
-
-12. transpile the `@automattic/calypso-e2e` package.
-
-```
-yarn workspace @automattic/calypso-e2e build
+```bash
+yarn workspace wp-e2e-tests decrypt-secrets
 ```
 
-13. run test.
+11. transpile the packages.
 
+```bash
+yarn workspace wp-e2e-tests build --watch
 ```
-yarn jest specs/specs-playwright/<spec_name>
+
+12. run test.
+
+```bash
+yarn workspace wp-e2e-tests test -- <test_path>
 ```
 
 ## Advanced setup

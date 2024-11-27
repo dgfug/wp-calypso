@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 import Deprecated from './deprecated';
 import Free from './free';
@@ -17,6 +17,8 @@ type OwnProps = {
 	billingTerm: Duration;
 	currencyCode?: string | null;
 	discountedPrice?: number;
+	discountedPriceDuration?: number;
+	discountedPriceFirst?: boolean;
 	displayFrom?: boolean;
 	expiryDate?: Moment;
 	hideSavingLabel?: boolean;
@@ -29,6 +31,9 @@ type OwnProps = {
 	originalPrice?: number;
 	productName: TranslateResult;
 	tooltipText?: TranslateResult | ReactNode;
+	displayPriceText?: TranslateResult | null;
+	customTimeFrameSavings?: ReactNode | null;
+	customTimeFrameBillingTerms?: ReactNode | null;
 };
 
 const DisplayPrice: React.FC< OwnProps > = ( {
@@ -36,6 +41,8 @@ const DisplayPrice: React.FC< OwnProps > = ( {
 	billingTerm,
 	currencyCode,
 	discountedPrice,
+	discountedPriceDuration,
+	discountedPriceFirst,
 	displayFrom,
 	expiryDate,
 	isDeprecated,
@@ -48,6 +55,9 @@ const DisplayPrice: React.FC< OwnProps > = ( {
 	pricesAreFetching,
 	productName,
 	tooltipText,
+	displayPriceText,
+	customTimeFrameSavings,
+	customTimeFrameBillingTerms,
 } ) => {
 	if ( isDeprecated ) {
 		return <Deprecated productName={ productName } />;
@@ -73,7 +83,9 @@ const DisplayPrice: React.FC< OwnProps > = ( {
 
 	return (
 		<Paid
+			discountedPriceDuration={ discountedPriceDuration }
 			discountedPrice={ discountedPrice }
+			discountedPriceFirst={ discountedPriceFirst }
 			originalPrice={ originalPrice }
 			pricesAreFetching={ pricesAreFetching }
 			billingTerm={ billingTerm }
@@ -81,6 +93,9 @@ const DisplayPrice: React.FC< OwnProps > = ( {
 			displayFrom={ displayFrom }
 			tooltipText={ tooltipText }
 			expiryDate={ expiryDate }
+			displayPriceText={ displayPriceText }
+			customTimeFrameSavings={ customTimeFrameSavings }
+			customTimeFrameBillingTerms={ customTimeFrameBillingTerms }
 		/>
 	);
 };
@@ -91,15 +106,12 @@ const Wrapper: React.FC< OwnProps > = ( props ) => {
 		'is-owned': Boolean( props.isOwned ),
 		'is-included-in-plan': Boolean( props.isIncludedInPlan ),
 		'is-free': Boolean( props.isFree ),
+		'is-placeholder': Boolean( props.pricesAreFetching ),
 	};
 
 	return (
 		<div
-			className={ classNames(
-				'display-price',
-				{ 'is-jetpack-cloud': isJetpackCloud() },
-				priceTypes
-			) }
+			className={ clsx( 'display-price', { 'is-jetpack-cloud': isJetpackCloud() }, priceTypes ) }
 		>
 			<DisplayPrice { ...props } />
 		</div>

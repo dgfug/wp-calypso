@@ -1,16 +1,24 @@
-import { Card, Ribbon, Button, Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import { Card, Button, Gridicon } from '@automattic/components';
+import {
+	DesignPreviewImage,
+	PREMIUM_THEME,
+	ThemeCard,
+	isDefaultGlobalStylesVariationSlug,
+	isLockedStyleVariation,
+} from '@automattic/design-picker';
 import { localize } from 'i18n-calypso';
-import { get, isEmpty, isEqual, some } from 'lodash';
+import { isEmpty, isEqual } from 'lodash';
 import photon from 'photon';
 import PropTypes from 'prop-types';
-import { Component } from 'react';
+import { Component, createRef } from 'react';
 import { connect } from 'react-redux';
-import InfoPopover from 'calypso/components/info-popover';
-import PulsingDot from 'calypso/components/pulsing-dot';
-import TrackComponentView from 'calypso/lib/analytics/track-component-view';
+import ThemeTierBadge from 'calypso/components/theme-tier/theme-tier-badge';
 import { decodeEntities } from 'calypso/lib/formatting';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
+import { useSiteGlobalStylesStatus } from 'calypso/state/sites/hooks/use-site-global-styles-status';
+import { getSiteSlug } from 'calypso/state/sites/selectors';
+import { updateThemes } from 'calypso/state/themes/actions/theme-update';
+import { isExternallyManagedTheme as getIsExternallyManagedTheme } from 'calypso/state/themes/selectors';
 import { setThemesBookmark } from 'calypso/state/themes/themes-ui/actions';
 import ThemeMoreButton from './more-button';
 
@@ -32,22 +40,26 @@ export class Theme extends Component {
 			demo_uri: PropTypes.string,
 			stylesheet: PropTypes.string,
 			taxonomies: PropTypes.object,
+			update: PropTypes.object,
+			soft_launched: PropTypes.bool,
+			isCustomGeneratedTheme: PropTypes.bool,
 		} ),
 		// If true, highlight this theme as active
 		active: PropTypes.bool,
-		// Theme price (pre-formatted string) -- empty string indicates free theme
-		price: PropTypes.string,
-		// If true, the theme is being installed
-		installing: PropTypes.bool,
+		// If true, highlight this theme in a loading state
+		loading: PropTypes.bool,
 		// If true, render a placeholder
 		isPlaceholder: PropTypes.bool,
 		// URL the screenshot link points to
 		screenshotClickUrl: PropTypes.string,
 		// Called when theme screenshot is clicked
 		onScreenshotClick: PropTypes.func,
+		// Called when theme style variation is clicked
+		onStyleVariationClick: PropTypes.func,
 		// Called when the more button is clicked
 		onMoreButtonClick: PropTypes.func,
-		// Options to populate the 'More' button popover menu with
+		// Called when a more button item is clicked
+		onMoreButtonItemClick: PropTypes.func,
 		buttonContents: PropTypes.objectOf(
 			PropTypes.shape( {
 				label: PropTypes.string,
@@ -68,29 +80,55 @@ export class Theme extends Component {
 			PropTypes.func,
 			PropTypes.shape( { current: PropTypes.any } ),
 		] ),
+		siteId: PropTypes.number,
+		isUpdating: PropTypes.bool,
+		isUpdated: PropTypes.bool,
+		errorOnUpdate: PropTypes.bool,
+		softLaunched: PropTypes.bool,
+		selectedStyleVariation: PropTypes.object,
+		shouldLimitGlobalStyles: PropTypes.bool,
 	};
 
 	static defaultProps = {
 		isPlaceholder: false,
 		buttonContents: {},
 		onMoreButtonClick: noop,
+		onMoreButtonItemClick: noop,
 		actionLabel: '',
 		active: false,
 	};
 
+	constructor( props ) {
+		super( props );
+
+		this.state = {
+			isScreenshotLoaded: false,
+		};
+	}
+
+	prevThemeThumbnailRef = createRef( null );
+	themeThumbnailRef = createRef( null );
+
 	shouldComponentUpdate( nextProps ) {
+		const themeThumbnailRefUpdated = this.themeThumbnailRef.current !== this.themeThumbnailRef.prev;
+		if ( themeThumbnailRefUpdated ) {
+			this.prevThemeThumbnailRef.current = this.themeThumbnailRef.current;
+		}
+
 		return (
 			nextProps.theme.id !== this.props.theme.id ||
 			nextProps.active !== this.props.active ||
-			nextProps.price !== this.props.price ||
-			nextProps.installing !== this.props.installing ||
+			nextProps.loading !== this.props.loading ||
 			! isEqual(
 				Object.keys( nextProps.buttonContents ),
 				Object.keys( this.props.buttonContents )
 			) ||
 			nextProps.screenshotClickUrl !== this.props.screenshotClickUrl ||
 			nextProps.onScreenshotClick !== this.props.onScreenshotClick ||
-			nextProps.onMoreButtonClick !== this.props.onMoreButtonClick
+			nextProps.onStyleVariationClick !== this.props.onStyleVariationClick ||
+			nextProps.onMoreButtonClick !== this.props.onMoreButtonClick ||
+			nextProps.onMoreButtonItemClick !== this.props.onMoreButtonItemClick ||
+			themeThumbnailRefUpdated
 		);
 	}
 
@@ -101,30 +139,80 @@ export class Theme extends Component {
 		}
 	};
 
-	isBeginnerTheme() {
-		const { theme } = this.props;
-		const skillLevels = get( theme, [ 'taxonomies', 'theme_skill-level' ] );
-		return some( skillLevels, { slug: 'beginner' } );
-	}
+	onStyleVariationClick = ( variation ) => {
+		this.props.onStyleVariationClick?.( this.props.theme.id, this.props.index, variation );
+	};
 
 	renderPlaceholder() {
 		/* eslint-disable wpcalypso/jsx-classname-namespace */
 		return (
-			<Card className="theme is-placeholder">
+			<Card className="theme theme-card is-placeholder">
 				<div className="theme__content" />
 			</Card>
 		);
 		/* eslint-enable wpcalypso/jsx-classname-namespace */
 	}
 
-	renderInstalling() {
-		if ( this.props.installing ) {
+	renderScreenshot() {
+		const { isExternallyManagedTheme, selectedStyleVariation, theme, siteSlug, translate } =
+			this.props;
+		const { isScreenshotLoaded } = this.state;
+		const { description, screenshot } = theme;
+
+		if ( theme.isCustomGeneratedTheme ) {
 			return (
-				<div className="theme__installing">
-					<PulsingDot active={ true } />
+				<iframe
+					scrolling="no"
+					loading="lazy"
+					title={ translate( 'Custom Theme Preview' ) }
+					className="theme__site-preview"
+					src={ `//${ siteSlug }/?hide_banners=true&preview_overlay=true&preview=true&cys-hide-admin-bar=1` }
+				/>
+			);
+		}
+
+		if ( ! screenshot ) {
+			return (
+				<div className="theme__no-screenshot">
+					<Gridicon icon="themes" size={ 48 } />
 				</div>
 			);
 		}
+
+		// mShots don't work well with SSR, since it shows a placeholder image by default
+		// the snapshot request is completed.
+		//
+		// With that in mind, we only use mShots for non-default style variations to ensure
+		// that there is no flash of image transition from static image to mShots on page load.
+		if (
+			! isDefaultGlobalStylesVariationSlug( selectedStyleVariation?.slug ) &&
+			! isExternallyManagedTheme
+		) {
+			const { id: themeId, stylesheet } = theme;
+
+			return (
+				<DesignPreviewImage
+					design={ { slug: themeId, recipe: { stylesheet } } }
+					styleVariation={ selectedStyleVariation }
+				/>
+			);
+		}
+
+		const fit = '479,360';
+		const themeImgSrc = photon( screenshot, { fit } ) || screenshot;
+		const themeImgSrcDoubleDpi = photon( screenshot, { fit, zoom: 2 } ) || screenshot;
+
+		return (
+			<img
+				alt={ isScreenshotLoaded ? decodeEntities( description ) : '' }
+				className="theme__img"
+				src={ themeImgSrc }
+				srcSet={ `${ themeImgSrcDoubleDpi } 2x` }
+				onLoad={ () => {
+					this.setState( { isScreenshotLoaded: true } );
+				} }
+			/>
+		);
 	}
 
 	onUpsellClick = () => {
@@ -138,149 +226,172 @@ export class Theme extends Component {
 		this.props.setThemesBookmark( this.props.theme.id );
 	};
 
-	render() {
-		const { active, price, theme, translate, upsellUrl } = this.props;
-		const { name, description, screenshot } = theme;
-		const isActionable = this.props.screenshotClickUrl || this.props.onScreenshotClick;
-		const themeClass = classNames( 'theme', {
-			'is-active': active,
-			'is-actionable': isActionable,
-		} );
+	updateTheme = () => {
+		this.props.updateThemes( [ this.props.theme.id ], this.props.siteId );
+	};
 
-		const hasPrice = /\d/g.test( price );
-		const showUpsell = hasPrice && upsellUrl;
-		const priceClass = classNames( 'theme__badge-price', {
-			'theme__badge-price-upgrade': ! hasPrice,
-			'theme__badge-price-upsell': showUpsell,
-		} );
+	renderUpdateAlert = () => {
+		const { isUpdated, isUpdating, errorOnUpdate, theme, translate } = this.props;
 
-		/*
-		 * Check the theme object (not the price prop) for the true price.
-		 * Sometimes it will be an object, other times it will be a string.
-		 * Check both cases to ensure we have a non-zero price.
-		 */
-		let isPremiumTheme = false;
-		if ( typeof theme.price === 'object' && 0 !== theme.price.value ) {
-			isPremiumTheme = true;
-		} else if ( typeof theme.price === 'string' && '' !== theme.price ) {
-			isPremiumTheme = true;
+		if ( ! theme.update && ! isUpdated && ! isUpdating && ! errorOnUpdate ) {
+			return;
 		}
 
-		/*
-		 * Only show the Premium badge if we're not already showing the price
-		 * and the theme isn't the active theme.
-		 */
-		const showPremiumBadge = isPremiumTheme && ! hasPrice && ! active;
+		let content;
+		let alertType;
 
+		if ( errorOnUpdate ) {
+			alertType = 'danger';
+			content = (
+				<div>
+					<span>
+						<Gridicon icon="cross" size={ 18 } />
+						{ translate( 'Failed to update Theme.' ) }
+					</span>
+				</div>
+			);
+		} else if ( isUpdated ) {
+			alertType = 'success';
+			content = (
+				<div>
+					<span>
+						<Gridicon icon="checkmark" size={ 18 } />
+						{ translate( 'Theme updated!' ) }
+					</span>
+				</div>
+			);
+		} else if ( isUpdating ) {
+			alertType = 'info';
+			content = (
+				<div>
+					<span>
+						<Gridicon className="theme__updating-animated" icon="refresh" size={ 18 } />
+						{ translate( 'Updating theme.' ) }
+					</span>
+				</div>
+			);
+		} else if ( theme.update ) {
+			alertType = 'warning';
+			content = (
+				<div>
+					<span>
+						<Gridicon icon="refresh" size={ 18 } />
+						{ translate( 'New version available.' ) }
+					</span>
+					<Button onClick={ this.updateTheme } primary className="theme__button-link" borderless>
+						{ translate( 'Update now' ) }
+					</Button>
+				</div>
+			);
+		}
+
+		return (
+			<div className="theme__update-alert">
+				<div className={ `${ alertType } theme__update-alert-content` }>{ content }</div>
+			</div>
+		);
+	};
+
+	renderMoreButton = () => {
+		const { active, buttonContents, index, theme, siteId } = this.props;
+
+		let moreOptions;
+		if ( active && buttonContents.info ) {
+			moreOptions = { info: buttonContents.info };
+		} else if ( buttonContents.deleteTheme ) {
+			moreOptions = { deleteTheme: buttonContents.deleteTheme };
+		} else {
+			moreOptions = {};
+		}
+
+		if ( isEmpty( moreOptions ) ) {
+			return null;
+		}
+
+		return (
+			<ThemeMoreButton
+				index={ index }
+				siteId={ siteId }
+				themeId={ theme.id }
+				themeName={ theme.name }
+				hasStyleVariations={ !! theme?.style_variations?.length }
+				active={ active }
+				onMoreButtonClick={ this.props.onMoreButtonClick }
+				onMoreButtonItemClick={ this.props.onMoreButtonItemClick }
+				options={ moreOptions }
+			/>
+		);
+	};
+
+	renderBadge = () => {
+		const { selectedStyleVariation, shouldLimitGlobalStyles, theme } = this.props;
+
+		const isPremiumTheme = theme.theme_tier?.slug === PREMIUM_THEME;
+
+		const isLocked = isLockedStyleVariation( {
+			isPremiumTheme,
+			styleVariationSlug: selectedStyleVariation?.slug,
+			shouldLimitGlobalStyles,
+		} );
+
+		return <ThemeTierBadge themeId={ theme.id } isLockedStyleVariation={ isLocked } />;
+	};
+
+	render() {
+		const { selectedStyleVariation, theme } = this.props;
+		const { name, description, style_variations = [], isCustomGeneratedTheme } = theme;
 		const themeDescription = decodeEntities( description );
-
-		// for performance testing
-		const screenshotID = this.props.index === 0 ? 'theme__firstscreenshot' : null;
 
 		if ( this.props.isPlaceholder ) {
 			return this.renderPlaceholder();
 		}
 
-		const impressionEventName = 'calypso_upgrade_nudge_impression';
-		const upsellEventProperties = { cta_name: 'theme-upsell', theme: theme.id };
-		const upsellPopupEventProperties = { cta_name: 'theme-upsell-popup', theme: theme.id };
-		const upsell = showUpsell && (
-			<span className="theme__upsell">
-				<TrackComponentView
-					eventName={ impressionEventName }
-					eventProperties={ upsellEventProperties }
-				/>
-				<InfoPopover icon="star" className="theme__upsell-icon" position="top left">
-					<TrackComponentView
-						eventName={ impressionEventName }
-						eventProperties={ upsellPopupEventProperties }
-					/>
-					<div className="theme__upsell-popover">
-						<h2 className="theme__upsell-heading">
-							{ translate( 'Use this theme at no extra cost on our Premium or Business Plan' ) }
-						</h2>
-						<Button
-							onClick={ this.onUpsellClick }
-							className="theme__upsell-cta"
-							primary
-							href={ upsellUrl }
-						>
-							{ translate( 'Upgrade Now' ) }
-						</Button>
-					</div>
-				</InfoPopover>
-			</span>
-		);
-
-		const fit = '479,360';
-		const themeImgSrc = photon( screenshot, { fit } );
-		const themeImgSrcDoubleDpi = photon( screenshot, { fit, zoom: 2 } );
-		const e2eThemeName = name.toLowerCase().replace( /\s+/g, '-' );
-
-		const bookmarkRef = this.props.bookmarkRef ? { ref: this.props.bookmarkRef } : {};
-
 		return (
-			<Card className={ themeClass } data-e2e-theme={ e2eThemeName } onClick={ this.setBookmark }>
-				{ this.isBeginnerTheme() && (
-					<Ribbon className="theme__ribbon" color="green">
-						{ translate( 'Beginner' ) }
-					</Ribbon>
-				) }
-				<div className="theme__content" { ...bookmarkRef }>
-					<a
-						aria-label={ name }
-						className="theme__thumbnail"
-						href={ this.props.screenshotClickUrl || 'javascript:;' /* fallback for a11y */ }
-						onClick={ this.onScreenshotClick }
-						title={ themeDescription }
-					>
-						{ isActionable && (
-							<div className="theme__thumbnail-label">{ this.props.actionLabel }</div>
-						) }
-						{ this.renderInstalling() }
-						{ screenshot ? (
-							<img
-								alt={ themeDescription }
-								className="theme__img"
-								src={ themeImgSrc }
-								srcSet={ `${ themeImgSrcDoubleDpi } 2x` }
-								id={ screenshotID }
-							/>
-						) : (
-							<div className="theme__no-screenshot">
-								<Gridicon icon="themes" size={ 48 } />
-							</div>
-						) }
-					</a>
-
-					<div className="theme__info">
-						<h2 className="theme__info-title">{ name }</h2>
-						{ active && (
-							<span className="theme__badge-active">
-								{ translate( 'Active', {
-									context: 'singular noun, the currently active theme',
-								} ) }
-							</span>
-						) }
-						{ showPremiumBadge && (
-							<span className="theme__badge-premium">{ translate( 'Premium' ) }</span>
-						) }
-						<span className={ priceClass }>{ price }</span>
-						{ upsell }
-						{ ! isEmpty( this.props.buttonContents ) ? (
-							<ThemeMoreButton
-								index={ this.props.index }
-								themeId={ this.props.theme.id }
-								active={ this.props.active }
-								onMoreButtonClick={ this.props.onMoreButtonClick }
-								options={ this.props.buttonContents }
-							/>
-						) : null }
-					</div>
-				</div>
-			</Card>
+			<ThemeCard
+				ref={ this.props.bookmarkRef }
+				name={ name }
+				description={ themeDescription }
+				image={ this.renderScreenshot() }
+				imageClickUrl={ this.props.screenshotClickUrl }
+				imageActionLabel={ this.props.actionLabel }
+				banner={ this.renderUpdateAlert() }
+				badge={ this.renderBadge() }
+				styleVariations={ style_variations }
+				selectedStyleVariation={ selectedStyleVariation }
+				optionsMenu={ this.renderMoreButton() }
+				isActive={ this.props.active }
+				isLoading={ this.props.loading }
+				isSoftLaunched={ this.props.softLaunched }
+				isShowDescriptionOnImageHover={ ! isCustomGeneratedTheme }
+				onClick={ this.setBookmark }
+				onImageClick={ this.onScreenshotClick }
+				onStyleVariationClick={ this.onStyleVariationClick }
+				onStyleVariationMoreClick={ this.onStyleVariationClick }
+			/>
 		);
 	}
 }
 
-export default connect( null, { recordTracksEvent, setThemesBookmark } )( localize( Theme ) );
+const ConnectedTheme = connect(
+	( state, { theme, siteId } ) => {
+		const {
+			themes: { themesUpdate },
+		} = state;
+		const { themesUpdateFailed, themesUpdating, themesUpdated } = themesUpdate;
+		const isExternallyManagedTheme = getIsExternallyManagedTheme( state, theme.id );
+
+		return {
+			errorOnUpdate: themesUpdateFailed && themesUpdateFailed.indexOf( theme.id ) > -1,
+			isUpdating: themesUpdating && themesUpdating.indexOf( theme.id ) > -1,
+			isUpdated: themesUpdated && themesUpdated.indexOf( theme.id ) > -1,
+			isExternallyManagedTheme,
+			siteSlug: getSiteSlug( state, siteId ),
+		};
+	},
+	{ recordTracksEvent, setThemesBookmark, updateThemes }
+)( localize( Theme ) );
+
+export default ( props ) => {
+	const { shouldLimitGlobalStyles } = useSiteGlobalStylesStatus( props.siteId );
+	return <ConnectedTheme { ...props } shouldLimitGlobalStyles={ shouldLimitGlobalStyles } />;
+};

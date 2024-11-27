@@ -7,8 +7,8 @@
  */
 
 import { isEnabled } from '@automattic/calypso-config';
-import { Gridicon } from '@automattic/components';
-import { Button, Card } from '@wordpress/components';
+import { Gridicon, JetpackLogo } from '@automattic/components';
+import { Button, Card, Modal } from '@wordpress/components';
 import debugFactory from 'debug';
 import { localize } from 'i18n-calypso';
 import { flowRight, get, includes } from 'lodash';
@@ -43,11 +43,15 @@ import {
 	errorNotice as errorNoticeAction,
 	warningNotice as warningNoticeAction,
 } from 'calypso/state/notices/actions';
+import isWooPasswordlessJPCFlow from 'calypso/state/selectors/is-woo-passwordless-jpc-flow';
 import AuthFormHeader from './auth-form-header';
 import HelpButton from './help-button';
 import MainWrapper from './main-wrapper';
 import { authQueryPropTypes } from './utils';
 import wooDnaConfig from './woo-dna-config';
+import WooInstallExtSuccessNotice from './woo-install-ext-success-notice';
+import { WooLoader } from './woo-loader';
+import { CreatingYourAccountStage } from './woo-loader-stages';
 
 const debug = debugFactory( 'calypso:jetpack-connect:authorize-form' );
 const noop = () => {};
@@ -62,6 +66,7 @@ export class JetpackSignup extends Component {
 		createAccount: PropTypes.func.isRequired,
 		recordTracksEvent: PropTypes.func.isRequired,
 		translate: PropTypes.func.isRequired,
+		isWooPasswordlessJPC: PropTypes.bool,
 	};
 
 	state = {
@@ -119,9 +124,14 @@ export class JetpackSignup extends Component {
 		this.props.resetAuthAccountType();
 	};
 
-	isWoo() {
+	isWooOnboarding() {
 		const { authQuery } = this.props;
 		return 'woocommerce-onboarding' === authQuery.from;
+	}
+
+	isWooPasswordlessJPC( props = this.props ) {
+		const { from } = props.authQuery;
+		return 'woocommerce-core-profiler' === from || this.props.isWooPasswordlessJPC;
 	}
 
 	getWooDnaConfig() {
@@ -147,6 +157,10 @@ export class JetpackSignup extends Component {
 		} );
 	}
 
+	isFromAutomatticForAgenciesPlugin() {
+		return 'automattic-for-agencies-client' === this.props.authQuery.from;
+	}
+
 	handleSubmitSignup = ( _, userData, analyticsData, afterSubmit = noop ) => {
 		debug( 'submitting new account', userData );
 		this.setState( { isCreatingAccount: true }, () =>
@@ -157,6 +171,9 @@ export class JetpackSignup extends Component {
 					extra: {
 						...userData.extra,
 						jpc: true,
+						source: this.props.isWooPasswordlessJPC
+							? 'woo-passwordless-jpc' + '-' + this.props.authQuery.from
+							: '',
 					},
 				} )
 				.then( this.handleUserCreationSuccess, this.handleUserCreationError )
@@ -166,7 +183,6 @@ export class JetpackSignup extends Component {
 
 	/**
 	 * Handle Social service authentication flow result (OAuth2 or OpenID Connect)
-	 *
 	 * @see client/signup/steps/user/index.jsx
 	 * @param {string} service      The name of the social service
 	 * @param {string} access_token An OAuth2 acccess token
@@ -184,12 +200,14 @@ export class JetpackSignup extends Component {
 
 	/**
 	 * Handle user creation result
-	 *
-	 * @param {object} _             …
+	 * @param {Object} _             …
 	 * @param {string} _.username    Username
 	 * @param {string} _.bearerToken Bearer token
 	 */
 	handleUserCreationSuccess = ( { username, bearerToken } ) => {
+		if ( this.isWooPasswordlessJPC() ) {
+			this.props.recordTracksEvent( 'calypso_jpc_wc_coreprofiler_create_account_success' );
+		}
 		this.setState( {
 			newUsername: username,
 			bearerToken,
@@ -199,8 +217,7 @@ export class JetpackSignup extends Component {
 
 	/**
 	 * Handle error on user creation
-	 *
-	 * @param {?object} error Error result
+	 * @param {?Object} error Error result
 	 */
 	handleUserCreationError = ( error ) => {
 		const { errorNotice, translate, warningNotice } = this.props;
@@ -262,13 +279,20 @@ export class JetpackSignup extends Component {
 	renderFooterLink() {
 		const { authQuery } = this.props;
 
+		if ( this.isWooPasswordlessJPC() ) {
+			return null;
+		}
+
+		const allowSiteConnection =
+			authQuery.allowSiteConnection && ! this.isFromAutomatticForAgenciesPlugin();
+
 		return (
 			<LoggedOutFormLinks>
 				<LoggedOutFormLinkItem href={ this.getLoginRoute() }>
 					{ this.props.translate( 'Already have an account? Sign in' ) }
 				</LoggedOutFormLinkItem>
 
-				{ authQuery.allowSiteConnection && (
+				{ allowSiteConnection && (
 					<JetpackConnectSiteOnly
 						homeUrl={ authQuery.homeUrl }
 						redirectAfterAuth={ authQuery.redirectAfterAuth }
@@ -334,12 +358,8 @@ export class JetpackSignup extends Component {
 
 	renderWooDna() {
 		const { authQuery, isFullLoginFormVisible, locale, translate, usernameOrEmail } = this.props;
-		const {
-			isCreatingAccount,
-			signUpUsernameOrEmail,
-			loginSocialConnect,
-			loginTwoFactorAuthType,
-		} = this.state;
+		const { isCreatingAccount, signUpUsernameOrEmail, loginSocialConnect, loginTwoFactorAuthType } =
+			this.state;
 		let header;
 		let subHeader;
 		let content;
@@ -378,10 +398,21 @@ export class JetpackSignup extends Component {
 					</LoggedOutFormLinkItem>
 				);
 			} else {
-				header = wooDna.getServiceName();
+				const pluginName = wooDna.getServiceName();
+				header = pluginName;
 				if ( wooDna.getFlowName() === 'woodna:woocommerce-payments' ) {
 					subHeader = translate(
-						'Enter your email address to get started. Your account will enable you to start using the features and benefits offered by WooCommerce Payments'
+						'Enter your email address to get started. Your account will enable you to start using the features and benefits offered by WooPayments'
+					);
+				} else if ( wooDna.getFlowName() === 'woodna:blaze-ads-on-woo' ) {
+					/* translators: pluginName is the name of the Woo extension that initiated the connection flow */
+					subHeader = translate(
+						'Enter your email address to get started. Your account will enable you to start using the features and benefits offered by %(pluginName)s',
+						{
+							args: {
+								pluginName,
+							},
+						}
 					);
 				} else {
 					subHeader = translate( 'Enter your email address to get started' );
@@ -449,14 +480,58 @@ export class JetpackSignup extends Component {
 		if ( this.getWooDnaConfig().isWooDnaFlow() ) {
 			return this.renderWooDna();
 		}
-		const { isCreatingAccount } = this.state;
+		const { isCreatingAccount, newUsername, bearerToken } = this.state;
+		const isWooPasswordlessJPC = this.isWooPasswordlessJPC();
+
+		const isLogging = newUsername && bearerToken;
+		if ( isWooPasswordlessJPC && ( isCreatingAccount || isLogging ) ) {
+			return (
+				// Wrap the loader in a modal to show it in full screen
+				<Modal
+					open
+					title=""
+					overlayClassName="jetpack-connect-woocommerce-loader__modal-overlay"
+					className="jetpack-connect-woocommerce-loader__modal"
+					shouldCloseOnClickOutside={ false }
+					shouldCloseOnEsc={ false }
+					isDismissible={ false }
+				>
+					<WooLoader stages={ [ CreatingYourAccountStage ] } />
+					{ this.renderLoginUser() }
+				</Modal>
+			);
+		}
+
 		return (
-			<MainWrapper isWoo={ this.isWoo() }>
+			<MainWrapper
+				isWooOnboarding={ this.isWooOnboarding() }
+				isWooPasswordlessJPC={ this.isWooPasswordlessJPC() }
+				isFromAutomatticForAgenciesPlugin={ this.isFromAutomatticForAgenciesPlugin() }
+			>
 				<div className="jetpack-connect__authorize-form">
 					{ this.renderLocaleSuggestions() }
-					<AuthFormHeader authQuery={ this.props.authQuery } isWoo={ this.isWoo() } />
+					<AuthFormHeader
+						authQuery={ this.props.authQuery }
+						isWooOnboarding={ this.isWooOnboarding() }
+						isWooPasswordlessJPC={ this.isWooPasswordlessJPC() }
+						isFromAutomatticForAgenciesPlugin={ this.isFromAutomatticForAgenciesPlugin() }
+						disableSiteCard={
+							isWooPasswordlessJPC && isEnabled( 'woocommerce/core-profiler-passwordless-auth' )
+						}
+					/>
 					<SignupForm
 						disabled={ isCreatingAccount }
+						isPasswordless={
+							isEnabled( 'woocommerce/core-profiler-passwordless-auth' ) && isWooPasswordlessJPC
+						}
+						disableTosText={
+							isEnabled( 'woocommerce/core-profiler-passwordless-auth' ) && isWooPasswordlessJPC
+						}
+						labelText={
+							isEnabled( 'woocommerce/core-profiler-passwordless-auth' ) && isWooPasswordlessJPC
+								? this.props.translate( 'Your Email' )
+								: null
+						}
 						email={ this.props.authQuery.userEmail }
 						footerLink={ this.renderFooterLink() }
 						handleSocialResponse={ this.handleSocialResponse }
@@ -466,7 +541,11 @@ export class JetpackSignup extends Component {
 							{ auth_approved: true },
 							window.location.href
 						) }
-						submitButtonText={ this.props.translate( 'Create your account' ) }
+						submitButtonText={
+							isWooPasswordlessJPC
+								? this.props.translate( 'Create an account' )
+								: this.props.translate( 'Create your account' )
+						}
 						submitForm={ this.handleSubmitSignup }
 						submitting={ isCreatingAccount }
 						suggestedUsername=""
@@ -474,6 +553,15 @@ export class JetpackSignup extends Component {
 
 					{ this.renderLoginUser() }
 				</div>
+				{ isWooPasswordlessJPC && this.props.authQuery.installedExtSuccess && (
+					<WooInstallExtSuccessNotice />
+				) }
+				{ ! isEnabled( 'woocommerce/core-profiler-passwordless-auth' ) && isWooPasswordlessJPC && (
+					<div className="jetpack-connect__jetpack-logo-wrapper">
+						<JetpackLogo monochrome size={ 18 } />{ ' ' }
+						<span>{ this.props.translate( 'Jetpack powered' ) }</span>
+					</div>
+				) }
 			</MainWrapper>
 		);
 	}
@@ -485,6 +573,7 @@ const connectComponent = connect(
 		usernameOrEmail: getLastCheckedUsernameOrEmail( state ),
 		isFullLoginFormVisible: !! getAuthAccountType( state ),
 		redirectTo: getRedirectToOriginal( state ),
+		isWooPasswordlessJPC: isWooPasswordlessJPCFlow( state ),
 	} ),
 	{
 		createAccount: createAccountAction,

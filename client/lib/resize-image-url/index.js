@@ -1,10 +1,8 @@
-import { getUrlParts, getUrlFromParts } from '@automattic/calypso-url';
+import { getUrlParts, getUrlFromParts, safeImageUrl } from '@automattic/calypso-url';
 import { mapValues } from 'lodash';
-import safeImageUrl from 'calypso/lib/safe-image-url';
 
 /**
  * Pattern matching valid http(s) URLs
- *
  * @type {RegExp}
  */
 const REGEXP_VALID_PROTOCOL = /^https?:$/;
@@ -13,22 +11,19 @@ const REGEXP_VALID_PROTOCOL = /^https?:$/;
  * Factor by which dimensions should be multiplied, specifically accounting for
  * high pixel-density displays (e.g. retina). This multiplier currently maxes
  * at 2x image size, though could foreseeably be the exact display ratio.
- *
  * @type {number}
  */
 const IMAGE_SCALE_FACTOR = typeof window !== 'undefined' && window?.devicePixelRatio > 1 ? 2 : 1;
 
 /**
  * Query parameters to be treated as image dimensions
- *
  * @type {string[]}
  */
 const SIZE_PARAMS = [ 'w', 'h', 'resize', 'fit', 's' ];
 
 /**
  * Mappings of supported safe services to patterns by which they can be matched
- *
- * @type {object}
+ * @type {Object}
  */
 const SERVICE_HOSTNAME_PATTERNS = {
 	photon: /(^[is]\d\.wp\.com|(^|\.)wordpress\.com)$/,
@@ -37,7 +32,6 @@ const SERVICE_HOSTNAME_PATTERNS = {
 
 /**
  * Given a numberic value, returns the value multiplied by image scale factor
- *
  * @param  {number} value Original value
  * @returns {number}       Updated value
  */
@@ -51,9 +45,8 @@ const scaleByFactor = ( value ) => value * IMAGE_SCALE_FACTOR;
  * and Photon images, and preserved for Gravatar images. If an external image
  * URL containing query string arguments is passed to this function, it will
  * return `null`.
- *
- * @param   {string}          imageUrl Original image url
- * @param   {(number|object)} resize   Resize pixel width, or object of query
+ * @param   {?string | undefined}          imageUrl Original image url
+ * @param   {(number | Object)} resize   Resize pixel width, or object of query
  *                                     arguments (assuming Photon or Gravatar)
  * @param   {?number}         height   Pixel height if specifying resize width
  * @param   {?boolean}        makeSafe Should we make sure this is on a safe host?

@@ -6,20 +6,20 @@ import {
 	JETPACK_BACKUP_PRODUCTS,
 	JETPACK_SCAN_PRODUCTS,
 	isJetpackPlanSlug,
+	isSupersedingJetpackItem,
 } from '@automattic/calypso-products';
 import { TranslateResult, useTranslate } from 'i18n-calypso';
 import { useMemo } from 'react';
 import * as React from 'react';
-import { useSelector } from 'react-redux';
-import isSupersedingJetpackItem from 'calypso/../packages/calypso-products/src/is-superseding-jetpack-item';
 import JetpackProductCard from 'calypso/components/jetpack/card/jetpack-product-card';
 import { useLocalizedMoment } from 'calypso/components/localized-moment';
 import { isCloseToExpiration } from 'calypso/lib/purchases';
 import { getPurchaseByProductSlug } from 'calypso/lib/purchases/utils';
 import OwnerInfo from 'calypso/me/purchases/purchase-item/owner-info';
 import { ITEM_TYPE_PLAN } from 'calypso/my-sites/plans/jetpack-plans/constants';
+import { useSelector } from 'calypso/state';
 import { getSitePurchases } from 'calypso/state/purchases/selectors';
-import { getUserOwnsPurchase } from 'calypso/state/purchases/selectors/get-user-owns-purchase';
+import { useIsUserPurchaseOwner } from 'calypso/state/purchases/utils';
 import { getSiteAvailableProduct } from 'calypso/state/sites/products/selectors';
 import { isJetpackSiteMultiSite } from 'calypso/state/sites/selectors';
 import getSitePlan from 'calypso/state/sites/selectors/get-site-plan';
@@ -52,6 +52,7 @@ interface ProductCardProps {
 	hideSavingLabel?: boolean;
 	scrollCardIntoView?: ScrollCardIntoViewCallback;
 	collapseFeaturesOnMobile?: boolean;
+	isLoadingUpsellPageExperiment?: boolean;
 }
 
 const ProductCard: React.FC< ProductCardProps > = ( {
@@ -67,6 +68,7 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 	hideSavingLabel,
 	scrollCardIntoView,
 	collapseFeaturesOnMobile,
+	isLoadingUpsellPageExperiment,
 } ) => {
 	const translate = useTranslate();
 	const moment = useLocalizedMoment();
@@ -78,6 +80,7 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 	const siteProduct: SiteProduct | undefined = useSelector( ( state ) =>
 		getSiteAvailableProduct( state, siteId, item.productSlug )
 	);
+	const isCurrentUserPurchaseOwner = useIsUserPurchaseOwner();
 
 	const jetpackUpgradesLocked = purchases.some( ( purchase ) => purchase.isLocked );
 	const existingPurchaseIsIapPurchase = purchases.some( ( purchase ) => purchase.isInAppPurchase );
@@ -126,16 +129,17 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 			? getPurchaseByProductSlug( purchases, sitePlan?.product_slug || '' )
 			: getPurchaseByProductSlug( purchases, item.productSlug );
 
-	const isNotPlanOwner = useSelector(
-		( state ) => ! ( purchase !== undefined ? getUserOwnsPurchase( state, purchase.id ) : false )
-	);
+	const isNotPlanOwner = ! isCurrentUserPurchaseOwner( purchase );
 
 	// Handles expiry.
 	const isExpiring = purchase && isCloseToExpiration( purchase );
 	const showExpiryNotice = item.legacy && isExpiring;
 
 	const isUpgradeableToYearly =
-		isOwned && selectedTerm === TERM_ANNUALLY && item.term === TERM_MONTHLY;
+		isOwned &&
+		selectedTerm === TERM_ANNUALLY &&
+		item.term === TERM_MONTHLY &&
+		! item.forceNoYearlyUpgrade;
 
 	// Sets the currency. This is needed for the tooltip below.
 	item.displayCurrency = item.displayCurrency ?? currencyCode ?? undefined;
@@ -149,10 +153,9 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 				planHasFeature( item.productSlug, productSlug )
 			).length;
 		}
-		return ! ( [
-			...JETPACK_BACKUP_PRODUCTS,
-			...JETPACK_SCAN_PRODUCTS,
-		] as ReadonlyArray< string > ).includes( item.productSlug );
+		return ! (
+			[ ...JETPACK_BACKUP_PRODUCTS, ...JETPACK_SCAN_PRODUCTS ] as ReadonlyArray< string >
+		 ).includes( item.productSlug );
 	}, [ item.productSlug ] );
 
 	/**
@@ -165,12 +168,15 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 	const isDisabled =
 		( ( isMultisite && ! isMultisiteCompatible ) ||
 			isCrmMonthlyProduct ||
-			( ! purchase && item.type === ITEM_TYPE_PLAN && jetpackUpgradesLocked ) ||
-			( purchase && isNotPlanOwner ) ) ??
+			( ! purchase && item.type === ITEM_TYPE_PLAN && jetpackUpgradesLocked ) ) ??
 		false;
 
+	// Disable the button CTA if the overall product card is disabled, or disable
+	//  the "Manage Plan/Subscription" button if the user is not the purchase owner.
+	const buttonDisabled = isOwned || isIncludedInPlan ? isDisabled || isNotPlanOwner : isDisabled;
+
 	let disabledMessage;
-	if ( isDisabled && ! isNotPlanOwner ) {
+	if ( isDisabled ) {
 		if ( ! isMultisiteCompatible && ! isDeprecated ) {
 			disabledMessage = translate( 'Not available for multisite WordPress installs' );
 		} else if ( isCrmMonthlyProduct ) {
@@ -199,7 +205,7 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 		<>
 			{ buttonLabel }
 			&nbsp;
-			<OwnerInfo purchaseId={ purchase?.id } />
+			<OwnerInfo purchase={ purchase } />
 		</>
 	) : (
 		buttonLabel
@@ -220,6 +226,7 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 			buttonURL={
 				createButtonURL ? createButtonURL( item, isUpgradeableToYearly, purchase ) : undefined
 			}
+			buttonDisabled={ isDisabled || buttonDisabled || isLoadingUpsellPageExperiment }
 			expiryDate={ showExpiryNotice && purchase ? moment( purchase.expiryDate ) : undefined }
 			isFeatured={ isFeatured }
 			isOwned={ isOwned }
@@ -227,7 +234,9 @@ const ProductCard: React.FC< ProductCardProps > = ( {
 			isDeprecated={ isDeprecated }
 			isAligned={ isAligned }
 			displayFrom={ ! siteId && priceTierList.length > 0 }
-			tooltipText={ priceTierList.length > 0 && productTooltip( item, priceTierList ) }
+			tooltipText={
+				priceTierList.length > 0 && productTooltip( item, priceTierList, currencyCode ?? 'USD' )
+			}
 			aboveButtonText={ productAboveButtonText( item, siteProduct, isOwned, isItemPlanFeature ) }
 			isDisabled={ isDisabled }
 			disabledMessage={ disabledMessage }

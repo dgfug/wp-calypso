@@ -1,0 +1,127 @@
+@import "@automattic/typography/styles/variables";
+
+.help-center__container-content .help-center-contact-form__wrapper {
+	padding: 0 16px 80px;
+
+	.contact-form-submit {
+		display: flex;
+		gap: 10px;
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		box-sizing: border-box;
+		border-top: 1px solid rgba(0, 0, 0, 0.1);
+		background: #fff;
+		padding: 16px;
+		height: auto;
+
+		button {
+			height: 42px;
+			margin: 0;
+		}
+	}
+
+	.help-center-contact-form__site-picker-hes-tray {
+		margin-top: 16px;
+		display: flex;
+		align-items: center;
+
+		.happiness-engineers-tray {
+			margin: 0;
+			flex-wrap: nowrap;
+		}
+
+		img {
+			width: 32px;
+			height: 32px;
+			border: 2px solid #fff;
+			border-radius: 50%;
+		}
+
+		img + img {
+			margin-left: -16px;
+		}
+
+		.help-center-contact-form__site-picker-hes-tray-text {
+			font-size: $font-body-extra-small;
+			color: var(--studio-gray-60);
+			margin: 0;
+			margin-left: 8px;
+		}
+	}
+
+	button {
+		width: 100%;
+		justify-content: center;
+		margin-bottom: 4px;
+		vertical-align: middle;
+	}
+
+	// Contact Form
+	.help-center-contact-form {
+		section {
+			margin-top: 16px;
+		}
+
+		.help-center-contact-form__site-picker-title {
+			font-size: $root-font-size;
+			color: var(--studio-gray-100);
+			margin-top: 20px;
+		}
+
+		.components-base-control__field {
+			input,
+			textarea {
+				&.components-text-control__input {
+					// they have very high specificity
+					padding: 15.5px !important;
+					border: 1px solid var(--studio-gray-10) !important;
+					border-radius: 4px !important;
+					box-sizing: border-box;
+				}
+			}
+		}
+
+		.help-center-contact-form__domain-sharing .components-checkbox-control {
+			display: flex;
+
+			.components-base-control__help {
+				margin: 0;
+				padding-left: 8px;
+
+				svg {
+					fill: var(--studio-gray-50);
+				}
+			}
+		}
+
+		.help-center-contact-form__message,
+		.help-center-contact-form__subject input.components-text-control__input {
+			padding: 15.5px;
+			border: 1px solid var(--studio-gray-10);
+			border-radius: 4px;
+			width: 100%;
+			display: block;
+			box-sizing: border-box;
+
+			&:focus {
+				box-shadow: none;
+				outline: none;
+				border-color: var(--studio-gray-10);
+			}
+		}
+
+		.help-center-contact-form__site-picker-form-warning,
+		.help-center-contact-form__site-picker-form-subtitle {
+			color: var(--studio-gray-60);
+		}
+
+		.help-center-contact-form__label {
+			font-size: $font-body-small;
+			color: var(--studio-gray-60);
+			margin-bottom: 8px;
+			display: block;
+		}
+	}
+}

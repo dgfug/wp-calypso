@@ -1,12 +1,11 @@
 import { Button } from '@automattic/components';
-import classNames from 'classnames';
+import { SVG, Path } from '@wordpress/components';
+import clsx from 'clsx';
 import { TranslateResult, useTranslate } from 'i18n-calypso';
 import { createElement, ReactNode, useEffect, useRef } from 'react';
 import { preventWidows } from 'calypso/lib/formatting';
-import starIcon from './assets/star.svg';
 import DisplayPrice from './display-price';
 import JetpackProductCardFeatures from './features';
-import useCouponDiscount from './use-coupon-discount';
 import type {
 	ScrollCardIntoViewCallback,
 	SelectorProduct,
@@ -29,6 +28,7 @@ type OwnProps = {
 	buttonPrimary: boolean;
 	onButtonClick?: React.MouseEventHandler;
 	buttonURL?: string;
+	buttonDisabled?: boolean;
 	expiryDate?: Moment;
 	isFeatured?: boolean;
 	isOwned?: boolean;
@@ -42,6 +42,7 @@ type OwnProps = {
 	aboveButtonText?: TranslateResult | ReactNode;
 	featuredLabel?: TranslateResult;
 	hideSavingLabel?: boolean;
+	showNewLabel?: boolean;
 	showAbovePriceText?: boolean;
 	scrollCardIntoView?: ScrollCardIntoViewCallback;
 	collapseFeaturesOnMobile?: boolean;
@@ -51,6 +52,7 @@ type HeaderLevel = 1 | 2 | 3 | 4 | 5 | 6;
 type HeaderProps = {
 	className?: string;
 	level: HeaderLevel;
+	children?: React.ReactNode;
 };
 const Header: React.FC< HeaderProps > = ( { level, children, ...headerProps } ) =>
 	createElement( `h${ level }`, headerProps, children );
@@ -68,6 +70,7 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 	buttonPrimary,
 	onButtonClick,
 	buttonURL,
+	buttonDisabled,
 	expiryDate,
 	isFeatured,
 	isOwned,
@@ -80,6 +83,7 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 	tooltipText,
 	featuredLabel,
 	hideSavingLabel,
+	showNewLabel,
 	showAbovePriceText,
 	aboveButtonText = null,
 	scrollCardIntoView,
@@ -89,7 +93,10 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 
 	const translate = useTranslate();
 	const anchorRef = useRef< HTMLDivElement >( null );
-	const { discount } = useCouponDiscount( originalPrice, discountedPrice );
+	const discount =
+		originalPrice !== undefined && discountedPrice !== undefined
+			? Math.floor( ( ( originalPrice - discountedPrice ) / originalPrice ) * 100 )
+			: 0;
 	const showDiscountLabel =
 		! hideSavingLabel &&
 		discount &&
@@ -109,6 +116,17 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 		  } )
 		: null;
 
+	const starIcon = (
+		// Safari has problems rendering SVGs in retina screens when used inside an img tag, so we should use inline SVG instead.
+		// See details on this PR: https://github.com/Automattic/wp-calypso/pull/65304
+		<SVG className="jetpack-product-card__header-icon" width="16" height="16" viewBox="0 0 16 16">
+			<Path
+				d="M8 11.513 12.12 14l-1.093-4.687 3.64-3.153-4.793-.407-1.873-4.42-1.874 4.42-4.793.407 3.64 3.153L3.881 14 8 11.513Z"
+				fill="currentColor"
+			/>
+		</SVG>
+	);
+
 	useEffect( () => {
 		// The <DisplayPrice /> appearance changes the layout of the page and breaks the scroll into view behavior. Therefore, we will only scroll the element into view once the price is fully loaded.
 		if ( anchorRef && anchorRef.current && originalPrice ) {
@@ -118,7 +136,7 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 
 	return (
 		<div
-			className={ classNames( 'jetpack-product-card', className, {
+			className={ clsx( 'jetpack-product-card', className, {
 				'is-disabled': isDisabled,
 				'is-owned': isOwned,
 				'is-deprecated': isDeprecated,
@@ -130,7 +148,7 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 			<div className="jetpack-product-card__scroll-anchor" ref={ anchorRef }></div>
 			{ isFeatured && (
 				<div className="jetpack-product-card__header">
-					<img className="jetpack-product-card__header-icon" src={ starIcon } alt="" />
+					{ starIcon }
 					<span>{ featuredLabel || translate( 'Recommended' ) }</span>
 				</div>
 			) }
@@ -139,6 +157,9 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 					<Header level={ headerLevel } className="jetpack-product-card__product-name">
 						{ item.displayName }
 					</Header>
+					{ showNewLabel && (
+						<span className="jetpack-product-card__new-label">{ translate( 'New' ) }</span>
+					) }
 					{ discountElt && (
 						<span className="jetpack-product-card__discount-label">{ discountElt }</span>
 					) }
@@ -186,8 +207,8 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 						primary={ buttonPrimary }
 						className="jetpack-product-card__button"
 						onClick={ onButtonClick }
-						href={ isDisabled ? '#' : buttonURL }
-						disabled={ isDisabled }
+						href={ isDisabled || buttonDisabled ? '#' : buttonURL }
+						disabled={ isDisabled || buttonDisabled || isDeprecated }
 					>
 						{ buttonLabel }
 					</Button>
@@ -196,7 +217,7 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 						primary={ buttonPrimary }
 						className="jetpack-product-card__button"
 						onClick={ onButtonClick }
-						disabled={ isDisabled }
+						disabled={ isDisabled || buttonDisabled }
 					>
 						{ buttonLabel }
 					</Button>
@@ -209,6 +230,9 @@ const JetpackProductCard: React.FC< OwnProps > = ( {
 						features={ item.features }
 						collapseFeaturesOnMobile={ collapseFeaturesOnMobile }
 					/>
+				) }
+				{ item.disclaimer && (
+					<span className="jetpack-product-card__disclaimer">{ item.disclaimer }</span>
 				) }
 			</div>
 		</div>

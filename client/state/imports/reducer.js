@@ -6,11 +6,13 @@ import {
 	IMPORTS_IMPORT_CANCEL,
 	IMPORTS_IMPORT_LOCK,
 	IMPORTS_IMPORT_RECEIVE,
+	IMPORTS_IMPORT_RECEIVED_RESET,
 	IMPORTS_IMPORT_RESET,
 	IMPORTS_IMPORT_START,
 	IMPORTS_IMPORT_UNLOCK,
 	IMPORTS_START_IMPORTING,
 	IMPORTS_UPLOAD_FAILED,
+	IMPORTS_PRE_UPLOAD_FAILED,
 	IMPORTS_UPLOAD_COMPLETED,
 	IMPORTS_UPLOAD_SET_PROGRESS,
 	IMPORTS_UPLOAD_START,
@@ -26,6 +28,8 @@ function isImporterStatusHydrated( state = false, action ) {
 	switch ( action.type ) {
 		case IMPORTS_IMPORT_RECEIVE:
 			return true;
+		case IMPORTS_IMPORT_RECEIVED_RESET:
+			return false;
 	}
 
 	return state;
@@ -44,6 +48,17 @@ function importerStatus( state = {}, action ) {
 					...state[ action.importerId ],
 					importerState: appStates.UPLOAD_FAILURE,
 					errorData: { type: 'uploadError', description: action.error },
+				},
+			};
+
+		case IMPORTS_PRE_UPLOAD_FAILED:
+			return {
+				...state,
+				[ action.importerId ]: {
+					...state[ action.importerId ],
+					importerState: appStates.UPLOAD_FAILURE,
+					errorData: { type: 'preUploadError', description: action.error, code: action.errorCode },
+					file: action.file,
 				},
 			};
 
@@ -97,7 +112,7 @@ function importerStatus( state = {}, action ) {
 				[ action.importerId ]: {
 					...state[ action.importerId ],
 					customData: {
-						...state[ action.importerId ].customData,
+						...state[ action.importerId ]?.customData,
 						sourceAuthors: map(
 							get( state[ action.importerId ], 'customData.sourceAuthors' ),
 							( author ) =>

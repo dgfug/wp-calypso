@@ -3,20 +3,13 @@
  */
 
 import { withStorageKey } from '@automattic/state-utils';
-import { mapKeys } from 'lodash';
-import { useFakeTimers } from 'sinon';
 import * as browserStorage from 'calypso/lib/browser-storage';
 import { isSupportSession } from 'calypso/lib/user/support-user-interop';
 import { createReduxStore } from 'calypso/state';
 import { addReducerToStore } from 'calypso/state/add-reducer';
+import { MAX_AGE, SERIALIZE_THROTTLE } from 'calypso/state/constants';
 import currentUser from 'calypso/state/current-user/reducer';
-import {
-	getInitialState,
-	getStateFromCache,
-	persistOnChange,
-	MAX_AGE,
-	SERIALIZE_THROTTLE,
-} from 'calypso/state/initial-state';
+import { getInitialState, getStateFromCache, persistOnChange } from 'calypso/state/initial-state';
 import { loadPersistedState } from 'calypso/state/persisted-state';
 import postTypes from 'calypso/state/post-types/reducer';
 import reader from 'calypso/state/reader/reducer';
@@ -352,7 +345,7 @@ describe( 'initial-state', () => {
 					.spyOn( browserStorage, 'getAllStoredItems' )
 					.mockResolvedValue( savedState );
 				await loadPersistedState();
-				state = getStateFromCache( reader, 'reader', 123456789 );
+				state = getStateFromCache( 123456789 )( reader, 'reader' );
 			} );
 
 			afterAll( () => {
@@ -394,7 +387,7 @@ describe( 'initial-state', () => {
 					.spyOn( browserStorage, 'getAllStoredItems' )
 					.mockResolvedValue( savedState );
 				await loadPersistedState();
-				state = getStateFromCache( reader, 'reader' );
+				state = getStateFromCache()( reader, 'reader' );
 			} );
 
 			afterAll( () => {
@@ -444,7 +437,7 @@ describe( 'initial-state', () => {
 					.spyOn( browserStorage, 'getAllStoredItems' )
 					.mockResolvedValue( savedState );
 				await loadPersistedState();
-				state = getStateFromCache( reader, 'reader', 123456789 );
+				state = getStateFromCache( 123456789 )( reader, 'reader' );
 			} );
 
 			afterAll( () => {
@@ -494,7 +487,7 @@ describe( 'initial-state', () => {
 					.spyOn( browserStorage, 'getAllStoredItems' )
 					.mockResolvedValue( savedState );
 				await loadPersistedState();
-				state = getStateFromCache( reader, 'reader', 123456789 );
+				state = getStateFromCache( 123456789 )( reader, 'reader' );
 			} );
 
 			afterAll( () => {
@@ -547,7 +540,7 @@ describe( 'initial-state', () => {
 					.mockResolvedValue( storedState );
 
 				await loadPersistedState();
-				state = getStateFromCache( signupReducer, 'signup' );
+				state = getStateFromCache()( signupReducer, 'signup' );
 			} );
 
 			afterAll( () => {
@@ -616,7 +609,7 @@ describe( 'initial-state', () => {
 					.mockResolvedValue( storedState );
 
 				await loadPersistedState();
-				state = getStateFromCache( signupReducer, 'signup', 123456789 );
+				state = getStateFromCache( 123456789 )( signupReducer, 'signup' );
 			} );
 
 			afterAll( () => {
@@ -644,7 +637,6 @@ describe( 'initial-state', () => {
 
 	describe( '#persistOnChange()', () => {
 		let store;
-		let clock;
 		let setStoredItemSpy;
 		let stopPersisting;
 
@@ -671,7 +663,7 @@ describe( 'initial-state', () => {
 		beforeEach( async () => {
 			// we use fake timers from Sinon (aka Lolex) because `lodash.throttle` also uses `Date.now()`
 			// and relies on it returning a mocked value. Jest fake timers don't mock `Date`, Lolex does.
-			clock = useFakeTimers();
+			jest.useFakeTimers();
 			setStoredItemSpy = jest
 				.spyOn( browserStorage, 'setStoredItem' )
 				.mockImplementation( ( value ) => Promise.resolve( value ) );
@@ -681,7 +673,6 @@ describe( 'initial-state', () => {
 		} );
 
 		afterEach( () => {
-			clock.restore();
 			setStoredItemSpy.mockRestore();
 		} );
 
@@ -691,7 +682,7 @@ describe( 'initial-state', () => {
 				data: 1,
 			} );
 
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 
 			expect( setStoredItemSpy ).toHaveBeenCalledTimes( 1 );
 		} );
@@ -702,14 +693,14 @@ describe( 'initial-state', () => {
 				data: 1,
 			} );
 
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 
 			store.dispatch( {
 				type: 'foo',
 				data: 2,
 			} );
 
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 
 			expect( setStoredItemSpy ).toHaveBeenCalledTimes( 2 );
 		} );
@@ -720,14 +711,14 @@ describe( 'initial-state', () => {
 				data: 1,
 			} );
 
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 
 			store.dispatch( {
 				type: 'foo',
 				data: 1,
 			} );
 
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 
 			expect( setStoredItemSpy ).toHaveBeenCalledTimes( 1 );
 		} );
@@ -748,7 +739,7 @@ describe( 'initial-state', () => {
 				data: 3,
 			} );
 
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 
 			store.dispatch( {
 				type: 'foo',
@@ -760,7 +751,7 @@ describe( 'initial-state', () => {
 				data: 5,
 			} );
 
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 
 			expect( setStoredItemSpy ).toHaveBeenCalledTimes( 2 );
 			expect( setStoredItemSpy ).toHaveBeenCalledWith(
@@ -778,7 +769,7 @@ describe( 'initial-state', () => {
 				type: 'foo',
 				data: 1,
 			} );
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 			expect( setStoredItemSpy ).toHaveBeenCalledTimes( 1 );
 
 			stopPersisting();
@@ -787,7 +778,7 @@ describe( 'initial-state', () => {
 				type: 'foo',
 				data: 1,
 			} );
-			clock.tick( SERIALIZE_THROTTLE );
+			jest.advanceTimersByTime( SERIALIZE_THROTTLE );
 			expect( setStoredItemSpy ).toHaveBeenCalledTimes( 1 ); // no new call
 		} );
 	} );
@@ -799,9 +790,19 @@ describe( 'loading stored state with dynamic reducers', () => {
 	const withKeyPrefix = ( keyPrefix ) => {
 		const keyPrefixRe = new RegExp( `^${ keyPrefix }:` );
 		return withPersistence( ( state = {} ) => state, {
-			serialize: ( state ) => mapKeys( state, ( value, key ) => `${ keyPrefix }:${ key }` ),
+			serialize: ( state ) =>
+				Object.fromEntries(
+					Object.entries( state ).map( ( [ key, value ] ) => [ `${ keyPrefix }:${ key }`, value ] )
+				),
 			deserialize: ( persisted ) =>
-				mapKeys( persisted, ( value, key ) => key.replace( keyPrefixRe, '' ) ),
+				persisted
+					? Object.fromEntries(
+							Object.entries( persisted ).map( ( [ key, value ] ) => [
+								key.replace( keyPrefixRe, '' ),
+								value,
+							] )
+					  )
+					: {},
 		} );
 	};
 
@@ -899,7 +900,7 @@ describe( 'loading stored state with dynamic reducers', () => {
 
 		// load a reducer dynamically
 		const aReducer = withStorageKey( 'A', withKeyPrefix( 'A' ) );
-		addReducerToStore( store, userId )( [ 'a' ], aReducer );
+		addReducerToStore( store, getStateFromCache( userId ) )( [ 'a' ], aReducer );
 
 		// verify that the Redux store contains the stored state for `A` now
 		expect( store.getState() ).toEqual( {
@@ -934,7 +935,7 @@ describe( 'loading stored state with dynamic reducers', () => {
 
 		// load a reducer dynamically
 		const cdReducer = withStorageKey( 'CD', withKeyPrefix( 'CD' ) );
-		addReducerToStore( store, userId )( [ 'c', 'd' ], cdReducer );
+		addReducerToStore( store, getStateFromCache( userId ) )( [ 'c', 'd' ], cdReducer );
 
 		// verify that the Redux store contains the stored state for `A` now
 		expect( store.getState() ).toEqual( {
@@ -971,8 +972,8 @@ describe( 'loading stored state with dynamic reducers', () => {
 
 		// load a reducer dynamically
 		const eReducer = withStorageKey( 'E', withKeyPrefix( 'E' ) );
-		addReducerToStore( store, userId )( [ 'e' ], eReducer );
-		addReducerToStore( store, userId )( [ 'e' ], eReducer );
+		addReducerToStore( store, getStateFromCache( userId ) )( [ 'e' ], eReducer );
+		addReducerToStore( store, getStateFromCache( userId ) )( [ 'e' ], eReducer );
 
 		// verify that the Redux store contains the stored state for `E` now
 		expect( store.getState() ).toEqual( {
@@ -1010,8 +1011,8 @@ describe( 'loading stored state with dynamic reducers', () => {
 		const cReducer = withStorageKey( 'C', withKeyPrefix( 'C' ) );
 
 		expect( () => {
-			addReducerToStore( store, userId )( [ 'b' ], bReducer );
-			addReducerToStore( store, userId )( [ 'b' ], cReducer );
+			addReducerToStore( store, getStateFromCache( userId ) )( [ 'b' ], bReducer );
+			addReducerToStore( store, getStateFromCache( userId ) )( [ 'b' ], cReducer );
 		} ).toThrow();
 	} );
 } );

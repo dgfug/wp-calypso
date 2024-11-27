@@ -6,12 +6,12 @@ const treeify = require( 'object-treeify' );
  * Generator that yields all places were node will look for modules
  * For a path like : a/node_modules/b/node_modules/c
  * It will generate the candidates:
- *	- a/node_modules/b/node_modules/c/node_modules
- *	- a/node_modules/b/node_modules
- *	- a/node_modules
- *	- node_modules
- *
+ * - a/node_modules/b/node_modules/c/node_modules
+ * - a/node_modules/b/node_modules
+ * - a/node_modules
+ * - node_modules
  * @param {string} packagePath Package path used as seed for the traversal
+ * @yields Path to `node_modules`.
  */
 const candidates = function* ( packagePath ) {
 	const parts = packagePath.split( path.sep );
@@ -28,8 +28,7 @@ const candidates = function* ( packagePath ) {
 
 /**
  * Recursively finds the dependency tree for a package and its dependencies
- *
- * @param {object} packageJson package.json content of the package
+ * @param {Object} packageJson package.json content of the package
  * @param {string} packagePath Location of package.json, used to decide where to look for deps
  * @param {string[]} parents List of parent dependencies already visited, used to avoid circular loops
  * @param {Map} cache Map used to cache already resolved paths of the dependency tree
@@ -98,14 +97,15 @@ const findTree = ( packageJson, packagePath, parents, cache ) => {
 	);
 
 	const result = { [ name ]: dependencies };
-	if ( treeIsCacheable ) cache.set( packagePath, result );
+	if ( treeIsCacheable ) {
+		cache.set( packagePath, result );
+	}
 	return { tree: result, isCacheable: treeIsCacheable };
 };
 
 /**
  * Finds the effective dependencies tree (aka the logical tree) of a given package
  * givent its package.json
- *
  * @param {string} root Path to package.json
  */
 const generateEffectiveTree = ( root ) => {

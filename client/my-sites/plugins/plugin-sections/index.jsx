@@ -1,5 +1,4 @@
-import { Card, Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { filter, find } from 'lodash';
 import { createRef, Component } from 'react';
@@ -24,7 +23,6 @@ class PluginSections extends Component {
 
 	state = {
 		selectedSection: false,
-		readMore: false,
 		descriptionHeight: 0,
 	};
 
@@ -164,14 +162,14 @@ class PluginSections extends Component {
 	getDefaultSection = () => {
 		const sections = this.props.plugin.sections;
 		return find( this.getFilteredSections(), function ( section ) {
-			return sections[ section.key ];
-		} ).key;
+			return sections?.[ section.key ];
+		} )?.key;
 	};
 
 	getAvailableSections = () => {
 		const sections = this.props.plugin.sections;
 		return filter( this.getFilteredSections(), function ( section ) {
-			return sections[ section.key ];
+			return sections?.[ section.key ];
 		} );
 	};
 
@@ -185,7 +183,6 @@ class PluginSections extends Component {
 
 	setSelectedSection = ( section, event ) => {
 		this.setState( {
-			readMore: false !== this.state.readMore || this.getSelected() !== section,
 			selectedSection: section,
 		} );
 		if ( event ) {
@@ -193,41 +190,8 @@ class PluginSections extends Component {
 		}
 	};
 
-	toggleReadMore = () => {
-		this.setState( { readMore: ! this.state.readMore } );
-	};
-
-	renderReadMore = () => {
-		if (
-			this.props.removeReadMore ||
-			this.props.isWpcom ||
-			this.state.descriptionHeight < this._COLLAPSED_DESCRIPTION_HEIGHT
-		) {
-			return null;
-		}
-		const button = (
-			<button className="plugin-sections__read-more-link" onClick={ this.toggleReadMore }>
-				<span className="plugin-sections__read-more-text">
-					{ this.props.translate( 'Read More' ) }
-				</span>
-				<Gridicon icon="chevron-down" size={ 18 } />
-			</button>
-		);
-		return (
-			<div className="plugin-sections__read-more">
-				{
-					// We remove the link but leave the plugin-sections__read-more container
-					// in order to minimize jump on small sections.
-					this.state.readMore ? null : button
-				}
-			</div>
-		);
-	};
-
 	renderSelectedSection() {
-		const contentClasses = classNames( 'plugin-sections__content', {
-			trimmed: ! this.props.removeReadMore && ! this.props.isWpcom && ! this.state.readMore,
-		} );
+		const contentClasses = clsx( 'plugin-sections__content' );
 		const banner = this.props.plugin?.banners?.high || this.props.plugin?.banners?.low;
 		const videoUrl = this.props.plugin?.banner_video_src;
 
@@ -241,7 +205,7 @@ class PluginSections extends Component {
 				<div
 					ref={ this.descriptionContent }
 					className={ contentClasses }
-					// Sanitized in client/lib/plugins/utils.js with sanitizeHtml
+					// Sanitized in client/lib/plugins/utils.ts with sanitizeHtml
 					dangerouslySetInnerHTML={ {
 						__html: this.props.plugin.sections[ this.getSelected() ],
 					} }
@@ -260,7 +224,7 @@ class PluginSections extends Component {
 						/>
 					</div>
 					<div
-						// Sanitized in client/lib/plugins/utils.js with sanitizeHtml
+						// Sanitized in client/lib/plugins/utils.ts with sanitizeHtml
 						dangerouslySetInnerHTML={ {
 							__html: this.props.plugin.sections[ this.getSelected() ],
 						} }
@@ -278,8 +242,9 @@ class PluginSections extends Component {
 						src={ banner }
 					/>
 				</div>
+
 				<div
-					// Sanitized in client/lib/plugins/utils.js with sanitizeHtml
+					// Sanitized in client/lib/plugins/utils.ts with sanitizeHtml
 					dangerouslySetInnerHTML={ {
 						__html: this.props.plugin.sections[ this.getSelected() ],
 					} }
@@ -292,7 +257,12 @@ class PluginSections extends Component {
 	render() {
 		const availableSections = this.getAvailableSections();
 		// Defensively check if this plugin has sections. If not, don't render anything.
-		if ( ! this.props.plugin || ! this.props.plugin.sections || ! availableSections ) {
+		if (
+			! this.props.plugin ||
+			! this.props.plugin.sections ||
+			! availableSections ||
+			! this.getSelected()
+		) {
 			return null;
 		}
 
@@ -301,7 +271,7 @@ class PluginSections extends Component {
 			availableSections.find( ( section ) => section.key === 'description' );
 
 		return (
-			<div className={ classNames( 'plugin-sections', this.props.className ) }>
+			<div className="plugin-sections">
 				{ ! hasOnlyDescriptionSection && (
 					<div className="plugin-sections__header">
 						<SectionNav selectedText={ this.getNavTitle( this.getSelected() ) }>
@@ -321,11 +291,8 @@ class PluginSections extends Component {
 						</SectionNav>
 					</div>
 				) }
-				<Card className={ classNames( { 'no-header': hasOnlyDescriptionSection } ) }>
-					{ 'faq' === this.getSelected() && this.props.isWpcom && this.getWpcomSupportContent() }
-					{ this.renderSelectedSection() }
-					{ this.renderReadMore() }
-				</Card>
+				{ 'faq' === this.getSelected() && this.props.isWpcom && this.getWpcomSupportContent() }
+				{ this.renderSelectedSection() }
 			</div>
 		);
 	}

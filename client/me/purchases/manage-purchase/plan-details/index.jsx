@@ -1,5 +1,5 @@
 import { isJetpackPlan, isFreeJetpackPlan } from '@automattic/calypso-products';
-import { Card } from '@automattic/components';
+import { Card, FormLabel } from '@automattic/components';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
@@ -7,7 +7,6 @@ import { connect } from 'react-redux';
 import ClipboardButtonInput from 'calypso/components/clipboard-button-input';
 import QueryPluginKeys from 'calypso/components/data/query-plugin-keys';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import SectionHeader from 'calypso/components/section-header';
 import { getName, isExpired, isPartnerPurchase } from 'calypso/lib/purchases';
 import { getPluginsForSite } from 'calypso/state/plugins/premium/selectors';
@@ -58,7 +57,7 @@ export class PurchasePlanDetails extends Component {
 			case 'vaultpress':
 				return this.props.translate( 'Backups and security scanning API key' );
 			case 'akismet':
-				return this.props.translate( 'Anti-spam API key' );
+				return this.props.translate( 'Akismet Anti-spam API key' );
 		}
 	}
 

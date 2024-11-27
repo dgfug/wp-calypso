@@ -1,9 +1,33 @@
+import { localizeUrl } from '@automattic/i18n-utils';
 import { useTranslate } from 'i18n-calypso';
 import InlineSupportLink from 'calypso/components/inline-support-link';
-import { localizeUrl } from 'calypso/lib/i18n-utils';
 
-export default function TosText(): JSX.Element {
+interface TosTextProps {
+	isAkismetPurchase: boolean;
+	is100YearPlanPurchase: boolean;
+}
+
+export default function TosText( { isAkismetPurchase, is100YearPlanPurchase }: TosTextProps ) {
 	const translate = useTranslate();
+
+	if ( is100YearPlanPurchase ) {
+		return (
+			<>
+				{ translate( 'You agree to our {{tosLink}}Terms of Service{{/tosLink}}.', {
+					components: {
+						tosLink: (
+							<a
+								href={ localizeUrl( 'https://wordpress.com/tos/' ) }
+								target="_blank"
+								rel="noopener noreferrer"
+							/>
+						),
+					},
+				} ) }
+			</>
+		);
+	}
+
 	return (
 		<>
 			{ translate(
@@ -12,7 +36,11 @@ export default function TosText(): JSX.Element {
 					components: {
 						tosLink: (
 							<a
-								href={ localizeUrl( 'https://wordpress.com/tos/' ) }
+								href={
+									isAkismetPurchase
+										? localizeUrl( 'https://akismet.com/tos/' )
+										: localizeUrl( 'https://wordpress.com/tos/' )
+								}
 								target="_blank"
 								rel="noopener noreferrer"
 							/>

@@ -1,32 +1,52 @@
+import { webcrypto } from 'node:crypto';
 import phrase from 'asana-phrase';
-import config from 'config';
+import envVariables from './env-variables';
+import { SecretsManager } from './secrets';
+import type { Secrets, TestAccountName } from './secrets';
+import type {
+	PaymentDetails,
+	DateFormat,
+	RegistrarDetails,
+	NewTestUserDetails,
+	AccountCredentials,
+} from './types/data-helper.types';
 
-export type DateFormat = 'ISO';
-export { config };
+/**
+ * Returns a set of data required to sign up
+ * as a new user and create a new site.
+ *
+ * Note that this function only generates the test data;
+ * it does not actually create the test user.
+ *
+ * @param param0 Object parameter.
+ * @param {keyof Secrets['mailosaur']} [param0.mailosaurInbox] Optional key to specify the mailosaur server to use. Defaults to `signupInboxId`.
+ * @param {string} [param0.usernamePrefix] Optional key to specify the username prefix inserted between the `e2eflowtesting` and timestamp. Defaults to an empty string.
+ * @returns Data for new test user.
+ */
+export function getNewTestUser( {
+	mailosaurInbox = 'signupInboxId',
+	usernamePrefix = '',
+}: {
+	mailosaurInbox?: keyof Secrets[ 'mailosaur' ];
+	usernamePrefix?: string;
+} = {} ): NewTestUserDetails {
+	const username = getUsername( { prefix: usernamePrefix } );
+	const password = generateRandomPassword();
 
-export interface PaymentDetails {
-	cardHolder: string;
-	cardNumber: string;
-	expiryMonth: string;
-	expiryYear: string;
-	cvv: string;
-	countryCode: string;
-	postalCode: string;
+	const email = getTestEmailAddress( {
+		inboxId: SecretsManager.secrets.mailosaur[ mailosaurInbox ],
+		prefix: username,
+	} );
+	const siteName = getBlogName();
+
+	return {
+		username: username,
+		password: password,
+		email: email,
+		siteName: siteName,
+		inboxId: SecretsManager.secrets.mailosaur[ mailosaurInbox ],
+	};
 }
-
-export interface RegistrarDetails {
-	firstName: string;
-	lastName: string;
-	email: string;
-	phone: string;
-	countryCode: string;
-	address: string;
-	city: string;
-	stateCode: string;
-	postalCode: string;
-}
-
-export type CreditCardIssuers = 'Visa';
 
 /**
  * Generate a pseudo-random integer, inclusive on the lower bound and exclusive on the upper bound.
@@ -51,13 +71,34 @@ export function getTimestamp(): string {
 }
 
 /**
+ * Returns a username.
+ *
+ * If optional parameter `prefix` is set, the value
+ * is inserted between the `e2eflowtesting` prefix
+ * and the timestamp.
+ *
+ * Example:
+ * 	e2eflowtesting-1654124900-728
+ * 	e2eflowtestingfree-1654124900-129
+ *
+ * @param param0 Object parameter.
+ * @param {string} param0.prefix Prefix for the username.
+ * @returns {string} Generated username.
+ */
+export function getUsername( { prefix = '' }: { prefix?: string } = {} ): string {
+	const timestamp = getTimestamp();
+	const randomNumber = getRandomInteger( 0, 999 );
+	return `e2eflowtesting${ prefix }${ timestamp }${ randomNumber }`;
+}
+
+/**
  * Returns the date string in the requested format.
  *
  * @param {DateFormat} format Date format supported by NodeJS.
  * @returns {string|null} If valid date format string is supplied, string is returned. Otherwise, null.
  */
 export function getDateString( format: DateFormat ): string | null {
-	if ( format === 'ISO' ) {
+	if ( format === 'ISO-8601' ) {
 		return new Date().toISOString();
 	}
 	return null;
@@ -87,7 +128,7 @@ export function getCalypsoURL(
 	route = '',
 	queryStrings: { [ key: string ]: string } = {}
 ): string {
-	const base: string = config.get( 'calypsoBaseURL' );
+	const base = envVariables.CALYPSO_BASE_URL;
 
 	const url = new URL( route, base );
 
@@ -101,26 +142,28 @@ export function getCalypsoURL(
 /**
  * Returns the credential for a specified account from the secrets file.
  *
- * @param {string} accountType Type of the account for which the credentials are to be obtained.
- * @returns {string[]} Username and password found in the secrets file for the given account type.
+ * @param {TestAccountName} accountType Type of the account for which the credentials are to be obtained.
+ * @returns {AccountCredentials} Username and password found in the secrets file for the given account type.
  * @throws {Error} If accountType does not correspond to a valid entry in the file.
  */
-export function getAccountCredential( accountType: string ): [ string, string ] {
-	const testAccounts: { [ key: string ]: string } = config.get( 'testAccounts' );
-	if ( ! Object.keys( testAccounts ).includes( accountType ) ) {
+export function getAccountCredential( accountType: TestAccountName ): AccountCredentials {
+	const testAccount = SecretsManager.secrets.testAccounts[ accountType ];
+	if ( ! testAccount ) {
 		throw new Error(
-			`Secrets file did not contain credentials for requested user ${ accountType }.`
+			`Secrets file did not contain credentials for requested user ${ accountType }. Update typings or the secrets file.`
 		);
 	}
-
-	const [ username, password ] = testAccounts[ accountType ];
-	return [ username, password ];
+	return {
+		username: testAccount.username,
+		password: testAccount.password,
+		totpKey: testAccount.totpKey,
+	};
 }
 
 /**
  * Returns the site URL for a specified account from the secrets file.
  *
- * @param {string} accountType Type of the account for which the site URL is to be obtained.
+ * @param {TestAccountName} accountType Type of the account for which the site URL is to be obtained.
  * @param {{key: string}: boolean} param1 Keyed object parameter.
  * @param {boolean} param1.protocol Whether to include the protocol in the returned URL. Defaults to true.
  * @returns {string} Site URL for the given username.
@@ -128,17 +171,21 @@ export function getAccountCredential( accountType: string ): [ string, string ] 
  * @throws {ReferenceError} If URL is not defined for the accountType.
  */
 export function getAccountSiteURL(
-	accountType: string,
+	accountType: TestAccountName,
 	{ protocol = true }: { protocol?: boolean } = {}
 ): string {
-	const testAccounts: { [ key: string ]: string } = config.get( 'testAccounts' );
-	if ( ! Object.keys( testAccounts ).includes( accountType ) ) {
-		throw new Error( `Secrets file did not contain URL for requested user ${ accountType }.` );
+	const testAccount = SecretsManager.secrets.testAccounts[ accountType ];
+	const url = testAccount.primarySite || testAccount.testSites?.primary.url;
+	if ( ! testAccount ) {
+		throw new Error(
+			`Secrets file did not contain credentials for requested user ${ accountType }. Update typings or the secrets file.`
+		);
 	}
 
-	const [ , , url ] = testAccounts[ accountType ];
 	if ( ! url ) {
-		throw new ReferenceError( `Secrets entry for ${ accountType } has no site URL defined.` );
+		throw new ReferenceError(
+			`Secrets entry for ${ accountType } has no primary site URL defined.`
+		);
 	}
 
 	if ( protocol ) {
@@ -152,24 +199,27 @@ export function getAccountSiteURL(
  * Returns the bearer token of the user allowed to make media uploads to the ToS media upload destination wpcomtos.wordpress.com.
  *
  * @returns {string} Bearer token for the user allowed to make uploads.
- * @throws {Error} If the bearer token is missing in the config file.
  */
 export function getTosUploadToken(): string {
-	const uploadCredentials: { [ key: string ]: string } = config.get(
-		'martechTosUploadCredentials'
-	);
-	if ( ! Object.keys( uploadCredentials ).includes( 'bearer_token' ) ) {
-		throw new Error(
-			'Secrets file did not contain the bearer token for the ToS media destination'
-		);
-	}
-	const bearerToken = uploadCredentials[ 'bearer_token' ];
-	return bearerToken;
+	return SecretsManager.secrets.martechTosUploadCredentials.bearer_token;
+}
+
+/**
+ * Returns the site upload destination for the ToS screenshots.
+ *
+ * @returns {string} Site ID of the destination to which uploaded.
+ */
+export function getTosUploadDestination(): string {
+	return '200900774'; // wpcom site ID
 }
 
 /**
  * Returns a new test email address with the domain name `mailosaur.io` within a specific inbox.
  *
+ * Examples:
+ * 	e2eflowtestingpaid1600000@inboxID.mailosaur.net
+ *
+ * @deprecated Use EmailClient.getTestEmailAddress instead.
  * @param param0 Keyed parameter object.
  * @param {string} param0.inboxId Existing inbox ID on mailosaur.
  * @param {string} param0.prefix Custom prefix to be prepended to the inboxId but after the global email prefix.
@@ -182,8 +232,8 @@ export function getTestEmailAddress( {
 	inboxId: string;
 	prefix: string;
 } ): string {
-	const domain = 'mailosaur.io';
-	return `${ prefix }.${ inboxId }@${ domain }`;
+	const domain = 'mailosaur.net';
+	return `${ prefix }@${ inboxId }.${ domain }`;
 }
 
 /**
@@ -223,22 +273,6 @@ export function getTestDomainRegistrarDetails( email: string ): RegistrarDetails
 		stateCode: 'QLD',
 		postalCode: '4000',
 	};
-}
-
-/**
- * Adjusts the user invite link to the correct environment.
- *
- * By default, all invite links reference the production `wordpress.com` hostname.
- * However, for end-to-end tests it is desirable to test invite functionality against
- * the development environment.
- *
- * @param {string} inviteURL Full invitation link.
- * @returns {string} Adjusted invitation link with the intended hostname.
- */
-export function adjustInviteLink( inviteURL: string ): string {
-	const originalURL = new URL( inviteURL );
-	const adjustedURL = new URL( originalURL.pathname, config.get( 'calypsoBaseURL' ) );
-	return adjustedURL.href;
 }
 
 /**
@@ -287,5 +321,72 @@ export function getRandomPhrase(): string {
 export function createSuiteTitle( title: string ): string {
 	const parts = [ `${ toTitleCase( title ) }` ];
 
+	if ( envVariables.RUN_ID ) {
+		parts.push( `(${ envVariables.RUN_ID })` );
+	}
+
 	return parts.join( ' ' );
+}
+
+/**
+ * Returns the Magnificent 16 test locales, known as Mag16.
+ *
+ * @returns {string[]} Array of strings in ISO-639-1 standard.
+ */
+export function getMag16Locales(): string[] {
+	return [
+		'en',
+		'es',
+		'pt-br',
+		'de',
+		'fr',
+		'ja',
+		'it',
+		'nl',
+		'ru',
+		'tr',
+		'id',
+		'zh-cn',
+		'zh-tw',
+		'ko',
+		'sv',
+		'ar',
+		'he',
+	];
+}
+
+/**
+ * Returns the list of viewports that are available for the framework.
+ *
+ * @returns {string([])} Array of strings for valid viewports.
+ */
+export function getViewports(): string[] {
+	return [ 'mobile', 'desktop' ];
+}
+
+interface PasswordOptions {
+	length?: number;
+	characterAllowList?: string;
+}
+/**
+ * Generates a random password with enough cryptographic security for our testing purposes here.
+ *
+ * By default, it is 24 characters long and uses lowercase, uppercase, and numbers.
+ *
+ * @param {PasswordOptions} options Options to control password generation.
+ */
+export function generateRandomPassword( options?: PasswordOptions ) {
+	const length = options?.length || 24;
+	const characterAllowList =
+		options?.characterAllowList || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+	const secureRandomNumbers = webcrypto.getRandomValues( new Uint8Array( length ) );
+
+	const password: string[] = [];
+
+	for ( const randomNumber of secureRandomNumbers ) {
+		password.push( characterAllowList[ randomNumber % characterAllowList.length ] );
+	}
+
+	return password.join( '' );
 }

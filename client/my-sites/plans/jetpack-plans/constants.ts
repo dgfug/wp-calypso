@@ -26,22 +26,31 @@ import {
 	PRODUCT_JETPACK_BACKUP_T1_YEARLY,
 	PRODUCT_JETPACK_BACKUP_T2_MONTHLY,
 	PRODUCT_JETPACK_BACKUP_T2_YEARLY,
+	JETPACK_BACKUP_T1_PRODUCTS,
+	JETPACK_BACKUP_T2_PRODUCTS,
 	PRODUCT_JETPACK_CRM,
 	PRODUCT_JETPACK_CRM_MONTHLY,
 	PRODUCT_JETPACK_CRM_FREE,
 	PRODUCT_JETPACK_CRM_FREE_MONTHLY,
 	PRODUCT_JETPACK_SCAN,
 	PRODUCT_JETPACK_SCAN_MONTHLY,
+	PRODUCT_JETPACK_ANTI_SPAM,
 	TERM_ANNUALLY,
 	TERM_MONTHLY,
+	JETPACK_VIDEOPRESS_PRODUCTS,
+	JETPACK_SECURITY_T1_PLANS,
+	JETPACK_SECURITY_T2_PLANS,
+	JETPACK_COMPLETE_PLANS,
+	PRODUCT_JETPACK_STATS_PWYW_YEARLY,
+	PRODUCT_JETPACK_STATS_FREE,
 } from '@automattic/calypso-products';
 import { translate } from 'i18n-calypso';
 import buildCardFeaturesFromItem from './build-card-features-from-item';
 import type { SelectorProduct } from './types';
-import type { JetpackPlanSlug } from '@automattic/calypso-products';
+import type { JetpackPlanSlug, JetpackPurchasableItemSlug } from '@automattic/calypso-products';
 
-export const PLAN_COMPARISON_PAGE = 'https://jetpack.com/features/comparison/';
 export const INTRO_PRICING_DISCOUNT_PERCENTAGE = 50;
+export const GUARANTEE_DAYS = 14;
 
 // Types of items. This determines the card UI.
 export const ITEM_TYPE_PLAN = 'item-type-plan';
@@ -99,7 +108,7 @@ export const EXTERNAL_PRODUCT_CRM = (): SelectorProduct => ( {
 	monthlyProductSlug: PRODUCT_JETPACK_CRM,
 	iconSlug: 'jetpack_crm',
 	displayName: translate( 'CRM Entrepreneur' ),
-	shortName: translate( 'CRM Entrepreneur' ),
+	shortName: translate( 'CRM' ),
 	tagline: translate( 'Manage contacts effortlessly' ),
 	// Jetpack CRM isn't considered as a product like others for the time being (and therefore not
 	// available via the API). Rather like a third-party product.
@@ -108,6 +117,9 @@ export const EXTERNAL_PRODUCT_CRM = (): SelectorProduct => ( {
 	displayCurrency: CRM_ENTREPRENEUR_CURRENCY,
 	description: translate(
 		'The most simple and powerful WordPress CRM. Improve customer relationships and increase profits.'
+	),
+	shortDescription: translate(
+		'Build better relationships with your customers and grow your business.'
 	),
 	buttonLabel: translate( 'Get CRM' ),
 	features: {
@@ -146,6 +158,61 @@ export const EXTERNAL_PRODUCTS_SLUG_MAP: Record< string, () => SelectorProduct >
 	[ PRODUCT_JETPACK_CRM_MONTHLY ]: EXTERNAL_PRODUCT_CRM_MONTHLY,
 };
 
+// Jetpack Stats
+
+export const INDIRECT_CHECKOUT_PRODUCT_STATS_PWYW_YEARLY = (): SelectorProduct => ( {
+	type: ITEM_TYPE_PRODUCT,
+	iconSlug: 'jetpack_stats',
+	tagline: translate( 'Simple, yet powerful analytics' ),
+	description: translate(
+		'With Jetpack Stats, you don’t need to be a data scientist to see how your site is performing.'
+	),
+	shortDescription: translate( 'Simple, yet powerful stats to grow your site.' ),
+	buttonLabel: translate( 'Get Stats' ),
+	features: {
+		items: [],
+	},
+	hidePrice: true,
+
+	// The Stats PWYW product in the Plans grid is shown as `Stats` but also referred to `Stats (Personal)`,
+	// which aligns with the naming in packages/calypso-products/src/translations.tsx.
+	displayName: translate( 'Stats (Personal)' ),
+	shortName: translate( 'Stats (Personal)' ),
+	productSlug: PRODUCT_JETPACK_STATS_PWYW_YEARLY,
+	costProductSlug: PRODUCT_JETPACK_STATS_PWYW_YEARLY,
+	term: TERM_ANNUALLY,
+
+	// Set the price directly with the translated string.
+	displayPriceText: translate( 'Varies', {
+		comment:
+			'Used to describe price of Jetpack Stats, which can be either a pay-what-you-want product or fixed price product. In the future, it can also be a metered product.',
+	} ),
+
+	moreAboutUrl: 'https://jetpack.com/redirect/?source=jetpack-stats-learn-more-about-new-pricing',
+	indirectCheckoutUrl: '/stats/purchase/{siteSlug}?from=calypso-plans',
+} );
+
+export const INDIRECT_CHECKOUT_PRODUCT_STATS_FREE = (): SelectorProduct => ( {
+	...INDIRECT_CHECKOUT_PRODUCT_STATS_PWYW_YEARLY(),
+	displayName: translate( 'Stats (Free)' ),
+	shortName: translate( 'Stats (Free)' ),
+	productSlug: PRODUCT_JETPACK_STATS_FREE,
+	costProductSlug: PRODUCT_JETPACK_STATS_FREE,
+	isFree: true,
+} );
+
+// List of products showcased in the Plans grid but not sold via checkout URL directly.
+export const INDIRECT_CHECKOUT_PRODUCTS_LIST = [
+	PRODUCT_JETPACK_STATS_PWYW_YEARLY,
+	PRODUCT_JETPACK_STATS_FREE,
+];
+
+// Indirect checkout Product slugs to SelectorProduct.
+export const INDIRECT_CHECKOUT_PRODUCTS_SLUG_MAP: Record< string, () => SelectorProduct > = {
+	[ PRODUCT_JETPACK_STATS_PWYW_YEARLY ]: INDIRECT_CHECKOUT_PRODUCT_STATS_PWYW_YEARLY,
+	[ PRODUCT_JETPACK_STATS_FREE ]: INDIRECT_CHECKOUT_PRODUCT_STATS_FREE,
+};
+
 /**
  * Constants that contain products including option and regular types.
  */
@@ -177,6 +244,15 @@ export const PRODUCT_UPSELLS_BY_FEATURE: Record< string, JetpackPlanSlug > = {
 	[ FEATURE_VIDEO_UPLOADS_JETPACK_PRO ]: PLAN_JETPACK_SECURITY_DAILY_MONTHLY,
 	[ FEATURE_ADVANCED_SEO ]: PLAN_JETPACK_SECURITY_DAILY_MONTHLY,
 	[ FEATURE_ACTIVITY_LOG ]: PLAN_JETPACK_SECURITY_DAILY_MONTHLY,
+};
+
+/**
+ * Matrix of products upsold in the purchase flow, in between the pricing and checkout pages.
+ */
+export const PURCHASE_FLOW_UPSELLS_MATRIX: Record< string, JetpackPurchasableItemSlug > = {
+	[ PRODUCT_JETPACK_BACKUP_T1_YEARLY ]: PLAN_JETPACK_SECURITY_T1_YEARLY,
+	[ PRODUCT_JETPACK_SCAN ]: PLAN_JETPACK_SECURITY_T1_YEARLY,
+	[ PRODUCT_JETPACK_ANTI_SPAM ]: PLAN_JETPACK_SECURITY_T1_YEARLY,
 };
 
 /**
@@ -221,6 +297,18 @@ export const TIER_2_SLUGS = [
 	PRODUCT_JETPACK_BACKUP_T2_YEARLY,
 	PLAN_JETPACK_SECURITY_T2_MONTHLY,
 	PLAN_JETPACK_SECURITY_T2_YEARLY,
+];
+
+export const MOST_POPULAR_PRODUCTS = [
+	...JETPACK_BACKUP_T1_PRODUCTS,
+	...JETPACK_BACKUP_T2_PRODUCTS,
+	...JETPACK_VIDEOPRESS_PRODUCTS,
+];
+
+export const MOST_POPULAR_BUNDLES = [
+	...JETPACK_SECURITY_T1_PLANS,
+	...JETPACK_SECURITY_T2_PLANS,
+	...JETPACK_COMPLETE_PLANS,
 ];
 
 export const isTier1 = ( slug: string ): boolean => TIER_1_SLUGS.includes( slug );

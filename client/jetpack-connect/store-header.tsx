@@ -1,16 +1,15 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
-import * as React from 'react';
-import { useSelector } from 'react-redux';
 import DocumentHead from 'calypso/components/data/document-head';
 import FormattedHeader from 'calypso/components/formatted-header';
 import JetpackHeader from 'calypso/components/jetpack-header';
+import { useSelector } from 'calypso/state';
 import getCurrentRoute from 'calypso/state/selectors/get-current-route';
 import getPartnerSlugFromQuery from 'calypso/state/selectors/get-partner-slug-from-query';
 
 import './style.scss';
 
-export default function StoreHeader(): React.ReactElement {
+export default function StoreHeader() {
 	const translate = useTranslate();
 	const partnerSlug = useSelector( getPartnerSlugFromQuery );
 	const currentRoute = useSelector( getCurrentRoute );
@@ -19,7 +18,7 @@ export default function StoreHeader(): React.ReactElement {
 		currentRoute === '/jetpack/connect/store' ||
 		currentRoute.match( new RegExp( '^/jetpack/connect/plans/[^/]+/?(monthly|annual)?$' ) );
 
-	const headerClass = classNames( 'jetpack-connect__main-logo', {
+	const headerClass = clsx( 'jetpack-connect__main-logo', {
 		'add-bottom-margin': ! isStoreLanding,
 	} );
 
@@ -29,8 +28,9 @@ export default function StoreHeader(): React.ReactElement {
 			<div className={ headerClass }>
 				<JetpackHeader
 					partnerSlug={ partnerSlug }
-					isWoo={ false }
+					isWooOnboarding={ false }
 					isWooDna={ false }
+					isWooPasswordlessJPC={ false }
 					darkColorScheme
 				/>
 			</div>

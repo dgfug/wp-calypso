@@ -1,7 +1,6 @@
 import { isMobile } from '@automattic/viewport';
-import { expect } from 'chai';
 import { isE2ETest } from 'calypso/lib/e2e';
-import { isWpMobileApp } from 'calypso/lib/mobile-app';
+import { isWpMobileApp, isWcMobileApp } from 'calypso/lib/mobile-app';
 import { shouldDisplayAppBanner } from 'calypso/state/selectors/should-display-app-banner';
 
 jest.mock( 'calypso/lib/e2e', () => ( {
@@ -12,6 +11,7 @@ jest.mock( '@automattic/viewport', () => ( {
 } ) );
 jest.mock( 'calypso/lib/mobile-app', () => ( {
 	isWpMobileApp: jest.fn( () => false ),
+	isWcMobileApp: jest.fn( () => false ),
 } ) );
 
 describe( 'shouldDisplayAppBanner()', () => {
@@ -31,7 +31,7 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.true;
+		expect( output ).toBe( true );
 	} );
 
 	test( 'should return false if ToS update banner is displayed', () => {
@@ -55,7 +55,7 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
 	} );
 
 	test( 'should return false if the app banner is not enabled', () => {
@@ -74,7 +74,7 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
 	} );
 
 	test( 'should return false if current layout focus is sidebar', () => {
@@ -93,7 +93,7 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
 	} );
 
 	test( 'should return false if has not received remote preferences', () => {
@@ -112,7 +112,7 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
 	} );
 
 	test( 'should return false if in section not allowed', () => {
@@ -131,7 +131,7 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
 	} );
 
 	test( 'should return false if in e2e test', () => {
@@ -151,7 +151,7 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
 	} );
 
 	test( 'should return false if not on mobile', () => {
@@ -171,10 +171,10 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
 	} );
 
-	test( 'should return false if in the app', () => {
+	test( 'should return false if in the wp app', () => {
 		isWpMobileApp.mockReturnValueOnce( true );
 		const state = {
 			ui: {
@@ -191,6 +191,84 @@ describe( 'shouldDisplayAppBanner()', () => {
 			},
 		};
 		const output = shouldDisplayAppBanner( state );
-		expect( output ).to.be.false;
+		expect( output ).toBe( false );
+	} );
+
+	test( 'should return false if in the wc app', () => {
+		isWcMobileApp.mockReturnValueOnce( true );
+		const state = {
+			ui: {
+				appBannerVisibility: true,
+				layoutFocus: {
+					current: 'not-sidebar',
+				},
+				section: {
+					name: 'gutenberg-editor',
+				},
+			},
+			preferences: {
+				remoteValues: [ 'something' ],
+			},
+		};
+		const output = shouldDisplayAppBanner( state );
+		expect( output ).toBe( false );
+	} );
+
+	describe( 'when current section is HOME', () => {
+		test( 'should return false if launchpad_screen is "full"', () => {
+			const state = {
+				ui: {
+					appBannerVisibility: true,
+					layoutFocus: {
+						current: 'not-sidebar',
+					},
+					section: {
+						name: 'home',
+					},
+					selectedSiteId: 123,
+				},
+				preferences: {
+					remoteValues: [ 'something' ],
+				},
+				sites: {
+					items: {
+						123: {
+							options: { launchpad_screen: 'full' },
+						},
+					},
+				},
+			};
+			const output = shouldDisplayAppBanner( state );
+			expect( output ).toBe( false );
+		} );
+	} );
+
+	describe( 'when current section is not HOME', () => {
+		test( 'should return true if launchpad_screen is "full"', () => {
+			const state = {
+				ui: {
+					appBannerVisibility: true,
+					layoutFocus: {
+						current: 'not-sidebar',
+					},
+					section: {
+						name: 'gutenberg-editor',
+					},
+					selectedSiteId: 123,
+				},
+				preferences: {
+					remoteValues: [ 'something' ],
+				},
+				sites: {
+					items: {
+						123: {
+							options: { launchpad_screen: 'full' },
+						},
+					},
+				},
+			};
+			const output = shouldDisplayAppBanner( state );
+			expect( output ).toBe( true );
+		} );
 	} );
 } );

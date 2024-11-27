@@ -1,23 +1,27 @@
 import { TranslateResult } from 'i18n-calypso';
 import * as React from 'react';
+import { Theme } from 'calypso/types';
 
 export type ThankYouNextStepProps = {
-	stepCta: React.ReactNode | React.ReactFragment;
-	stepDescription: TranslateResult;
+	stepCta?: React.ReactNode;
+	stepSection?: TranslateResult;
+	stepDescription?: TranslateResult;
 	stepKey: string;
-	stepTitle: TranslateResult;
+	stepTitle?: TranslateResult;
+	stepIcon?: React.ReactNode;
 };
 
 export type ThankYouNoticeProps = {
-	noticeTitle: React.ReactNode | React.ReactFragment;
+	noticeTitle: React.ReactNode;
 	noticeIcon?: string;
-	noticeIconCustom?: React.ReactNode | React.ReactFragment;
+	noticeIconCustom?: React.ReactNode;
 };
 
 export type ThankYouSectionProps = {
 	nextSteps: ThankYouNextStepProps[];
 	sectionKey: string;
-	sectionTitle: TranslateResult;
+	sectionTitle?: TranslateResult;
+	nextStepsClassName?: string;
 };
 
 export type ThankYouSupportLink = {
@@ -39,7 +43,7 @@ export type ThankYouProps = {
 	sections: ThankYouSectionProps[];
 	showSupportSection?: boolean;
 	customSupportSection?: ThankYouSupportSectionProps;
-	thankYouImage: {
+	thankYouImage?: {
 		alt: string | TranslateResult;
 		src: string;
 		width?: string;
@@ -47,5 +51,21 @@ export type ThankYouProps = {
 	};
 	thankYouTitle?: string | TranslateResult;
 	thankYouSubtitle?: string | TranslateResult;
+	thankYouHeaderBody?: React.ReactElement | null;
 	thankYouNotice?: ThankYouNoticeProps;
 };
+
+export type ThankYouData = [
+	ThankYouSectionProps,
+	boolean,
+	JSX.Element,
+	string,
+	string,
+	string[],
+	boolean,
+	React.ReactElement | null,
+];
+
+export type ThankYouThemeData = [ Theme, ...ThankYouData ];
+
+export type ThankYouSteps = { steps: string[]; additionalSteps: string[] };

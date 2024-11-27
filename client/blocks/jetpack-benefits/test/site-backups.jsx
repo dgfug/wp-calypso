@@ -1,5 +1,9 @@
-import { shallow } from 'enzyme';
+/**
+ * @jest-environment jsdom
+ */
+import { render, screen } from '@testing-library/react';
 import getRewindBackups from 'calypso/state/selectors/get-rewind-backups';
+import { getSiteSlug } from 'calypso/state/sites/selectors';
 import JetpackBenefitsSiteBackups from '../site-backups';
 
 jest.mock( 'react-redux', () => ( {
@@ -9,38 +13,55 @@ jest.mock( 'react-redux', () => ( {
 } ) );
 
 jest.mock( 'calypso/state/selectors/get-rewind-backups' );
+jest.mock( 'calypso/state/sites/selectors' );
 
 describe( 'Jetpack Benefits site backups card', () => {
-	const getBenefitsCard = () => {
-		const element = shallow( <JetpackBenefitsSiteBackups /> );
-		return element.find( 'JetpackBenefitsSiteBackups' ).dive().find( 'JetpackBenefitsCard' );
-	};
-
 	beforeEach( () => {
 		getRewindBackups.mockReset();
+		getSiteSlug.mockReset();
+	} );
+
+	test( 'If backup license is not assigned to a site, show a license needs activation message', () => {
+		getSiteSlug.mockReturnValue( undefined );
+
+		render( <JetpackBenefitsSiteBackups /> );
+
+		expect( screen.getByText( /License key awaiting activation/i ) ).toBeInTheDocument();
 	} );
 
 	test( 'If backups are still loading, show a placeholder output', () => {
-		const backupsReceived = null;
-		getRewindBackups.mockReturnValue( backupsReceived );
-		expect( getBenefitsCard().props() ).toHaveProperty( 'jestMarker', 'loading-backups' );
+		getRewindBackups.mockReturnValue( null );
+		getSiteSlug.mockReturnValue( 'test-site' );
+
+		render( <JetpackBenefitsSiteBackups /> );
+
+		expect( screen.getByText( /loading backup data/i ) ).toBeInTheDocument();
 	} );
 
 	test( 'If no backups are found, show a no-backups output', () => {
-		const backupsReceived = [];
-		getRewindBackups.mockReturnValue( backupsReceived );
-		expect( getBenefitsCard().props() ).toHaveProperty( 'jestMarker', 'no-backups' );
+		getRewindBackups.mockReturnValue( [] );
+		getSiteSlug.mockReturnValue( 'test-site' );
+
+		render( <JetpackBenefitsSiteBackups /> );
+
+		expect( screen.getByText( /will back up your site soon/i ) ).toBeInTheDocument();
 	} );
 
 	test( 'If last backup was an error, show an error message', () => {
-		const backupsReceived = [ { status: 'error-will-retry' } ];
-		getRewindBackups.mockReturnValue( backupsReceived );
-		expect( getBenefitsCard().props() ).toHaveProperty( 'jestMarker', 'recent-backup-error' );
+		getRewindBackups.mockReturnValue( [ { status: 'error-will-retry' } ] );
+		getSiteSlug.mockReturnValue( 'test-site' );
+
+		render( <JetpackBenefitsSiteBackups /> );
+
+		expect( screen.getByText( /error/i ) ).toBeInTheDocument();
 	} );
 
 	test( 'If last backup is good, show default backup card output', () => {
-		const backupsReceived = [ { status: 'finished' } ];
-		getRewindBackups.mockReturnValue( backupsReceived );
-		expect( getBenefitsCard().props() ).toHaveProperty( 'jestMarker', 'default-backup-output' );
+		getRewindBackups.mockReturnValue( [ { status: 'finished' } ] );
+		getSiteSlug.mockReturnValue( 'test-site' );
+
+		render( <JetpackBenefitsSiteBackups /> );
+
+		expect( screen.getByText( /your latest site backup/i ) ).toBeInTheDocument();
 	} );
 } );

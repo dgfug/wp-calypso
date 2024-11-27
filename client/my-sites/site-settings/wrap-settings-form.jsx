@@ -1,3 +1,4 @@
+import { fetchLaunchpad } from '@automattic/data-stores';
 import debugFactory from 'debug';
 import { localize } from 'i18n-calypso';
 import { flowRight, isEqual, keys, omit, pick } from 'lodash';
@@ -18,8 +19,10 @@ import getRequest from 'calypso/state/selectors/get-request';
 import isJetpackSettingsSaveFailure from 'calypso/state/selectors/is-jetpack-settings-save-failure';
 import isRequestingJetpackSettings from 'calypso/state/selectors/is-requesting-jetpack-settings';
 import isSiteAutomatedTransfer from 'calypso/state/selectors/is-site-automated-transfer';
+import isSiteP2Hub from 'calypso/state/selectors/is-site-p2-hub';
 import isUpdatingJetpackSettings from 'calypso/state/selectors/is-updating-jetpack-settings';
 import { saveSiteSettings } from 'calypso/state/site-settings/actions';
+import { saveP2SiteSettings } from 'calypso/state/site-settings/p2/actions';
 import {
 	isRequestingSiteSettings,
 	isSavingSiteSettings,
@@ -28,7 +31,7 @@ import {
 	getSiteSettings,
 } from 'calypso/state/site-settings/selectors';
 import { isJetpackSite } from 'calypso/state/sites/selectors';
-import { getSelectedSiteId } from 'calypso/state/ui/selectors';
+import { getSelectedSiteId, getSelectedSiteSlug } from 'calypso/state/ui/selectors';
 
 const debug = debugFactory( 'calypso:site-settings' );
 
@@ -36,10 +39,20 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 	class WrappedSettingsForm extends Component {
 		state = {
 			uniqueEvents: {},
+			isSiteTitleTaskCompleted: false,
+			blogNameChanged: false,
 		};
 
 		componentDidMount() {
-			this.props.replaceFields( getFormSettings( this.props.settings ) );
+			this.props.replaceFields( getFormSettings( this.props.settings, this.props ) );
+
+			// Check if site_title task is completed
+			fetchLaunchpad( this.props.siteSlug, 'intent-build' ).then( ( { checklist_statuses } ) => {
+				this.setState( {
+					...this.state,
+					isSiteTitleTaskCompleted: !! checklist_statuses?.site_title,
+				} );
+			} );
 		}
 
 		componentDidUpdate( prevProps ) {
@@ -63,6 +76,13 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 					this.props.isSaveRequestSuccessful &&
 					( this.props.isJetpackSaveRequestSuccessful || ! this.props.siteIsJetpack )
 				) {
+					if ( ! this.state.isSiteTitleTaskCompleted && this.state.blogNameChanged ) {
+						noticeSettings.button = this.props.translate( 'Next steps' );
+						noticeSettings.onClick = () => {
+							window.location.assign( `/home/${ this.props.siteSlug }` );
+						};
+					}
+
 					this.props.successNotice(
 						this.props.translate( 'Settings saved successfully!' ),
 						noticeSettings
@@ -83,6 +103,7 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 					this.props.errorNotice( text, noticeSettings );
 				}
 			} else if (
+				! this.props.isSavingSettings &&
 				this.props.siteIsJetpack &&
 				this.props.saveInstantSearchRequest?.status === 'success' &&
 				( typeof prevProps.saveInstantSearchRequest?.lastUpdated === 'undefined' ||
@@ -103,7 +124,7 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 
 		updateDirtyFields() {
 			const currentFields = this.props.fields;
-			const persistedFields = getFormSettings( this.props.settings );
+			const persistedFields = getFormSettings( this.props.settings, this.props );
 
 			// Compute the dirty fields by comparing the persisted and the current fields
 			const previousDirtyFields = this.props.dirtyFields;
@@ -131,7 +152,7 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 
 		// Some Utils
 		handleSubmitForm = ( event ) => {
-			const { dirtyFields, fields, trackTracksEvent, path } = this.props;
+			const { dirtyFields, fields, settings, trackTracksEvent, path } = this.props;
 
 			if ( event && ! event.isDefaultPrevented() && event.nativeEvent ) {
 				event.preventDefault();
@@ -158,23 +179,114 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 							path,
 						} );
 						break;
+					case 'wpcom_gifting_subscription':
+						trackTracksEvent( 'calypso_settings_site_gifting', {
+							path,
+							value: fields.wpcom_gifting_subscription,
+						} );
+						break;
+					case 'wpcom_newsletter_categories_enabled':
+						trackTracksEvent( 'calypso_settings_autosaving_toggle_updated', {
+							name: 'wpcom_newsletter_categories_enabled',
+							value: fields.wpcom_newsletter_categories_enabled,
+							path,
+						} );
+						break;
+					case 'sm_enabled':
+						trackTracksEvent( 'calypso_settings_subscription_modal_updated', {
+							value: fields.sm_enabled,
+							path,
+						} );
+						break;
+					case 'jetpack_subscribe_overlay_enabled':
+						trackTracksEvent( 'calypso_settings_subscription_overlay_updated', {
+							value: fields.jetpack_subscribe_overlay_enabled,
+							path,
+						} );
+						break;
+					case 'jetpack_subscriptions_subscribe_post_end_enabled':
+						trackTracksEvent( 'calypso_settings_subscribe_post_end_updated', {
+							value: fields.jetpack_subscriptions_subscribe_post_end_enabled,
+							path,
+						} );
+						break;
+					case 'jetpack_verbum_subscription_modal':
+						trackTracksEvent( 'calypso_settings_verbum_subscription_modal_updated', {
+							value: fields.jetpack_verbum_subscription_modal,
+							path,
+						} );
+						break;
+					case 'jetpack_subscriptions_from_name':
+						trackTracksEvent( 'calypso_setting_jetpack_subscriptions_from_name_updated', {
+							value: fields.jetpack_subscriptions_from_name,
+							path,
+						} );
+						break;
+					case 'jetpack_subscriptions_subscribe_navigation_enabled':
+						trackTracksEvent( 'calypso_settings_subscribe_navigation_updated', {
+							value: fields.jetpack_subscriptions_subscribe_navigation_enabled,
+							path,
+						} );
+						break;
+					case 'jetpack_subscriptions_login_navigation_enabled':
+						trackTracksEvent( 'calypso_settings_subscriber_login_navigation_updated', {
+							value: fields.jetpack_subscriptions_login_navigation_enabled,
+							path,
+						} );
+						break;
+					case 'subscription_options':
+						if ( fields.subscription_options.welcome !== settings.subscription_options.welcome ) {
+							trackTracksEvent( 'calypso_settings_subscription_options_welcome_updated', {
+								path,
+							} );
+						}
+
+						if (
+							fields.subscription_options.comment_follow !==
+							settings.subscription_options.comment_follow
+						) {
+							trackTracksEvent( 'calypso_settings_subscription_options_comment_follow_updated', {
+								path,
+							} );
+						}
+						break;
 				}
 			} );
+			if ( path === '/settings/reading/:site' ) {
+				trackTracksEvent( 'calypso_settings_reading_saved' );
+			}
+			if ( path === '/settings/newsletter/:site' ) {
+				trackTracksEvent( 'calypso_settings_newsletter_saved' );
+			}
 			this.submitForm();
 			this.props.trackEvent( 'Clicked Save Settings Button' );
 		};
 
 		submitForm = () => {
-			const { fields, jetpackFieldsToUpdate, settingsFields, siteId, siteIsJetpack } = this.props;
+			const { dirtyFields, fields, jetpackFieldsToUpdate, settingsFields, siteId, siteIsJetpack } =
+				this.props;
 			this.props.removeNotice( 'site-settings-save' );
 			debug( 'submitForm', { fields, settingsFields } );
 
-			if ( siteIsJetpack ) {
+			if ( siteIsJetpack && Object.keys( jetpackFieldsToUpdate ).length > 0 ) {
 				this.props.saveJetpackSettings( siteId, jetpackFieldsToUpdate );
 			}
 
+			if ( typeof fields?.p2_preapproved_domains !== 'undefined' ) {
+				return this.props.saveP2SiteSettings( siteId, fields );
+			}
+
 			const siteFields = pick( fields, settingsFields.site );
-			this.props.saveSiteSettings( siteId, siteFields );
+			const modifiedFields = pick( siteFields, dirtyFields );
+
+			this.props.saveSiteSettings( siteId, modifiedFields );
+
+			if ( 'blogname' in modifiedFields ) {
+				this.setState( {
+					...this.state,
+					blogNameChanged: true,
+				} );
+			}
 		};
 
 		handleRadio = ( event ) => {
@@ -211,10 +323,6 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 
 		handleAutosavingToggle = ( name ) => () => {
 			this.props.trackEvent( `Toggled ${ name }` );
-			this.props.trackTracksEvent( 'calypso_settings_autosaving_toggle_updated', {
-				name,
-				path: this.props.path,
-			} );
 			this.props.updateFields( { [ name ]: ! this.props.fields[ name ] }, () => {
 				this.submitForm();
 			} );
@@ -268,11 +376,11 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 			};
 
 			return (
-				<div>
-					<QuerySiteSettings siteId={ this.props.siteId } />
+				<>
+					{ this.props.siteId && <QuerySiteSettings siteId={ this.props.siteId } /> }
 					{ this.props.siteIsJetpack && <QueryJetpackSettings siteId={ this.props.siteId } /> }
 					<SettingsForm { ...this.props } { ...utils } />
-				</div>
+				</>
 			);
 		}
 	}
@@ -280,6 +388,7 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 	const connectComponent = connect(
 		( state, { fields } ) => {
 			const siteId = getSelectedSiteId( state );
+			const siteSlug = getSelectedSiteSlug( state );
 			let isSavingSettings = isSavingSiteSettings( state, siteId );
 			const isSaveRequestSuccessful = isSiteSettingsSaveSuccessful( state, siteId );
 			let settings = getSiteSettings( state, siteId );
@@ -330,10 +439,12 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 				path,
 				siteIsJetpack: isJetpack,
 				siteIsAtomic: isSiteAutomatedTransfer( state, siteId ),
+				siteIsP2Hub: isSiteP2Hub( state, siteId ),
 				siteSettingsSaveError,
 				settings,
 				settingsFields,
 				siteId,
+				siteSlug,
 				saveInstantSearchRequest,
 			};
 		},
@@ -346,6 +457,7 @@ const wrapSettingsForm = ( getFormSettings ) => ( SettingsForm ) => {
 					saveSiteSettings,
 					successNotice,
 					saveJetpackSettings,
+					saveP2SiteSettings,
 					activateModule,
 				},
 				dispatch

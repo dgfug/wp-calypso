@@ -27,7 +27,6 @@ jest.mock( 'calypso/signup/utils', () => ( {
 	getNextStepName: ( x ) => x,
 	getStepUrl: ( x ) => x,
 	getPreviousStepName: ( x ) => x,
-	isP2Flow: () => false,
 } ) );
 
 describe( '#signupStep User', () => {

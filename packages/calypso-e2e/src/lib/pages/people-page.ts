@@ -1,5 +1,6 @@
 import { Page } from 'playwright';
 import { clickNavTab, reloadAndRetry } from '../../element-helper';
+import { NoticeComponent } from '../components';
 
 export type PeoplePageTabs = 'Team' | 'Followers' | 'Email Followers' | 'Invites';
 
@@ -15,11 +16,12 @@ const selectors = {
 	deleteConfirmBanner: ':text("Successfully deleted")',
 
 	// Header
+	addPeopleButton: 'a:text("Add a team member")',
 	invitePeopleButton: '.people-list-section-header__add-button',
 
 	// Invites
 	invitedUser: ( email: string ) => `[title="${ email }"]`,
-	revokeInviteButton: 'button:text("Revoke invite")',
+	revokeInviteButton: 'button:text("Revoke")',
 	inviteRevokedMessage: 'span:text("Invite deleted.")',
 };
 
@@ -81,7 +83,7 @@ export class PeoplePage {
 	 * Delete the user from site.
 	 */
 	async deleteUser(): Promise< void > {
-		await this.page.waitForLoadState( 'networkidle' );
+		await this.page.waitForLoadState( 'networkidle', { timeout: 20 * 1000 } );
 
 		const elementHandle = await this.page.waitForSelector(
 			selectors.deletedUserContentAction( 'delete' )
@@ -124,6 +126,15 @@ export class PeoplePage {
 	}
 
 	/**
+	 * Click on the `Invite` button to navigate to the invite user page.
+	 */
+	async clickAddTeamMember(): Promise< void > {
+		await this.waitUntilLoaded();
+
+		await this.page.click( selectors.addPeopleButton );
+	}
+
+	/**
 	 * Locate and click on a pending invite.
 	 *
 	 * This method will make several attempts to locate the pending invite.
@@ -163,6 +174,8 @@ export class PeoplePage {
 		await this.waitUntilLoaded();
 
 		await this.page.click( selectors.revokeInviteButton );
-		await this.page.waitForSelector( selectors.inviteRevokedMessage );
+
+		const noticeComponent = new NoticeComponent( this.page );
+		await noticeComponent.noticeShown( 'Invite deleted' );
 	}
 }

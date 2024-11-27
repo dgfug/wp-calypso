@@ -1,8 +1,8 @@
 import config from '@automattic/calypso-config';
-import { ReactElement, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useState } from 'react';
 import { logToLogstash } from 'calypso/lib/logstash';
 import StepWrapper from 'calypso/signup/step-wrapper';
+import { useSelector, useDispatch } from 'calypso/state';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import isAtomicSite from 'calypso/state/selectors/is-site-automated-transfer';
 import { getSiteDomain } from 'calypso/state/sites/selectors';
@@ -18,7 +18,7 @@ export interface FailureInfo {
 	error: string;
 }
 
-export default function Transfer( props: WooCommerceInstallProps ): ReactElement | null {
+export default function Transfer( props: WooCommerceInstallProps ) {
 	const dispatch = useDispatch();
 	// selectedSiteId is set by the controller whenever site is provided as a query param.
 	const siteId = useSelector( getSelectedSiteId ) as number;
@@ -73,9 +73,9 @@ export default function Transfer( props: WooCommerceInstallProps ): ReactElement
 			flowName="woocommerce-install"
 			hideBack={ ! hasFailed }
 			backUrl={ `/woocommerce-installation/${ domain }` }
-			hideNext={ true }
-			hideSkip={ true }
-			hideFormattedHeader={ true }
+			hideNext
+			hideSkip
+			hideFormattedHeader
 			isWideLayout={ props.isReskinned }
 			stepContent={
 				<>

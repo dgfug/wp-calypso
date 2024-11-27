@@ -4,15 +4,13 @@ import { isUri } from 'valid-url';
 
 /**
  * Given a media string, File, or object, returns the file extension.
- *
  * @example
  * getFileExtension( 'example.gif' );
  * getFileExtension( { URL: 'https://wordpress.com/example.gif' } );
  * getFileExtension( new window.File( [''], 'example.gif' ) );
  * // All examples return 'gif'
- *
- * @param  {(string|window.File|object)} media Media object or string
- * @returns {string}                     File extension
+ * @param  {(string | window.File | Object)} media Media object or string
+ * @returns {string|undefined}                     File extension
  */
 export function getFileExtension( media ) {
 	let extension;

@@ -6,6 +6,8 @@ import {
 	SITE_DOMAINS_REQUEST,
 	SITE_DOMAINS_REQUEST_SUCCESS,
 	SITE_DOMAINS_REQUEST_FAILURE,
+	DOMAIN_DNSSEC_DISABLE_SUCCESS,
+	DOMAIN_DNSSEC_ENABLE_SUCCESS,
 	DOMAIN_PRIVACY_ENABLE,
 	DOMAIN_PRIVACY_DISABLE,
 	DOMAIN_PRIVACY_ENABLE_SUCCESS,
@@ -18,17 +20,19 @@ import {
 	DOMAIN_CONTACT_INFO_REDACT,
 	DOMAIN_CONTACT_INFO_REDACT_SUCCESS,
 	DOMAIN_CONTACT_INFO_REDACT_FAILURE,
+	DOMAIN_MARK_AS_PENDING_MOVE,
+	DOMAIN_MANAGEMENT_PRIMARY_DOMAIN_SAVE_SUCCESS,
+	DOMAIN_MANAGEMENT_PRIMARY_DOMAIN_UPDATE,
 } from 'calypso/state/action-types';
 import { combineReducers, withSchemaValidation } from 'calypso/state/utils';
 import { itemsSchema } from './schema';
 
 /**
  * Returns a copy of the domains state object with some modifications
- *
- * @param {object} state - current state
+ * @param {Object} state - current state
  * @param {number} siteId - site ID
  * @param {string} domain - domain name
- * @param {object} modifyDomainProperties - object with modified site domain properties
+ * @param {Object} modifyDomainProperties - object with modified site domain properties
  * @returns {any} - new copy of the state
  */
 const modifySiteDomainObjectImmutable = ( state, siteId, domain, modifyDomainProperties ) => {
@@ -47,10 +51,9 @@ const modifySiteDomainObjectImmutable = ( state, siteId, domain, modifyDomainPro
 
 /**
  * Domains `Reducer` function
- *
- * @param {object} state - current state
- * @param {object} action - domains action
- * @returns {object} updated state
+ * @param {Object} state - current state
+ * @param {Object} action - domains action
+ * @returns {Object} updated state
  */
 export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) => {
 	const { siteId } = action;
@@ -79,6 +82,20 @@ export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) =
 				privateDomain: false,
 				contactInfoDisclosed: false,
 			} );
+		case DOMAIN_MARK_AS_PENDING_MOVE:
+			return modifySiteDomainObjectImmutable( state, siteId, action.domain, {
+				isMoveToNewSitePending: true,
+			} );
+		case DOMAIN_DNSSEC_DISABLE_SUCCESS:
+			return modifySiteDomainObjectImmutable( state, siteId, action.domain, {
+				isDnssecEnabled: false,
+				dnssecRecords: null,
+			} );
+		case DOMAIN_DNSSEC_ENABLE_SUCCESS:
+			return modifySiteDomainObjectImmutable( state, siteId, action.domain, {
+				isDnssecEnabled: true,
+				dnssecRecords: action.dnssecRecords,
+			} );
 	}
 
 	return state;
@@ -88,9 +105,8 @@ export const items = withSchemaValidation( itemsSchema, ( state = {}, action ) =
  * Updating privacy reducer
  *
  * Figure out if we're in the middle of privacy modification command
- *
- * @param {object} state - current state
- * @param {object} action - action
+ * @param {Object} state - current state
+ * @param {Object} action - action
  * @returns {any} - new state
  */
 export const updatingPrivacy = ( state = {}, action ) => {
@@ -124,12 +140,33 @@ export const updatingPrivacy = ( state = {}, action ) => {
 };
 
 /**
+ * Updating privacy reducer
+ *
+ * Figure out if we're in the middle of privacy modification command
+ * @param {Object} state - current state
+ * @param {Object} action - action
+ * @returns {any} - new state
+ */
+export const updatingPrimaryDomain = ( state = {}, action ) => {
+	switch ( action.type ) {
+		case DOMAIN_MANAGEMENT_PRIMARY_DOMAIN_UPDATE:
+			return Object.assign( {}, state, {
+				[ action.siteId ]: true,
+			} );
+		case DOMAIN_MANAGEMENT_PRIMARY_DOMAIN_SAVE_SUCCESS:
+			return Object.assign( {}, state, {
+				[ action.siteId ]: false,
+			} );
+	}
+	return state;
+};
+
+/**
  * `Reducer` function which handles request/response actions
  * to/from WP REST-API
- *
- * @param {object} state - current state
- * @param {object} action - domains action
- * @returns {object} updated state
+ * @param {Object} state - current state
+ * @param {Object} action - domains action
+ * @returns {Object} updated state
  */
 export const requesting = ( state = {}, action ) => {
 	switch ( action.type ) {
@@ -146,10 +183,9 @@ export const requesting = ( state = {}, action ) => {
 
 /**
  * `Reducer` function which handles ERRORs REST-API response actions
- *
- * @param {object} state - current state
- * @param {object} action - domains action
- * @returns {object} updated state
+ * @param {Object} state - current state
+ * @param {Object} action - domains action
+ * @returns {Object} updated state
  */
 export const errors = ( state = {}, action ) => {
 	switch ( action.type ) {
@@ -173,4 +209,5 @@ export default combineReducers( {
 	items,
 	requesting,
 	updatingPrivacy,
+	updatingPrimaryDomain,
 } );

@@ -1,23 +1,27 @@
-import config from '@automattic/calypso-config';
 import { CheckoutErrorBoundary } from '@automattic/composite-checkout';
 import { useTranslate } from 'i18n-calypso';
 import { useCallback } from 'react';
-import { useSelector } from 'react-redux';
 import DocumentHead from 'calypso/components/data/document-head';
-import FormattedHeader from 'calypso/components/formatted-header';
+import QueryConciergeInitial from 'calypso/components/data/query-concierge-initial/index';
 import InlineSupportLink from 'calypso/components/inline-support-link';
 import Main from 'calypso/components/main';
+import NavigationHeader from 'calypso/components/navigation-header';
 import SidebarNavigation from 'calypso/components/sidebar-navigation';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
-import { logToLogstash } from 'calypso/lib/logstash';
 import CancelPurchase from 'calypso/me/purchases/cancel-purchase';
 import ConfirmCancelDomain from 'calypso/me/purchases/confirm-cancel-domain';
 import ManagePurchase from 'calypso/me/purchases/manage-purchase';
 import ChangePaymentMethod from 'calypso/me/purchases/manage-purchase/change-payment-method';
+import { PurchaseListConciergeBanner } from 'calypso/me/purchases/purchases-list/purchase-list-concierge-banner';
 import titles from 'calypso/me/purchases/titles';
 import PurchasesNavigation from 'calypso/my-sites/purchases/navigation';
-import { getSelectedSiteSlug } from 'calypso/state/ui/selectors';
+import { useSelector } from 'calypso/state';
+import getAvailableConciergeSessions from 'calypso/state/selectors/get-available-concierge-sessions';
+import getConciergeNextAppointment from 'calypso/state/selectors/get-concierge-next-appointment';
+import getConciergeUserBlocked from 'calypso/state/selectors/get-concierge-user-blocked';
+import { getSelectedSiteId, getSelectedSiteSlug } from 'calypso/state/ui/selectors';
+import { logStashLoadErrorEvent } from '../checkout/src/lib/analytics';
 import {
 	getPurchaseListUrlFor,
 	getCancelPurchaseUrlFor,
@@ -30,37 +34,32 @@ import { getChangeOrAddPaymentMethodUrlFor } from './utils';
 
 function useLogPurchasesError( message: string ) {
 	return useCallback(
-		( error ) => {
-			logToLogstash( {
-				feature: 'calypso_client',
-				message,
-				severity: config( 'env_id' ) === 'production' ? 'error' : 'debug',
-				extra: {
-					env: config( 'env_id' ),
-					type: 'site_level_purchases',
-					message: String( error ),
-				},
-			} );
+		( error: Error ) => {
+			logStashLoadErrorEvent( 'site_level_purchases', error, { message } );
 		},
 		[ message ]
 	);
 }
 
-export function Purchases(): JSX.Element {
+export function Purchases() {
 	const translate = useTranslate();
 	const siteSlug = useSelector( getSelectedSiteSlug );
 	const logPurchasesError = useLogPurchasesError( 'site level purchases load error' );
+	const nextConciergeAppointment = useSelector( getConciergeNextAppointment );
+	const isConciergeUserBlocked = useSelector( getConciergeUserBlocked );
+	const availableConciergeSessions = useSelector( getAvailableConciergeSessions );
+	const siteId = useSelector( getSelectedSiteId );
 
 	return (
 		<Main wideLayout className="purchases">
+			<QueryConciergeInitial />
 			{ isJetpackCloud() && <SidebarNavigation /> }
 			<DocumentHead title={ titles.sectionTitle } />
 			{ ! isJetpackCloud() && (
-				<FormattedHeader
-					brandFont
-					className="purchases__page-heading"
-					headerText={ titles.sectionTitle }
-					subHeaderText={ translate(
+				<NavigationHeader
+					navigationItems={ [] }
+					title={ titles.sectionTitle }
+					subtitle={ translate(
 						'View, manage, or cancel your plan and other purchases for this site. {{learnMoreLink}}Learn more{{/learnMoreLink}}.',
 						{
 							components: {
@@ -68,11 +67,18 @@ export function Purchases(): JSX.Element {
 							},
 						}
 					) }
-					align="left"
 				/>
 			) }
-			<PurchasesNavigation sectionTitle={ 'Active Upgrades' } siteSlug={ siteSlug } />
-
+			<PurchasesNavigation
+				section={ isJetpackCloud() ? 'myPlan' : 'activeUpgrades' }
+				siteSlug={ siteSlug }
+			/>
+			<PurchaseListConciergeBanner
+				availableSessions={ availableConciergeSessions }
+				isUserBlocked={ isConciergeUserBlocked }
+				nextAppointment={ nextConciergeAppointment }
+				siteId={ siteId ?? undefined }
+			/>
 			<CheckoutErrorBoundary
 				errorMessage={ translate( 'Sorry, there was an error loading this page.' ) }
 				onError={ logPurchasesError }
@@ -89,7 +95,7 @@ export function PurchaseDetails( {
 }: {
 	purchaseId: number;
 	siteSlug: string;
-} ): JSX.Element {
+} ) {
 	const translate = useTranslate();
 	const logPurchasesError = useLogPurchasesError( 'site level purchase details load error' );
 	const redirectTo = getManagePurchaseUrlFor( siteSlug, purchaseId );
@@ -98,12 +104,7 @@ export function PurchaseDetails( {
 		<Main wideLayout className="purchases manage-purchase">
 			<DocumentHead title={ titles.managePurchase } />
 			{ ! isJetpackCloud() && (
-				<FormattedHeader
-					brandFont
-					className="purchases__page-heading"
-					headerText={ titles.sectionTitle }
-					align="left"
-				/>
+				<NavigationHeader navigationItems={ [] } title={ titles.sectionTitle } />
 			) }
 			<PageViewTracker
 				path="/purchases/subscriptions/:site/:purchaseId"
@@ -117,6 +118,7 @@ export function PurchaseDetails( {
 				<ManagePurchase
 					cardTitle={ titles.managePurchase }
 					purchaseId={ purchaseId }
+					isSiteLevel
 					siteSlug={ siteSlug }
 					showHeader={ false }
 					purchaseListUrl={ getPurchaseListUrlFor( siteSlug ) }
@@ -137,7 +139,7 @@ export function PurchaseCancel( {
 }: {
 	purchaseId: number;
 	siteSlug: string;
-} ): JSX.Element {
+} ) {
 	const translate = useTranslate();
 	const logPurchasesError = useLogPurchasesError( 'site level purchase cancel load error' );
 
@@ -145,12 +147,7 @@ export function PurchaseCancel( {
 		<Main wideLayout className="purchases">
 			<DocumentHead title={ titles.cancelPurchase } />
 			{ ! isJetpackCloud() && (
-				<FormattedHeader
-					brandFont
-					className="purchases__page-heading"
-					headerText={ titles.sectionTitle }
-					align="left"
-				/>
+				<NavigationHeader navigationItems={ [] } title={ titles.sectionTitle } />
 			) }
 
 			<CheckoutErrorBoundary
@@ -175,7 +172,7 @@ export function PurchaseChangePaymentMethod( {
 }: {
 	purchaseId: number;
 	siteSlug: string;
-} ): JSX.Element {
+} ) {
 	const translate = useTranslate();
 	const logPurchasesError = useLogPurchasesError(
 		'site level purchase edit payment method load error'
@@ -185,12 +182,7 @@ export function PurchaseChangePaymentMethod( {
 		<Main wideLayout className="purchases">
 			<DocumentHead title={ titles.changePaymentMethod } />
 			{ ! isJetpackCloud() && (
-				<FormattedHeader
-					brandFont
-					className="purchases__page-heading"
-					headerText={ titles.sectionTitle }
-					align="left"
-				/>
+				<NavigationHeader navigationItems={ [] } title={ titles.sectionTitle } />
 			) }
 
 			<CheckoutErrorBoundary
@@ -214,7 +206,7 @@ export function PurchaseCancelDomain( {
 }: {
 	purchaseId: number;
 	siteSlug: string;
-} ): JSX.Element {
+} ) {
 	const translate = useTranslate();
 	const logPurchasesError = useLogPurchasesError( 'site level purchase cancel domain load error' );
 
@@ -222,12 +214,7 @@ export function PurchaseCancelDomain( {
 		<Main wideLayout className="purchases">
 			<DocumentHead title={ titles.confirmCancelDomain } />
 			{ ! isJetpackCloud() && (
-				<FormattedHeader
-					brandFont
-					className="purchases__page-heading"
-					headerText={ titles.sectionTitle }
-					align="left"
-				/>
+				<NavigationHeader navigationItems={ [] } title={ titles.sectionTitle } />
 			) }
 
 			<CheckoutErrorBoundary

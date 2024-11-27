@@ -1,8 +1,13 @@
-import { NavigableMenu, MenuItem, VisuallyHidden } from '@wordpress/components';
+import {
+	NavigableMenu,
+	MenuItem as _MenuItem,
+	VisuallyHidden,
+	Button,
+} from '@wordpress/components';
 import { useInstanceId } from '@wordpress/compose';
 import { useI18n } from '@wordpress/react-i18n';
 import type { Category } from '../../types';
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentProps, ComponentType, ReactNode } from 'react';
 import './style.scss';
 
 interface Props {
@@ -14,6 +19,15 @@ interface Props {
 	footer?: ReactNode;
 }
 
+// TODO: Remove this wrapper when MenuItem adds back button prop types
+type MenuItemProps = ComponentProps< typeof _MenuItem >;
+const MenuItem = _MenuItem as ComponentType<
+	MenuItemProps & {
+		variant?: ComponentProps< typeof Button >[ 'variant' ];
+		isPressed?: boolean;
+	}
+>;
+
 export function DesignPickerCategoryFilter( {
 	categories,
 	onSelect,
@@ -21,7 +35,7 @@ export function DesignPickerCategoryFilter( {
 	heading,
 	footer,
 	recommendedCategorySlug,
-}: Props ): ReactElement | null {
+}: Props ) {
 	const instanceId = useInstanceId( DesignPickerCategoryFilter );
 	const { __ } = useI18n();
 
@@ -55,7 +69,7 @@ export function DesignPickerCategoryFilter( {
 				{ categories.map( ( { slug, name } ) => (
 					<MenuItem
 						key={ slug }
-						isTertiary
+						variant="tertiary"
 						isPressed={ slug === selectedCategory }
 						data-slug={ slug }
 						onClick={ () => onSelect( slug ) }

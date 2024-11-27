@@ -1,10 +1,10 @@
 import { useTranslate } from 'i18n-calypso';
 import moment from 'moment';
 import * as React from 'react';
-import { useSelector } from 'react-redux';
 import { JetpackBenefitsCard } from 'calypso/blocks/jetpack-benefits/benefit-card';
 import QuerySiteStats from 'calypso/components/data/query-site-stats';
 import memoizeLast from 'calypso/lib/memoize-last';
+import { useSelector } from 'calypso/state';
 import {
 	getSiteStatsNormalizedData,
 	isRequestingSiteStatsForQuery,
@@ -42,10 +42,10 @@ const JetpackBenefitsSiteVisits: React.FC< Props > = ( { siteId, statType, query
 	if ( isRequestingStats ) {
 		return (
 			<JetpackBenefitsCard
-				headline={ translate( 'Site Stats' ) }
+				headline={ translate( 'Jetpack Stats' ) }
 				stat={ translate( 'Loading' ) }
 				description={ translate( 'Getting visitors stat' ) }
-				placeholder={ true }
+				placeholder
 			/>
 		);
 	}
@@ -58,7 +58,7 @@ const JetpackBenefitsSiteVisits: React.FC< Props > = ( { siteId, statType, query
 	return (
 		<React.Fragment>
 			<JetpackBenefitsCard
-				headline={ translate( 'Site Stats' ) }
+				headline={ translate( 'Jetpack Stats' ) }
 				stat={ countVisits > 0 ? countVisits : null }
 				description={
 					countVisits > 0

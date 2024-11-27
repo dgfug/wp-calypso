@@ -5,6 +5,7 @@ const reactVersion = require( './client/package.json' ).dependencies.react;
 
 module.exports = {
 	root: true,
+	parser: '@typescript-eslint/parser',
 	parserOptions: {
 		babelOptions: {
 			configFile: path.join( __dirname, './babel.config.js' ),
@@ -15,6 +16,7 @@ module.exports = {
 		'plugin:jsx-a11y/recommended',
 		'plugin:jest/recommended',
 		'plugin:prettier/recommended',
+		'plugin:@tanstack/eslint-plugin-query/recommended',
 		'plugin:md/prettier',
 		'plugin:@wordpress/eslint-plugin/i18n',
 	],
@@ -70,7 +72,7 @@ module.exports = {
 			// basic recommended rules config from the TypeScript plugin
 			{ rules: require( '@typescript-eslint/eslint-plugin' ).configs.recommended.rules },
 			// disables rules that are already checked by the TypeScript compiler
-			// see https://github.com/typescript-eslint/typescript-eslint/tree/master/packages/eslint-plugin/src/configs#eslint-recommended
+			// see https://github.com/typescript-eslint/typescript-eslint/tree/main/packages/eslint-plugin/src/configs#eslint-recommended
 			{
 				rules: require( '@typescript-eslint/eslint-plugin' ).configs[ 'eslint-recommended' ]
 					.overrides[ 0 ].rules,
@@ -82,10 +84,11 @@ module.exports = {
 				files: [ '**/*.ts', '**/*.tsx' ],
 				rules: {
 					// Disable vanilla eslint rules that have a Typescript implementation
-					// See https://github.com/typescript-eslint/typescript-eslint/blob/master/packages/eslint-plugin/README.md#extension-rules
+					// See https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/eslint-plugin/README.md#extension-rules
 					'brace-style': 'off',
 					'comma-dangle': 'off',
 					'comma-spacing': 'off',
+					curly: 'error', // The base curly rule does not seem to apply to TS files.
 					'default-param-last': 'off',
 					'dot-notation': 'off',
 					'func-call-spacing': 'off',
@@ -114,7 +117,31 @@ module.exports = {
 					'return-await': 'off',
 					semi: 'off',
 					'space-before-function-paren': 'off',
-
+					'@typescript-eslint/ban-types': [
+						'error',
+						{
+							types: {
+								ReactText: {
+									message:
+										"It's deprecated, so we don't want new uses. Inline the required type (such as string or number) instead.",
+								},
+								[ 'React.ReactText' ]: {
+									message:
+										"It's deprecated, so we don't want new uses. Inline the required type (such as string or number) instead.",
+								},
+								ReactChild: {
+									message:
+										"It's deprecated, so we don't want new uses. Prefer types like ReactElement, string, or number instead. If the type should be nullable, use ReactNode.",
+								},
+								[ 'React.ReactChild' ]: {
+									message:
+										"It's deprecated, so we don't want new uses. Prefer types like ReactElement, string, or number instead. If the type should be nullable, use ReactNode.",
+								},
+							},
+							extendDefaults: true,
+						},
+					],
+					'@typescript-eslint/no-explicit-any': 'warn',
 					'@typescript-eslint/explicit-function-return-type': 'off',
 					'@typescript-eslint/explicit-member-accessibility': 'off',
 					'@typescript-eslint/no-unused-vars': [ 'error', { ignoreRestSiblings: true } ],
@@ -137,8 +164,7 @@ module.exports = {
 		{
 			// This lints the codeblocks marked as `javascript`, `js`, `cjs` or `ejs`, all valid aliases
 			// See:
-			// eslint-disable-next-line inclusive-language/use-inclusive-words
-			//  * https://github.com/highlightjs/highlight.js/blob/master/SUPPORTED_LANGUAGES.md)
+			//  * https://github.com/highlightjs/highlight.js/blob/main/SUPPORTED_LANGUAGES.md)
 			//  * https://www.npmjs.com/package/eslint-plugin-md#modifying-eslint-setup-for-js-code-inside-md-files
 			files: [
 				'*.md.js',
@@ -195,6 +221,12 @@ module.exports = {
 					},
 				},
 				{
+					files: [ './config/*.json' ],
+					rules: {
+						'sort-keys': 'warn',
+					},
+				},
+				{
 					// These files don't have the `@automattic` prefix in the name
 					files: [
 						'./package.json',
@@ -210,8 +242,6 @@ module.exports = {
 						'./packages/i18n-calypso/package.json',
 						'./packages/i18n-utils/package.json',
 						'./packages/photon/package.json',
-						'./packages/spec-junit-reporter/package.json',
-						'./packages/spec-xunit-reporter/package.json',
 					],
 					rules: {
 						'@automattic/json/valid-values-name-scope': 'off',
@@ -221,7 +251,6 @@ module.exports = {
 					// These files don't have GPL license
 					files: [
 						'./desktop/package.json',
-						'./packages/magellan-mocha-plugin/package.json',
 						'./packages/material-design-icons/package.json',
 						'./packages/wpcom-proxy-request/package.json',
 						'./packages/wpcom-xhr-request/package.json',
@@ -257,8 +286,6 @@ module.exports = {
 	],
 	env: {
 		jest: true,
-		// mocha is only still on because we have not finished porting all of our tests to jest's syntax
-		mocha: true,
 		node: true,
 	},
 	globals: {
@@ -275,7 +302,7 @@ module.exports = {
 		// this is when Webpack last built the bundle
 		BUILD_TIMESTAMP: true,
 	},
-	plugins: [ 'import', 'you-dont-need-lodash-underscore' ],
+	plugins: [ 'import', 'you-dont-need-lodash-underscore', '@tanstack/query' ],
 	settings: {
 		react: {
 			version: reactVersion,
@@ -288,6 +315,9 @@ module.exports = {
 	rules: {
 		// REST API objects include underscores
 		camelcase: 'off',
+
+		// Curly is not added by existing presets and is needed for WordPress style compatibility.
+		curly: 'error',
 
 		'no-constant-condition': [ 'error', { checkLoops: false } ],
 
@@ -304,19 +334,6 @@ module.exports = {
 				assertFunctionNames: [
 					// Jest
 					'expect',
-
-					// Chai
-					'chai.assert',
-					'chai.assert.*',
-					'assert',
-					'assert.*',
-					'equal',
-					'ok',
-					'deepStrictEqual',
-					'chaiExpect',
-
-					// Sinon
-					'sinon.assert.*',
 				],
 			},
 		],
@@ -399,14 +416,10 @@ module.exports = {
 		'no-unused-expressions': 'off',
 
 		'react/forbid-foreign-prop-types': 'error',
-
+		'react/jsx-curly-brace-presence': [ 'error', { props: 'never', children: 'never' } ],
+		'react/jsx-boolean-value': 'error',
 		// enforce our classname namespacing rules
-		'wpcalypso/jsx-classname-namespace': [
-			2,
-			{
-				rootFiles: [ 'index.js', 'index.jsx', 'main.js', 'main.jsx' ],
-			},
-		],
+		'wpcalypso/jsx-classname-namespace': 'error',
 
 		// Disallow importing of native node modules, with some exceptions
 		// - url because we use it all over the place to parse and build urls
@@ -462,7 +475,7 @@ module.exports = {
 		],
 
 		'wpcalypso/no-unsafe-wp-apis': [
-			'error',
+			'warn',
 			{
 				'@wordpress/block-editor': [
 					'__experimentalBlock',
@@ -471,9 +484,27 @@ module.exports = {
 					'__unstableInserterMenuExtension',
 					'__experimentalInserterMenuExtension',
 				],
+				'@wordpress/compose': [ '__experimentalUseFocusOutside' ],
 				'@wordpress/date': [ '__experimentalGetSettings' ],
 				'@wordpress/edit-post': [ '__experimentalMainDashboardButton' ],
-				'@wordpress/components': [ '__experimentalNavigationBackButton' ],
+				'@wordpress/components': [
+					'__experimentalDivider',
+					'__experimentalHStack',
+					'__experimentalVStack',
+					'__experimentalSpacer',
+					'__experimentalItem',
+					'__experimentalItemGroup',
+					'__experimentalNavigationBackButton',
+					'__experimentalNavigatorBackButton',
+					'__experimentalNavigatorToParentButton',
+					'__experimentalNavigatorButton',
+					'__experimentalNavigatorProvider',
+					'__experimentalNavigatorScreen',
+					'__experimentalUseNavigator',
+					'__unstableComposite',
+					'__unstableCompositeItem',
+					'__unstableUseCompositeState',
+				],
 			},
 		],
 
@@ -527,5 +558,11 @@ module.exports = {
 		'you-dont-need-lodash-underscore/to-pairs': 'error',
 		'you-dont-need-lodash-underscore/to-upper': 'error',
 		'you-dont-need-lodash-underscore/uniq': 'error',
+
+		// @TODO remove these lines once we fixed the warnings so
+		// they'll become errors for new code added to the codebase
+		'@tanstack/query/exhaustive-deps': 'warn',
+		'@wordpress/i18n-no-flanking-whitespace': 'warn',
+		'@wordpress/i18n-hyphenated-range': 'warn',
 	},
 };

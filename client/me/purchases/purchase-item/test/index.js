@@ -1,8 +1,10 @@
-import { shallow } from 'enzyme';
+/**
+ * @jest-environment jsdom
+ */
+import { screen } from '@testing-library/react';
 import i18n from 'i18n-calypso';
 import moment from 'moment';
-import { Provider } from 'react-redux';
-import { createStore } from 'redux';
+import { renderWithProvider } from 'calypso/test-helpers/testing-library';
 import PurchaseItem from '../';
 
 describe( 'PurchaseItem', () => {
@@ -13,21 +15,65 @@ describe( 'PurchaseItem', () => {
 			expiryDate: moment().subtract( 10, 'hours' ).format(),
 		};
 
-		const store = createStore( () => {}, {} );
-		const wrapper = shallow(
-			<Provider store={ store }>
-				<PurchaseItem purchase={ purchase } />
-			</Provider>
-		);
-
 		test( 'should be described as "Expired today"', () => {
-			expect( wrapper.html() ).toContain( 'Expired today' );
+			renderWithProvider( <PurchaseItem purchase={ purchase } /> );
+
+			expect( screen.getByText( /expired today/i ) ).toBeInTheDocument();
 		} );
 
 		test( 'should be described with a translated label', () => {
 			const translation = 'Vandaag verlopen';
 			i18n.addTranslations( { 'Expired today': [ translation ] } );
-			expect( wrapper.html() ).toContain( translation );
+
+			renderWithProvider( <PurchaseItem purchase={ purchase } /> );
+
+			expect( screen.getByText( translation ) ).toBeInTheDocument();
 		} );
+	} );
+
+	describe( 'an in-app purchase', () => {
+		const purchase = {
+			isInAppPurchase: true,
+			isAutoRenewEnabled: false,
+		};
+
+		test( 'should not display warning', () => {
+			renderWithProvider( <PurchaseItem purchase={ purchase } /> );
+
+			expect(
+				screen.queryByText( 'You don’t have a payment method to renew this subscription' )
+			).toBeNull();
+		} );
+
+		test( 'should display in-app purchase as the payment method', () => {
+			renderWithProvider( <PurchaseItem purchase={ purchase } /> );
+			expect( screen.getByText( 'In-App Purchase' ) ).toBeInTheDocument();
+		} );
+	} );
+
+	test( 'should display warning if auto-renew is enabled but no payment method', () => {
+		const purchase = {
+			productSlug: 'business-bundle',
+			isAutoRenewEnabled: true,
+		};
+
+		renderWithProvider( <PurchaseItem purchase={ purchase } /> );
+
+		expect(
+			screen.getByText( 'You don’t have a payment method to renew this subscription' )
+		).toBeInTheDocument();
+	} );
+
+	test( 'should not display warning if auto-renew is disabled with no payment method', () => {
+		const purchase = {
+			productSlug: 'business-bundle',
+			isAutoRenewEnabled: false,
+		};
+
+		renderWithProvider( <PurchaseItem purchase={ purchase } /> );
+
+		expect(
+			screen.queryByText( 'You don’t have a payment method to renew this subscription' )
+		).toBeNull();
 	} );
 } );

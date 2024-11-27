@@ -2,6 +2,7 @@ import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import ExpandableSidebarMenu from 'calypso/layout/sidebar/expandable';
+import ReaderListIcon from 'calypso/reader/components/icons/list-icon';
 import ReaderSidebarListsList from './list';
 
 import './style.scss';
@@ -25,8 +26,8 @@ export class ReaderSidebarLists extends Component {
 					expanded={ isOpen }
 					title={ translate( 'Lists' ) }
 					onClick={ onClick }
-					materialIcon={ 'list' }
-					disableFlyout={ true }
+					customIcon={ <ReaderListIcon viewBox="-3 0 24 24" /> }
+					disableFlyout
 					className={ path.startsWith( '/read/list' ) && 'sidebar__menu--selected' }
 				>
 					<li>

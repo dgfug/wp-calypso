@@ -1,5 +1,7 @@
-import { shallow } from 'enzyme';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
+/**
+ * @jest-environment jsdom
+ */
+import { render, screen } from '@testing-library/react';
 import { RegistrantExtraInfoUkForm } from '../uk-form';
 
 const mockProps = {
@@ -24,9 +26,8 @@ describe( 'uk-form', () => {
 				},
 			};
 
-			const wrapper = shallow( <RegistrantExtraInfoUkForm { ...testProps } /> );
-			const error = wrapper.find( FormInputValidation );
-			expect( error.props() ).toHaveProperty( 'text', 'Test error message.' );
+			render( <RegistrantExtraInfoUkForm { ...testProps } /> );
+			expect( screen.getByText( 'Test error message.' ) );
 		} );
 
 		test( 'should render multiple registration errors', () => {
@@ -46,9 +47,8 @@ describe( 'uk-form', () => {
 				},
 			};
 
-			const wrapper = shallow( <RegistrantExtraInfoUkForm { ...testProps } /> );
-			const error = wrapper.find( FormInputValidation );
-			expect( error ).toHaveProperty( 'length', 3 );
+			render( <RegistrantExtraInfoUkForm { ...testProps } /> );
+			expect( screen.getAllByRole( 'alert' ) ).toHaveLength( 3 );
 		} );
 	} );
 } );

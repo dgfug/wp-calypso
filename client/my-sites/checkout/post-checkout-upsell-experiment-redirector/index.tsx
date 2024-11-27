@@ -1,11 +1,15 @@
-import page from 'page';
+import page from '@automattic/calypso-router';
 import { useCallback, useEffect } from 'react';
 import { useExperiment } from 'calypso/lib/explat';
-import getThankYouPageUrl from 'calypso/my-sites/checkout/composite-checkout/hooks/use-get-thank-you-url/get-thank-you-page-url';
-import isEligibleForSignupDestination from 'calypso/state/selectors/is-eligible-for-signup-destination';
+import getThankYouPageUrl from 'calypso/my-sites/checkout/get-thank-you-page-url';
+
+/* When adding future upsells, you can use the following approach:
 
 export const PROFESSIONAL_EMAIL_OFFER = 'professional-email-offer';
 export type SupportedUpsellType = typeof PROFESSIONAL_EMAIL_OFFER;
+
+*/
+
 export interface PostCheckoutUpsellRedirectorProps {
 	receiptId: string | undefined;
 	siteSlug: string | undefined;
@@ -21,22 +25,18 @@ export default function PostCheckoutUpsellExperimentRedirector( {
 	upsellExperimentName,
 	upsellUrl,
 }: PostCheckoutUpsellRedirectorProps ): null {
-	const isEligibleForSignupDestinationResult = isEligibleForSignupDestination( {} );
-
-	const [ isLoadingExperimentAssignment, experimentAssignment ] = useExperiment(
-		upsellExperimentName
-	);
+	const [ isLoadingExperimentAssignment, experimentAssignment ] =
+		useExperiment( upsellExperimentName );
 
 	const getThankYouUrl = useCallback( () => {
 		const getThankYouPageUrlArguments = {
 			siteSlug,
 			receiptId: receiptId ? parseInt( receiptId, 10 ) : undefined,
 			hideNudge: true,
-			isEligibleForSignupDestinationResult,
 		};
 
 		return getThankYouPageUrl( getThankYouPageUrlArguments );
-	}, [ isEligibleForSignupDestinationResult, receiptId, siteSlug ] );
+	}, [ receiptId, siteSlug ] );
 
 	useEffect( () => {
 		if ( isLoadingExperimentAssignment ) {

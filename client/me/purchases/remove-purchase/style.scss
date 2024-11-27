@@ -1,14 +1,16 @@
-.remove-purchase__card {
+.remove-purchase__card,
+.auto-renew-toggle__card {
 	margin: 10px auto;
 	width: 100%;
-	color: var( --color-link );
+	color: var(--color-link);
 	text-align: left;
+	/* stylelint-disable-next-line declaration-property-unit-allowed-list */
 	font-size: 100%;
 
 	&:active,
 	&:focus,
 	&:hover {
-		color: var( --color-link-dark );
+		color: var(--color-link-dark);
 	}
 
 	.gridicons-trash {
@@ -22,13 +24,25 @@
 		column-gap: 7px;
 
 		> svg {
-			fill: var( --color-text-inverted );
+			fill: var(--color-text-inverted);
 		}
 	}
 }
 
-@media ( min-width: 480px ) {
+@media (min-width: 480px) {
 	.remove-purchase__card {
 		margin: 16px auto;
+	}
+}
+
+.dialog__action-buttons {
+	.remove-domain-dialog__chat-button.precancellation-chat-button__main-button.button,
+	.cancel-auto-renewal-form__chat-button.precancellation-chat-button__main-button.button {
+		display: block;
+		float: left;
+		font-size: 0.875rem;
+		margin-left: 0;
+		position: initial;
+		transform: none;
 	}
 }

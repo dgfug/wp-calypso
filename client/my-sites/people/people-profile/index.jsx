@@ -1,7 +1,7 @@
-import classNames from 'classnames';
+import page from '@automattic/calypso-router';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
 import { get } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { useSelector } from 'react-redux';
 import Gravatar from 'calypso/components/gravatar';
@@ -16,9 +16,10 @@ import isPrivateSite from 'calypso/state/selectors/is-private-site';
 
 import './style.scss';
 
-const PeopleProfile = ( { siteId, type, user, invite } ) => {
+const PeopleProfile = ( { siteId, type, user, invite, showDate, showRole = true } ) => {
 	const translate = useTranslate();
 	const moment = useLocalizedMoment();
+
 	const { data: externalContributors } = useExternalContributorsQuery( siteId );
 	const { data: p2Guests } = useP2GuestsQuery( siteId );
 
@@ -75,7 +76,7 @@ const PeopleProfile = ( { siteId, type, user, invite } ) => {
 				} );
 				break;
 			case 'subscriber':
-				text = translate( 'Subscriber', {
+				text = translate( 'Viewer', {
 					context: 'Noun: A user role displayed in a badge',
 				} );
 				break;
@@ -84,6 +85,12 @@ const PeopleProfile = ( { siteId, type, user, invite } ) => {
 				break;
 			case 'viewer':
 				text = translate( 'Viewer' );
+				break;
+			case 'shop_manager':
+				text = translate( 'Shop manager' );
+				break;
+			case 'customer':
+				text = translate( 'Customer' );
 				break;
 			default:
 				text = role;
@@ -197,7 +204,7 @@ const PeopleProfile = ( { siteId, type, user, invite } ) => {
 
 		if ( getRole() ) {
 			roleBadge = (
-				<div className={ classNames( 'people-profile__role-badge', getRoleBadgeClass() ) }>
+				<div className={ clsx( 'people-profile__role-badge', getRoleBadgeClass() ) }>
 					{ getRoleBadgeText() }
 				</div>
 			);
@@ -268,11 +275,37 @@ const PeopleProfile = ( { siteId, type, user, invite } ) => {
 		);
 	};
 
+	const renderSubscribedRole = () => {
+		if ( ! user || ! user.date_subscribed ) {
+			return null;
+		}
+
+		return (
+			<div className="people-profile__badges">
+				<div className={ clsx( 'people-profile__role-badge', getRoleBadgeClass( 'subscriber' ) ) }>
+					{ user.login && translate( 'Follower' ) }
+					{ ! user.login && translate( 'Email subscriber' ) }
+				</div>
+			</div>
+		);
+	};
+
+	const renderViewerRole = () => {
+		const role = 'viewer';
+		return (
+			<div className="people-profile__badges">
+				<div className={ clsx( 'people-profile__role-badge', getRoleBadgeClass( role ) ) }>
+					{ getRoleBadgeText( role ) }
+				</div>
+			</div>
+		);
+	};
+
 	const isFollowerType = () => {
 		return user && ! user.roles && user.date_subscribed;
 	};
 
-	const classes = classNames( 'people-profile', {
+	const classes = clsx( 'people-profile', {
 		'is-placeholder': ! user,
 	} );
 
@@ -284,7 +317,9 @@ const PeopleProfile = ( { siteId, type, user, invite } ) => {
 			<div className="people-profile__detail">
 				{ renderNameOrEmail() }
 				{ renderLogin() }
-				{ isFollowerType() ? renderSubscribedDate() : renderRole() }
+				{ showDate && renderSubscribedDate() }
+				{ showRole && isFollowerType() ? renderSubscribedRole() : renderRole() }
+				{ type === 'viewer' && renderViewerRole() }
 			</div>
 		</div>
 	);

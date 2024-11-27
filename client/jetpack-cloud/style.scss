@@ -7,6 +7,11 @@
 
 .theme-jetpack-cloud,
 .color-scheme.is-jetpack-cloud {
+	// Masterbar
+	@media only screen and (min-width: 782px) {
+		--masterbar-height: 46px;
+	}
+
 	.main {
 		box-sizing: border-box;
 		padding-left: 16px;
@@ -14,21 +19,82 @@
 	}
 
 	input::placeholder {
-		color: var( --color-neutral-10 ) !important;
+		color: var(--color-neutral-10) !important;
 	}
 }
 
+// New navigation will not include a masterbar
+.theme-jetpack-cloud .layout.has-no-masterbar {
+	/* We are ignoring these lines because without the px value the calc function does not work as expected */
+	/* stylelint-disable-next-line length-zero-no-unit */
+	--masterbar-height: 0px;
+
+	// By default, there's 32px of top padding on the layout component.
+	// On mobile views this accommodates the masterbar, but we don't have one;
+	// so, we can remove it by default and re-add it when our width is >660px.
+	.layout__content {
+		padding-top: initial;
+	}
+
+	@include breakpoint-deprecated( ">660px" ) {
+		padding-top: 32px;
+	}
+}
+
+.theme-jetpack-cloud .layout__secondary {
+	border-right: initial;
+
+	// Allow visible overflow, so the profile dropdown menu can be displayed
+	overflow: initial;
+
+	// Make the selected-site navigation full-height
+	.my-sites__navigation {
+		height: 100%;
+	}
+
+	.site-selector {
+		top: 80px;
+
+		.site-selector__sites {
+			border-top: initial;
+		}
+
+		.all-sites {
+			border-bottom: initial;
+
+			// Remove the long-content fade if All Sites is selected
+			.all-sites__title::after {
+				display: none;
+			}
+		}
+
+		.all-sites,
+		.site {
+			--color-sidebar-menu-selected-background: #e3f0e4;
+
+			margin: 4px 4px 0 4px;
+
+			&.is-selected,
+			&:hover {
+				border-radius: 4px;
+			}
+		}
+	}
+}
+
+.components-button,
 .button {
-	color: var( --color-accent );
-	background: var( --studio-white );
-	border: 1px solid var( --color-accent );
-	border-radius: var( --jetpack-corners-soft );
+	color: var(--color-accent);
+	background: var(--studio-white);
+	border: 1px solid var(--color-accent);
+	border-radius: var(--jetpack-corners-soft);
 	box-sizing: border-box;
-	font-weight: 500; /* stylelint-disable-line scales/font-weights */
+	font-weight: 500;
+	transition: background-color 0.1s;
 
 	&:hover {
-		background-color: var( --color-accent-0 );
-		border-color: var( --color-accent-80 );
+		background-color: var(--color-accent-0);
+		border-color: var(--color-accent-80);
 	}
 
 	&:focus {
@@ -36,131 +102,126 @@
 	}
 
 	&:active {
-		background: var( --color-accent-5 );
-		border-color: var( --color-accent-40 );
+		background: var(--color-accent-5);
+		border-color: var(--color-accent-40);
 		border-width: 1px;
 	}
 
 	&[disabled],
 	&:disabled {
-		background: var( --color-accent-5 );
-		color: var( --color-accent-20 );
-		border-color: var( --color-accent-5 );
+		background: var(--color-accent-5);
+		color: var(--color-accent-20);
+		border-color: var(--color-accent-5);
 	}
 }
 
+.components-button.is-primary,
 .button.is-primary {
-	background-color: var( --studio-jetpack-green-50 );
-	border-color: var( --studio-jetpack-green-50 );
+	background-color: var(--studio-jetpack-green-50);
+	border-color: var(--studio-jetpack-green-50);
 
 	&:hover {
-		background-color: var( --studio-jetpack-green-60 );
-		border-color: var( --studio-jetpack-green-60 );
+		background-color: var(--studio-jetpack-green-70);
+		border-color: var(--studio-jetpack-green-70);
 	}
 
 	&:focus {
-		background-color: var( --studio-jetpack-green-70 );
-		border-color: var( --studio-white );
-		box-shadow: 0 0 0 1px var( --studio-jetpack-green-70 );
+		background-color: var(--studio-jetpack-green-70);
+		border-color: var(--studio-white);
+		box-shadow: 0 0 0 1px var(--studio-jetpack-green-70);
 	}
 
 	&:active {
-		background: var( --studio-jetpack-green-60 );
-		border-color: var( --studio-jetpack-green-60 );
+		background: var(--studio-jetpack-green-70);
+		border-color: var(--studio-jetpack-green-70);
 	}
 
 	&[disabled],
 	&:disabled {
-		background: var( --color-accent-5 );
-		color: var( --color-accent-20 );
-		border-color: var( --color-accent-5 );
+		background: var(--color-accent-5);
+		color: var(--color-accent-20);
+		border-color: var(--color-accent-5);
 	}
 }
 
 .button.is-primary.is-busy {
-	background-image: linear-gradient(
-		-45deg,
-		var( --studio-jetpack-green-50 ) 28%,
-		var( --studio-jetpack-green-60 ) 28%,
-		var( --studio-jetpack-green-60 ) 72%,
-		var( --studio-jetpack-green-50 ) 72%
-	);
+	background-image: linear-gradient(-45deg, var(--studio-jetpack-green-50) 28%, var(--studio-jetpack-green-60) 28%, var(--studio-jetpack-green-60) 72%, var(--studio-jetpack-green-50) 72%);
 }
 
 .button.is-scary {
-	color: var( --color-scary-50 );
-	border-color: var( --color-scary-50 );
+	color: var(--color-scary-50);
+	border-color: var(--color-scary-50);
 
 	&:hover {
-		background-color: var( --color-scary-0 );
-		border-color: var( --color-scary-60 );
-		color: var( --color-scary-60 );
+		background-color: var(--color-scary-0);
+		border-color: var(--color-scary-60);
+		color: var(--color-scary-60);
 	}
 
 	&:focus {
-		background-color: var( --studio-white );
-		border-color: var( --color-scary-70 );
-		color: var( --color-scary-70 );
+		background-color: var(--studio-white);
+		border-color: var(--color-scary-70);
+		color: var(--color-scary-70);
 	}
 
 	&:active {
-		background: var( --color-scary-5 );
-		border-color: var( --color-scary-40 );
+		background: var(--color-scary-5);
+		border-color: var(--color-scary-40);
 	}
 
 	&[disabled],
 	&:disabled {
-		background: var( --color-accent-5 );
-		color: var( --color-accent-20 );
-		border-color: var( --color-accent-5 );
+		background: var(--color-accent-5);
+		color: var(--color-accent-20);
+		border-color: var(--color-accent-5);
 	}
 }
 
 .button.is-primary.is-scary {
-	color: var( --studio-white );
-	background: var( --color-scary-50 );
-	border-color: var( --color-scary-50 );
+	color: var(--studio-white);
+	background: var(--color-scary-50);
+	border-color: var(--color-scary-50);
 
 	&:hover {
-		background-color: var( --color-scary-60 );
-		border-color: var( --color-scary-60 );
+		background-color: var(--color-scary-60);
+		border-color: var(--color-scary-60);
 	}
 
 	&:focus {
-		background-color: var( --color-scary-70 );
-		border-color: var( --studio-white );
-		box-shadow: 0 0 0 1px var( --color-scary-70 );
+		background-color: var(--color-scary-70);
+		border-color: var(--studio-white);
+		box-shadow: 0 0 0 1px var(--color-scary-70);
 	}
 
 	&:active {
-		background: var( --color-scary-60 );
-		border-color: var( --color-scary-60 );
+		background: var(--color-scary-60);
+		border-color: var(--color-scary-60);
 	}
 
 	&[disabled],
 	&:disabled {
-		background: var( --color-accent-5 );
-		color: var( --color-accent-20 );
-		border-color: var( --color-accent-5 );
+		background: var(--color-accent-5);
+		color: var(--color-accent-20);
+		border-color: var(--color-accent-5);
 	}
 }
 
 .button.is-borderless {
 	border: none;
 	background: none;
-	color: var( --studio-gray-80 );
+	color: var(--studio-gray-80);
 	padding-left: 0;
 	padding-right: 0;
 
 	&:hover,
 	&:focus {
 		background: none;
-		color: var( --studio-gray-70 );
+		color: var(--studio-gray-70);
 	}
 
 	&[disabled],
 	&:disabled {
-		color: var( --color-neutral-20 );
+		color: var(--color-neutral-20);
 		cursor: default;
 
 		&:active,
@@ -171,26 +232,26 @@
 }
 
 .button.is-borderless.is-primary {
-	color: var( --color-accent );
+	color: var(--color-accent);
 
 	&:hover,
 	&:focus {
-		color: var( --color-accent-30 );
+		color: var(--color-accent-30);
 	}
 
 	&:active {
-		color: var( --color-accent-50 );
+		color: var(--color-accent-50);
 	}
 
 	&[disabled],
 	&:disabled {
 		background: none;
-		color: var( --studio-gray-10 );
+		color: var(--studio-gray-10);
 	}
 }
 
 .button.is-borderless.is-scary {
-	color: var( --color-scary-50 );
+	color: var(--color-scary-50);
 
 	&[disabled],
 	&:disabled {
@@ -199,15 +260,15 @@
 }
 
 .button.is-borderless.is-primary.is-scary {
-	color: var( --color-scary-50 );
+	color: var(--color-scary-50);
 
 	&:hover,
 	&:focus {
-		color: var( --color-scary-40 );
+		color: var(--color-scary-40);
 	}
 
 	&:active {
-		color: var( --color-scary-60 );
+		color: var(--color-scary-60);
 	}
 
 	&[disabled],
@@ -224,7 +285,7 @@ html {
 		font-weight: 600;
 		line-height: 32px;
 
-		@include breakpoint-deprecated( '>660px' ) {
+		@include breakpoint-deprecated( ">660px" ) {
 			font-size: $font-headline-small;
 			line-height: 40px;
 		}
@@ -235,7 +296,7 @@ html {
 		font-weight: 600;
 		line-height: 23px;
 
-		@include breakpoint-deprecated( '>660px' ) {
+		@include breakpoint-deprecated( ">660px" ) {
 			font-size: $font-title-small;
 			line-height: 23px;
 		}
@@ -245,7 +306,7 @@ html {
 		font-size: $font-body;
 		line-height: 24px;
 
-		@include breakpoint-deprecated( '>660px' ) {
+		@include breakpoint-deprecated( ">660px" ) {
 			font-size: $font-title-small;
 			line-height: 24px;
 		}
@@ -254,16 +315,16 @@ html {
 
 .theme-jetpack-cloud .ReactModalPortal {
 	.dialog.card {
-		box-shadow: 0 0 0 1px var( --color-border-subtle ), 0 4px 12px var( --color-neutral-10 );
+		box-shadow: 0 0 0 1px var(--color-border-subtle), 0 4px 12px var(--color-neutral-10);
 	}
 
 	.dialog__action-buttons {
-		border-radius: 0 0 var( --jetpack-corners-soft ) var( --jetpack-corners-soft );
+		border-radius: 0 0 var(--jetpack-corners-soft) var(--jetpack-corners-soft);
 	}
 }
 
 .empty-content__illustration {
-	filter: hue-rotate( -80deg ) saturate( 1.5 );
+	filter: hue-rotate(-80deg) saturate(1.5);
 }
 
 .no-sites-message,
@@ -276,5 +337,147 @@ html {
 	.empty-content__line {
 		font-weight: 400;
 		line-height: inherit;
+	}
+}
+
+.layout__secondary {
+	border-right: 1px solid var(--color-sidebar-border);
+}
+
+.layout.focus-content .layout__secondary {
+	@media only screen and (max-width: 782px) and (min-width: 660px) {
+		transform: none;
+		padding: 0;
+	}
+}
+
+.masterbar {
+	font-size: $font-body;
+}
+
+.sections__logo,
+.dashboard-overview__logo,
+.site-content__logo {
+	fill: var(--color-neutral-10);
+	color: var(--color-neutral-10);
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+
+	path {
+		fill: var(--color-neutral-10);
+	}
+
+	@include breakpoint-deprecated( ">960px" ) {
+		width: 100px;
+		height: 100px;
+	}
+}
+
+.site-selector .site-selector__actions {
+	padding: 16px;
+}
+
+// Dropdown menu styles
+
+.section-nav.is-open {
+
+	.section-nav__panel {
+		padding-bottom: 0;
+		background: linear-gradient(to bottom, var(--color-neutral-0) 0, var(--color-surface) 4px);
+		border: 1px solid var(--color-neutral-10);
+		border-radius: 2px;
+		box-shadow: 0 2px 5px #0000001a, 0 0 56px rgb(0 0 0 / 8%);
+	}
+
+	.section-nav-group {
+		margin-top: 0;
+	}
+}
+
+//override mini-cart styles for jetpack cloud
+body.is-section-jetpack-cloud-pricing.is-group-jetpack-cloud .mini-cart {
+	font-family: inherit;
+	font-weight: inherit;
+
+	.checkout-line-item__remove-product:hover,
+	.checkout-line-item__remove-product:focus,
+	.checkout-line-item__remove-product:active {
+		color: var(--color-link-dark);
+	}
+
+	.mini-cart__header h2.mini-cart__title {
+		font-family: inherit;
+		font-weight: inherit;
+	}
+
+	.mini-cart-line-items {
+		li div.checkout-line-item div:nth-child(3) {
+			color: #787c82;
+		}
+
+		li div.checkout-line-item div:nth-child(4) {
+			font-size: 0.75rem;
+			color: #646970;
+		}
+	}
+
+	button.is-status-primary {
+		background-color: var(--studio-jetpack-green-50);
+		border-color: var(--studio-jetpack-green-50);
+
+		&:hover {
+			background-color: var(--studio-jetpack-green-70);
+			border-color: var(--studio-jetpack-green-70);
+		}
+
+		&:focus {
+			background-color: var(--studio-jetpack-green-70);
+			border-color: var(--studio-white);
+			box-shadow: 0 0 0 1px var(--studio-jetpack-green-70);
+		}
+
+		&:active {
+			background: var(--studio-jetpack-green-70);
+			border-color: var(--studio-jetpack-green-70);
+		}
+
+		&[disabled],
+		&:disabled {
+			background: var(--color-accent-5);
+			color: var(--color-accent-20);
+			border-color: var(--color-accent-5);
+		}
+	}
+}
+
+// Override Split button styles for Jetpack Cloud
+.split-button {
+
+	.button {
+		font-size: 1rem;
+		height: 40px;
+
+		&:focus {
+			border-color: var(--studio-jetpack-green-70);
+			border-width: 1px;
+			box-shadow: none;
+		}
+	}
+
+	.button.split-button__toggle {
+		border-radius: 4px;
+
+		@include breakpoint-deprecated( ">480px" ) {
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
+		}
+	}
+
+	.button .gridicon {
+		width: 20px;
+		height: 20px;
+		fill: var(--studio-white);
 	}
 }

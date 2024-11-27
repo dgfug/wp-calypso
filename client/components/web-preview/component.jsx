@@ -1,12 +1,10 @@
 import { RootChild } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { hasTouch } from 'calypso/lib/touch-detect';
-import WebPreviewContent from './content';
-
-import './style.scss';
+import WebPreviewContent from './connectedContent';
 
 const noop = () => {};
 
@@ -57,9 +55,18 @@ export class WebPreviewModal extends Component {
 		frontPageMetaDescription: PropTypes.string,
 		// A post object used to override the selected post in the SEO preview
 		overridePost: PropTypes.object,
+		// iframe's fetchpriority.
+		fetchpriority: PropTypes.string,
+		// Set height based on page content. This requires the page to post it's dimensions as message.
+		autoHeight: PropTypes.bool,
+		// Fixes the viewport width of the iframe if provided.
+		fixedViewportWidth: PropTypes.number,
+		// Prevents tabbing into the iframe.
+		disableTabbing: PropTypes.bool,
 	};
 
 	static defaultProps = {
+		disableTabbing: false,
 		showExternal: true,
 		showClose: true,
 		showSEO: true,
@@ -73,6 +80,7 @@ export class WebPreviewModal extends Component {
 		onEdit: noop,
 		hasSidebar: false,
 		overridePost: null,
+		autoHeight: false,
 	};
 
 	constructor( props ) {
@@ -125,7 +133,7 @@ export class WebPreviewModal extends Component {
 	}
 
 	render() {
-		const className = classNames( this.props.className, 'web-preview', {
+		const className = clsx( this.props.className, 'web-preview', {
 			'is-touch': hasTouch(),
 			'is-with-sidebar': this.props.hasSidebar,
 			'is-visible': this.props.showPreview,
@@ -145,7 +153,7 @@ export class WebPreviewModal extends Component {
 						<WebPreviewContent
 							{ ...this.props }
 							onDeviceUpdate={ this.setDeviceViewport }
-							isModalWindow={ true }
+							isModalWindow
 							frontPageMetaDescription={ this.props.frontPageMetaDescription || null }
 						/>
 					</div>

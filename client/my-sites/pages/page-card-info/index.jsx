@@ -1,4 +1,5 @@
 import { Gridicon } from '@automattic/components';
+import { getThemeIdFromStylesheet } from '@automattic/data-stores';
 import { useTranslate } from 'i18n-calypso';
 import { connect } from 'react-redux';
 import QueryTheme from 'calypso/components/data/query-theme';
@@ -7,7 +8,6 @@ import { isFrontPage, isPostsPage } from 'calypso/state/pages/selectors';
 import { canCurrentUser } from 'calypso/state/selectors/can-current-user';
 import getEditorUrl from 'calypso/state/selectors/get-editor-url';
 import { getTheme } from 'calypso/state/themes/selectors';
-import { getThemeIdFromStylesheet } from 'calypso/state/themes/utils';
 
 import './style.scss';
 
@@ -32,6 +32,13 @@ const getThemeId = ( page ) => {
 };
 
 const ICON_SIZE = 12;
+
+export const PageCardInfoBadge = ( { icon, text } ) => (
+	<span className="page-card-info__badge">
+		<Gridicon icon={ icon } size={ ICON_SIZE } className="page-card-info__badge-icon" />
+		<span className="page-card-info__badge-text">{ text }</span>
+	</span>
+);
 
 function PageCardInfo( {
 	page,
@@ -58,21 +65,11 @@ function PageCardInfo( {
 						link={ contentLink.contentLinkURL }
 						target={ contentLink.contentLinkTarget }
 						gridiconSize={ ICON_SIZE }
-						includeBasicStatus={ true }
+						includeBasicStatus
 					/>
 				) }
-				{ isFront && (
-					<span className="page-card-info__badge">
-						<Gridicon icon="house" size={ ICON_SIZE } className="page-card-info__badge-icon" />
-						<span className="page-card-info__badge-text">{ translate( 'Homepage' ) }</span>
-					</span>
-				) }
-				{ isPosts && (
-					<span className="page-card-info__badge">
-						<Gridicon icon="posts" size={ ICON_SIZE } className="page-card-info__badge-icon" />
-						<span className="page-card-info__badge-text">{ translate( 'Your latest posts' ) }</span>
-					</span>
-				) }
+				{ isFront && <PageCardInfoBadge icon="house" text={ translate( 'Homepage' ) } /> }
+				{ isPosts && <PageCardInfoBadge icon="posts" text={ translate( 'Your latest posts' ) } /> }
 				{ ! isFront && theme && (
 					<span className="page-card-info__item">
 						<Gridicon icon="themes" size={ ICON_SIZE } className="page-card-info__item-icon" />

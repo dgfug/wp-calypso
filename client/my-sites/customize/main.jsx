@@ -1,13 +1,15 @@
+import { getPlan } from '@automattic/calypso-products';
+import page from '@automattic/calypso-router';
 import { getUrlParts } from '@automattic/calypso-url';
 import debugFactory from 'debug';
 import { localize } from 'i18n-calypso';
 import { cloneDeep, get, startsWith } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { stringify } from 'qs';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import EmptyContent from 'calypso/components/empty-content';
+import { THEME_TIERS } from 'calypso/components/theme-tier/constants';
 import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import wpcom from 'calypso/lib/wp';
 import CustomizerLoadingPanel from 'calypso/my-sites/customize/loading-panel';
@@ -57,19 +59,16 @@ class Customize extends Component {
 		prevPath: null,
 	};
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillMount() {
+	componentDidMount() {
 		this.getReturnUrl().then( ( validatedUrl ) => {
 			this.setState( {
 				returnUrl: validatedUrl,
 			} );
 		} );
-		this.redirectIfNeeded( this.props.pathname );
+		this.redirectIfNeeded();
 		this.listenToCustomizer();
 		this.waitForLoading();
-	}
 
-	componentDidMount() {
 		if ( window ) {
 			window.scrollTo( 0, 0 );
 		}
@@ -82,22 +81,22 @@ class Customize extends Component {
 		this.cancelWaitingTimer();
 	}
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( nextProps ) {
-		this.redirectIfNeeded( nextProps.pathname );
+	componentDidUpdate() {
+		this.redirectIfNeeded();
 	}
 
 	setCustomizerIframetRef = ( element ) => {
 		this.customizerIframe = element;
 	};
 
-	redirectIfNeeded = ( pathname ) => {
-		const { menusUrl, isJetpack, customizerUrl } = this.props;
+	redirectIfNeeded = () => {
+		const { menusUrl, isJetpack, customizerUrl, pathname } = this.props;
 		if ( startsWith( pathname, '/customize/menus' ) && pathname !== menusUrl ) {
 			page( menusUrl );
 		}
 		if ( isJetpack ) {
-			page( customizerUrl );
+			// Always an external non-Calypso wp-admin URL, so no `page()`, but a full-page navigation.
+			window.location = customizerUrl;
 		}
 	};
 
@@ -284,14 +283,19 @@ class Customize extends Component {
 					}
 					break;
 				case 'activated':
+					debug( 'iframe says it activated a theme', message );
 					trackClick( 'customizer', 'activate' );
 					page( '/themes/' + site.slug );
 					this.props.themeActivated( message.theme.stylesheet, site.ID, 'customizer' );
 					break;
 				case 'purchased': {
-					const themeSlug = message.theme.stylesheet.split( '/' )[ 1 ];
+					debug( 'iframe says it wants to purchase a theme', message );
+					const tier = message?.theme_tier_slug;
+					const tierMinimumUpsellPlan = THEME_TIERS[ tier ]?.minimumUpsellPlan;
+					const mappedPlan = getPlan( tierMinimumUpsellPlan );
+					const planPathSlug = mappedPlan?.getPathSlug();
 					trackClick( 'customizer', 'purchase' );
-					page( '/checkout/' + site.slug + '/theme:' + themeSlug );
+					page( '/checkout/' + site.slug + '/' + planPathSlug );
 					break;
 				}
 				case 'navigateTo': {
@@ -300,6 +304,7 @@ class Customize extends Component {
 						debug( 'missing destination' );
 						return;
 					}
+					debug( 'iframe says it wants to navigate', destination );
 					this.navigateTo( destination );
 					break;
 				}

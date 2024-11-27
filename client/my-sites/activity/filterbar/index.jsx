@@ -1,22 +1,30 @@
+import page from '@automattic/calypso-router';
 import { Button, Gridicon } from '@automattic/components';
 import { isWithinBreakpoint } from '@automattic/viewport';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import BackButton from 'calypso/components/back-button';
 import { updateFilter } from 'calypso/state/activity-log/actions';
 import { recordTracksEvent, withAnalytics } from 'calypso/state/analytics/actions';
 import getPreviousRoute from 'calypso/state/selectors/get-previous-route';
-import ActionTypeSelector from './action-type-selector';
 import DateRangeSelector from './date-range-selector';
+import TextSelector from './text-selector';
+import ActivityTypeSelector from './type-selector/activity-type-selector';
+import IssueTypeSelector from './type-selector/issue-type-selector';
 
 import './style.scss';
 
 export class Filterbar extends Component {
+	static defaultProps = {
+		selectorTypes: { dateRange: true, actionType: true, text: true },
+		variant: 'default',
+	};
+
 	state = {
 		showActivityTypes: false,
 		showActivityDates: false,
+		showIssueTypes: false,
 	};
 
 	goBack = () => {
@@ -32,6 +40,7 @@ export class Filterbar extends Component {
 		this.setState( {
 			showActivityDates: ! this.state.showActivityDates,
 			showActivityTypes: false,
+			showIssueTypes: false,
 		} );
 		this.scrollIntoView();
 	};
@@ -44,6 +53,7 @@ export class Filterbar extends Component {
 		this.setState( {
 			showActivityTypes: ! this.state.showActivityTypes,
 			showActivityDates: false,
+			showIssueTypes: false,
 		} );
 		this.scrollIntoView();
 	};
@@ -52,13 +62,32 @@ export class Filterbar extends Component {
 		this.setState( { showActivityTypes: false } );
 	};
 
+	toggleIssueTypesSelector = () => {
+		this.setState( ( prevState ) => ( {
+			showActivityTypes: false,
+			showActivityDates: false,
+			showIssueTypes: ! prevState.showIssueTypes,
+		} ) );
+	};
+
+	closeIssueTypes = () => {
+		this.setState( { showIssueTypes: false } );
+	};
+
 	handleRemoveFilters = () => {
-		const { siteId, resetFilters } = this.props;
+		const { resetFilters, siteId } = this.props;
 		resetFilters( siteId );
 	};
 
 	renderCloseButton = () => {
-		const { filter } = this.props;
+		const { filter, selectorTypes } = this.props;
+
+		// If there is not more than one filter selector then don't render this button
+		// which serves to clear multiple filters.
+		if ( Object.keys( selectorTypes ).length <= 1 ) {
+			return;
+		}
+
 		if ( filter && ( filter.group || filter.before || filter.after ) ) {
 			return (
 				<Button onClick={ this.handleRemoveFilters } borderless className="filterbar__icon-reset">
@@ -84,7 +113,7 @@ export class Filterbar extends Component {
 		if ( ! filter ) {
 			return true;
 		}
-		if ( filter.group || filter.on || filter.before || filter.after ) {
+		if ( filter.group || filter.on || filter.before || filter.after || filter.textSearch ) {
 			return false;
 		}
 		if ( filter.page !== 1 ) {
@@ -93,11 +122,23 @@ export class Filterbar extends Component {
 		return true;
 	};
 
+	VARIANT_STYLES = {
+		default: 'filterbar filterbar--default',
+		compact: 'filterbar filterbar--compact',
+	};
+
+	getStylesForVariant = ( variant ) => {
+		return this.VARIANT_STYLES[ variant ] || this.VARIANT_STYLES.default;
+	};
+
 	render() {
-		const { translate, siteId, filter, isLoading, isVisible } = this.props;
+		const { translate, siteId, filter, isLoading, isVisible, selectorTypes, variant } = this.props;
+
+		const isCompact = variant === 'compact';
+		const rootClassNames = this.getStylesForVariant( variant );
 
 		if ( siteId && isLoading && this.isEmptyFilter( filter ) ) {
-			return <div className="filterbar is-loading" />;
+			return <div className={ `${ rootClassNames } is-loading` } />;
 		}
 
 		if ( ! isVisible ) {
@@ -106,7 +147,7 @@ export class Filterbar extends Component {
 
 		if ( filter.backButton ) {
 			return (
-				<div className="filterbar" id="filterbar">
+				<div className={ rootClassNames } id="filterbar">
 					<div className="filterbar__wrap card">
 						<BackButton onClick={ this.goBack } />
 					</div>
@@ -115,29 +156,51 @@ export class Filterbar extends Component {
 		}
 
 		return (
-			<div className="filterbar" id="filterbar">
+			<div className={ rootClassNames } id="filterbar">
 				<div className="filterbar__wrap card">
-					<span className="filterbar__label">{ translate( 'Filter by:' ) }</span>
+					{ selectorTypes.text && (
+						<div className="filterbar__text-control">
+							<TextSelector filter={ filter } siteId={ siteId } />
+						</div>
+					) }
+					{ ! isCompact && <span className="filterbar__label">{ translate( 'Filter by:' ) }</span> }
 					<ul className="filterbar__control-list">
-						<li>
-							<DateRangeSelector
-								isVisible={ this.state.showActivityDates }
-								onButtonClick={ this.toggleDateRangeSelector }
-								onClose={ this.closeDateRangeSelector }
-								filter={ filter }
-								siteId={ siteId }
-							/>
-						</li>
-						<li>
-							<ActionTypeSelector
-								filter={ filter }
-								siteId={ siteId }
-								isVisible={ this.state.showActivityTypes }
-								onButtonClick={ this.toggleActivityTypesSelector }
-								onClose={ this.closeActivityTypes }
-							/>
-						</li>
-						<li>{ this.renderCloseButton() }</li>
+						{ selectorTypes.dateRange && (
+							<li>
+								<DateRangeSelector
+									isVisible={ this.state.showActivityDates }
+									onButtonClick={ this.toggleDateRangeSelector }
+									onClose={ this.closeDateRangeSelector }
+									filter={ filter }
+									siteId={ siteId }
+									variant={ variant }
+								/>
+							</li>
+						) }
+						{ selectorTypes.actionType && (
+							<li>
+								<ActivityTypeSelector
+									filter={ filter }
+									siteId={ siteId }
+									isVisible={ this.state.showActivityTypes }
+									onButtonClick={ this.toggleActivityTypesSelector }
+									onClose={ this.closeActivityTypes }
+									variant={ variant }
+								/>
+							</li>
+						) }
+						{ selectorTypes.issueType && (
+							<li>
+								<IssueTypeSelector
+									filter={ filter }
+									siteId={ siteId }
+									isVisible={ this.state.showIssueTypes }
+									onButtonClick={ this.toggleIssueTypesSelector }
+									onClose={ this.closeIssueTypes }
+								/>
+							</li>
+						) }
+						{ ! isCompact && <li>{ this.renderCloseButton() }</li> }
 					</ul>
 				</div>
 				<div className="filterbar__mobile-wrap" />
@@ -159,5 +222,10 @@ const mapDispatchToProps = ( dispatch ) => ( {
 			)
 		),
 } );
+
+// The mapDispatchToProps has some logic specific to the activity log and this filterbar is now used
+// on the agency dashboard, so this export does not use the dispatch so that the agency dashboard can provide
+// its own resetFilters(). Ideally this will be structured differently in the future.
+export const FilterbarWithoutDispatch = connect( mapStateToProps )( localize( Filterbar ) );
 
 export default connect( mapStateToProps, mapDispatchToProps )( localize( Filterbar ) );

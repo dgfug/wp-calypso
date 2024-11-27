@@ -1,23 +1,8 @@
 import { getCurrentUser } from '@automattic/calypso-analytics';
 import { v4 as uuid } from 'uuid';
-import {
-	costToUSD,
-	isAdTrackingAllowed,
-	refreshCountryCodeCookieGdpr,
-} from 'calypso/lib/analytics/utils';
-import {
-	debug,
-	isFacebookEnabled,
-	isBingEnabled,
-	isQuantcastEnabled,
-	isWpcomGoogleAdsGtagEnabled,
-	isFloodlightEnabled,
-	isTwitterEnabled,
-	isPinterestEnabled,
-	isIconMediaEnabled,
-	TRACKING_IDS,
-	ICON_MEDIA_SIGNUP_PIXEL_URL,
-} from './constants';
+import { costToUSD, refreshCountryCodeCookieGdpr } from 'calypso/lib/analytics/utils';
+import { mayWeTrackByTracker } from '../tracker-buckets';
+import { debug, TRACKING_IDS, ICON_MEDIA_SIGNUP_PIXEL_URL } from './constants';
 import { recordParamsInFloodlightGtag } from './floodlight';
 import { loadTrackingScripts } from './load-tracking-scripts';
 
@@ -26,22 +11,16 @@ import './setup';
 
 /**
  * Tracks a signup conversion
- *
  * @param {boolean} isNewUserSite Whether the signup is new user with a new site created
  * @returns {void}
  */
 export async function adTrackSignupComplete( { isNewUserSite } ) {
 	await refreshCountryCodeCookieGdpr();
 
-	if ( ! isAdTrackingAllowed() ) {
-		debug( 'adTrackSignupComplete: [Skipping] ad tracking is disallowed' );
-		return;
-	}
-
 	await loadTrackingScripts();
 
 	// Record all signups up in DCM Floodlight (deprecated Floodlight pixels)
-	if ( isFloodlightEnabled ) {
+	if ( mayWeTrackByTracker( 'floodlight' ) ) {
 		debug( 'adTrackSignupComplete: Floodlight:' );
 		recordParamsInFloodlightGtag( { send_to: 'DC-6355556/wordp0/signu0+unique' } );
 	}
@@ -78,7 +57,7 @@ export async function adTrackSignupComplete( { isNewUserSite } ) {
 
 	// Google Ads Gtag
 
-	if ( isWpcomGoogleAdsGtagEnabled ) {
+	if ( mayWeTrackByTracker( 'googleAds' ) ) {
 		const params = [
 			'event',
 			'conversion',
@@ -95,7 +74,7 @@ export async function adTrackSignupComplete( { isNewUserSite } ) {
 
 	// Bing
 
-	if ( isBingEnabled ) {
+	if ( mayWeTrackByTracker( 'bing' ) ) {
 		if ( null !== usdCost ) {
 			const params = {
 				ec: 'signup',
@@ -110,7 +89,7 @@ export async function adTrackSignupComplete( { isNewUserSite } ) {
 
 	// Facebook
 
-	if ( isFacebookEnabled ) {
+	if ( mayWeTrackByTracker( 'facebook' ) ) {
 		const params = [
 			'trackSingle',
 			TRACKING_IDS.facebookInit,
@@ -131,7 +110,7 @@ export async function adTrackSignupComplete( { isNewUserSite } ) {
 
 	// DCM Floodlight
 
-	if ( isFloodlightEnabled ) {
+	if ( mayWeTrackByTracker( 'floodlight' ) ) {
 		debug( 'recordSignup: [Floodlight]' );
 		recordParamsInFloodlightGtag( {
 			send_to: 'DC-6355556/wordp0/signu1+unique',
@@ -140,7 +119,7 @@ export async function adTrackSignupComplete( { isNewUserSite } ) {
 
 	// Quantcast
 
-	if ( isQuantcastEnabled ) {
+	if ( mayWeTrackByTracker( 'quantcast' ) ) {
 		const params = {
 			qacct: TRACKING_IDS.quantcast,
 			labels:
@@ -156,14 +135,14 @@ export async function adTrackSignupComplete( { isNewUserSite } ) {
 
 	// Icon Media
 
-	if ( isIconMediaEnabled ) {
+	if ( mayWeTrackByTracker( 'iconMedia' ) ) {
 		debug( 'recordSignup: [Icon Media]', ICON_MEDIA_SIGNUP_PIXEL_URL );
 		new window.Image().src = ICON_MEDIA_SIGNUP_PIXEL_URL;
 	}
 
 	// Pinterest
 
-	if ( isPinterestEnabled ) {
+	if ( mayWeTrackByTracker( 'pinterest' ) ) {
 		const params = [
 			'track',
 			'signup',
@@ -178,8 +157,8 @@ export async function adTrackSignupComplete( { isNewUserSite } ) {
 
 	// Twitter
 
-	if ( isTwitterEnabled ) {
-		const params = [ 'track', 'Signup', {} ];
+	if ( mayWeTrackByTracker( 'twitter' ) ) {
+		const params = [ 'event', 'tw-nvzbs-ode0f' ];
 		debug( 'recordSignup: [Twitter]', params );
 		window.twq( ...params );
 	}

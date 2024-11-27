@@ -3,9 +3,10 @@ import { useSelect } from '@wordpress/data';
 import { useState } from '@wordpress/element';
 import { Icon, chevronDown } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import * as React from 'react';
 import { DOMAIN_SUGGESTIONS_STORE } from '../../constants';
+import type { DomainSuggestionsSelect } from '@automattic/data-stores';
 
 import './style.scss';
 
@@ -23,14 +24,15 @@ const DomainPickerCategories: React.FunctionComponent< Props > = ( { onSelect, s
 		onSelect( slug );
 	};
 
-	const domainCategories = useSelect( ( select ) =>
-		select( DOMAIN_SUGGESTIONS_STORE ).getCategories()
+	const domainCategories = useSelect(
+		( select ) => ( select( DOMAIN_SUGGESTIONS_STORE ) as DomainSuggestionsSelect ).getCategories(),
+		[]
 	);
 
 	const allCategoriesLabel = __( 'All Categories', __i18n_text_domain__ );
 
 	return (
-		<div className={ classNames( 'domain-categories', { 'is-open': isOpen } ) }>
+		<div className={ clsx( 'domain-categories', { 'is-open': isOpen } ) }>
 			<Button
 				className="domain-categories__dropdown-button"
 				onClick={ () => setIsOpen( ! isOpen ) }
@@ -40,7 +42,7 @@ const DomainPickerCategories: React.FunctionComponent< Props > = ( { onSelect, s
 			</Button>
 			<ul className="domain-categories__item-group">
 				<li
-					className={ classNames( 'domain-categories__item', {
+					className={ clsx( 'domain-categories__item', {
 						'is-selected': ! selected,
 					} ) }
 				>
@@ -54,7 +56,7 @@ const DomainPickerCategories: React.FunctionComponent< Props > = ( { onSelect, s
 				{ domainCategories.map( ( { slug, title } ) => (
 					<li
 						key={ slug }
-						className={ classNames( 'domain-categories__item', {
+						className={ clsx( 'domain-categories__item', {
 							'is-selected': slug === selected,
 						} ) }
 					>

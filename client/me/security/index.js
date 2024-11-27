@@ -1,5 +1,5 @@
 import { isEnabled } from '@automattic/calypso-config';
-import page from 'page';
+import page from '@automattic/calypso-router';
 import { makeLayout, render as clientRender } from 'calypso/controller';
 import { sidebar } from 'calypso/me/controller';
 import {
@@ -9,6 +9,7 @@ import {
 	securityAccountEmail,
 	securityCheckup,
 	socialLogin,
+	sshKey,
 	twoStep,
 } from './controller';
 
@@ -33,4 +34,6 @@ export default function () {
 	);
 
 	page( '/me/security/account-recovery', sidebar, accountRecovery, makeLayout, clientRender );
+
+	page( '/me/security/ssh-key', sidebar, sshKey, makeLayout, clientRender );
 }

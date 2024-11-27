@@ -1,17 +1,27 @@
 /**
  * @jest-environment jsdom
  */
-
-import { assert } from 'chai';
+import { render } from '@testing-library/react';
 import { createElement, Children } from 'react';
 import ReactDom from 'react-dom';
 import TestUtils from 'react-dom/test-utils';
 import ShallowRenderer from 'react-test-renderer/shallow';
-import sinon from 'sinon';
 import SectionNav from '../';
+import NavItem from '../item';
+import NavTabs from '../tabs';
 
 jest.mock( 'calypso/lib/analytics/ga', () => ( {
 	recordEvent: () => {},
+} ) );
+
+window.IntersectionObserver = jest.fn( () => ( {
+	observe: jest.fn(),
+	disconnect: jest.fn(),
+	root: null,
+	rootMargin: '',
+	thresholds: [],
+	takeRecords: jest.fn(),
+	unobserve: jest.fn(),
 } ) );
 
 function createComponent( component, props, children ) {
@@ -48,24 +58,25 @@ describe( 'section-nav', () => {
 		} );
 
 		test( 'should render a header and a panel', () => {
-			assert.equal( headerElem.props.className, 'section-nav__mobile-header' );
-			assert.equal( panelElem.props.className, 'section-nav__panel' );
-			assert.equal( headerTextElem.props.className, 'section-nav__mobile-header-text' );
+			expect( headerElem.props.className ).toEqual( 'section-nav__mobile-header' );
+			expect( panelElem.props.className ).toEqual( 'section-nav__panel' );
+			expect( headerTextElem.props.className ).toEqual( 'section-nav__mobile-header-text' );
 		} );
 
 		test( 'should render selectedText within mobile header', () => {
-			assert.equal( text, 'test' );
+			expect( text ).toEqual( 'test' );
 		} );
 
 		test( 'should render children', () => {
 			return new Promise( ( done ) => {
 				//React.Children.only should work here but gives an error about not being the only child
-				Children.map( panelElem.props.children, function ( obj ) {
-					if ( obj.type === 'p' ) {
-						assert.equal( obj.props.children, 'mmyellow' );
+				Children.map(
+					panelElem.props.children.filter( ( o ) => o.type === 'p' ),
+					function ( obj ) {
+						expect( obj.props.children ).toEqual( 'mmyellow' );
 						done();
 					}
-				} );
+				);
 			} );
 		} );
 
@@ -82,7 +93,62 @@ describe( 'section-nav', () => {
 			const header = component.props.children.find(
 				( child ) => child && child.className === 'section-nav__mobile-header'
 			);
-			assert.equal( header, null );
+			expect( header ).toBeUndefined();
+		} );
+	} );
+
+	describe( 'Nav Tabs', () => {
+		afterEach( () => {
+			Object.defineProperty( window, 'innerWidth', { value: 1024 } );
+		} );
+
+		test( 'should not contain has-horizontal-scroll class if window width < 480px and NavTabs hasHorizontalScroll true', () => {
+			Object.defineProperty( window, 'innerWidth', { value: 400 } );
+
+			render(
+				<NavTabs label="Status" hasHorizontalScroll>
+					<NavItem path="/demo" selected>
+						Demo
+					</NavItem>
+				</NavTabs>
+			);
+
+			const horizontalScrollClass = document.getElementsByClassName( 'has-horizontal-scroll' )[ 0 ];
+			expect( horizontalScrollClass ).toBeUndefined();
+		} );
+
+		test( 'should contain has-horizontal-scroll class if window width > 480px and NavTabs hasHorizontalScroll true', () => {
+			Object.defineProperty( window, 'innerWidth', { value: 800 } );
+
+			render(
+				<SectionNav selectedText="Test">
+					<NavTabs label="Status" hasHorizontalScroll>
+						<NavItem path="/demo" selected>
+							Demo
+						</NavItem>
+					</NavTabs>
+				</SectionNav>
+			);
+
+			const horizontalScrollClass = document.getElementsByClassName( 'has-horizontal-scroll' )[ 0 ];
+			expect( horizontalScrollClass ).toBeInTheDocument();
+		} );
+
+		test( 'should not contain has-horizontal-scroll class if window width > 480px and NavTabs hasHorizontalScroll false', () => {
+			Object.defineProperty( window, 'innerWidth', { value: 800 } );
+
+			render(
+				<SectionNav selectedText="Test">
+					<NavTabs label="Status" hasHorizontalScroll={ false }>
+						<NavItem path="/demo" selected>
+							Demo
+						</NavItem>
+					</NavTabs>
+				</SectionNav>
+			);
+
+			const horizontalScrollClass = document.getElementsByClassName( 'has-horizontal-scroll' )[ 0 ];
+			expect( horizontalScrollClass ).toBeUndefined();
 		} );
 	} );
 
@@ -100,19 +166,19 @@ describe( 'section-nav', () => {
 					<p>placeholder</p>
 				);
 				const tree = TestUtils.renderIntoDocument( elem );
-				assert( ! tree.state.mobileOpen );
+				expect( tree.state.mobileOpen ).toBe( false );
 				TestUtils.Simulate.click(
 					ReactDom.findDOMNode(
 						TestUtils.findRenderedDOMComponentWithClass( tree, 'section-nav__mobile-header' )
 					)
 				);
-				assert( tree.state.mobileOpen );
+				expect( tree.state.mobileOpen ).toBe( true );
 			} );
 		} );
 
 		test( 'should call onMobileNavPanelOpen function passed as a prop twice when tapped three times', () => {
 			return new Promise( ( done ) => {
-				const spy = sinon.spy();
+				const spy = jest.fn();
 				const elem = createElement(
 					SectionNav,
 					{
@@ -123,27 +189,27 @@ describe( 'section-nav', () => {
 				);
 				const tree = TestUtils.renderIntoDocument( elem );
 
-				assert( ! tree.state.mobileOpen );
+				expect( tree.state.mobileOpen ).toBe( false );
 				TestUtils.Simulate.click(
 					ReactDom.findDOMNode(
 						TestUtils.findRenderedDOMComponentWithClass( tree, 'section-nav__mobile-header' )
 					)
 				);
-				assert( tree.state.mobileOpen );
+				expect( tree.state.mobileOpen ).toBe( true );
 				TestUtils.Simulate.click(
 					ReactDom.findDOMNode(
 						TestUtils.findRenderedDOMComponentWithClass( tree, 'section-nav__mobile-header' )
 					)
 				);
-				assert( ! tree.state.mobileOpen );
+				expect( tree.state.mobileOpen ).toBe( false );
 				TestUtils.Simulate.click(
 					ReactDom.findDOMNode(
 						TestUtils.findRenderedDOMComponentWithClass( tree, 'section-nav__mobile-header' )
 					)
 				);
-				assert( tree.state.mobileOpen );
+				expect( tree.state.mobileOpen ).toBe( true );
 
-				assert( spy.calledTwice );
+				expect( spy ).toHaveBeenCalledTimes( 2 );
 				done();
 			} );
 		} );

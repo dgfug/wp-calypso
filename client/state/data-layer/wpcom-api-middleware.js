@@ -29,7 +29,6 @@ const shouldNext = ( action ) => {
  * Intercepts actions requesting data provided by the
  * WordPress.com API and passes them off to the
  * appropriate handler.
- *
  * @see state/utils/local indicates that action should bypass data layer
  *
  * Note:
@@ -43,16 +42,14 @@ const shouldNext = ( action ) => {
  *
  * The optimizations reduce function-calling and object
  * property lookup where possible.
- *
  * @param {Function} handlersFor returns list of handlers for given action type
  * @returns {Function} middleware handler
  */
 export const middleware = ( handlersFor ) => ( store ) => ( next ) => {
 	/**
 	 * Middleware handler
-	 *
 	 * @function
-	 * @param {object} action Redux action
+	 * @param {Object} action Redux action
 	 * @returns {undefined} please do not use
 	 */
 	return ( action ) => {

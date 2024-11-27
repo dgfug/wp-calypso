@@ -1,47 +1,52 @@
 import styled from '@emotion/styled';
-import { ReactChild } from 'react';
+import { ReactNode } from 'react';
 import ExternalLink from 'calypso/components/external-link';
 
 import './style.scss';
 
 interface LinkCardContainerProps {
 	background?: string;
+	border?: string;
 }
-
 interface LinkCardProps {
-	label?: ReactChild;
-	title: ReactChild;
-	cta?: ReactChild;
+	label?: ReactNode;
+	title: ReactNode;
+	titleMarginBottom?: string;
+	cta?: ReactNode;
 	background?: string;
+	border?: string;
 	url: string;
+	target?: string;
 	external?: boolean;
+	onClick?: ( ( event: React.MouseEvent< HTMLAnchorElement > ) => void ) | ( () => void );
 }
 
 const LinkCardContainer = styled.div< LinkCardContainerProps >`
 	:hover {
-		filter: brightness( 120% );
+		filter: brightness( 102% );
 	}
 
 	border-radius: 5px;
 	padding: 24px;
-	background: var( --${ ( props ) => props.background || 'studio-white' } );
+	background: ${ ( props ) => props.background || 'var(--studio-white)' };
+	border: ${ ( props ) => ( props.border ? `1px solid ${ props.border }` : 'none' ) };
 `;
 
 const LinkCardLabel = styled.div`
 	margin-bottom: 8px;
 	font-size: var( --scss-font-body-extra-small );
-	color: rgba( var( --studio-white-rgb ), 0.75 );
+	color: rgba( var( --studio-blue-50 ), 0.75 );
 	line-height: 1.25rem;
 `;
 
-const LinkCardTitle = styled.div`
+const LinkCardTitle = styled.div< { marginBottom?: string } >`
 	@media ( max-width: 1090px ) {
 		-webkit-line-clamp: 4; // trunk text to 4 lines then ellipsis
 		line-clamp: 4;
 	}
 
-	color: var( --color-text-inverted );
-	margin-bottom: 32px;
+	color: var( --studio-blue-50 );
+	margin-bottom: ${ ( props ) => props.marginBottom || '32px' };
 	font-size: var( --scss-font-title-small );
 	text-overflow: ellipsis;
 	word-wrap: break-word;
@@ -55,21 +60,32 @@ const LinkCardTitle = styled.div`
 
 const LinkCardCta = styled.div`
 	font-size: var( --scss-font-body-small );
-	color: rgba( var( --studio-white-rgb ), 0.75 );
+	color: rgba( var( --studio-blue-50 ), 0.75 );
 	line-height: 1.25rem;
 `;
 
 const LinkCard = ( props: LinkCardProps ) => {
-	const { label, title, cta, background, url, external } = props;
+	const {
+		label,
+		title,
+		titleMarginBottom,
+		cta,
+		background,
+		border,
+		url,
+		external,
+		target,
+		onClick,
+	} = props;
 
 	const Link = external ? ExternalLink : 'a';
 
 	return (
-		<Link href={ url }>
-			<LinkCardContainer background={ background }>
-				<LinkCardLabel>{ label }</LinkCardLabel>
-				<LinkCardTitle>{ title }</LinkCardTitle>
-				<LinkCardCta>{ cta }</LinkCardCta>
+		<Link target={ target } href={ url } onClick={ onClick } className="card-block">
+			<LinkCardContainer background={ background } border={ border }>
+				{ label && <LinkCardLabel>{ label }</LinkCardLabel> }
+				{ title && <LinkCardTitle marginBottom={ titleMarginBottom }>{ title }</LinkCardTitle> }
+				{ cta && <LinkCardCta>{ cta }</LinkCardCta> }
 			</LinkCardContainer>
 		</Link>
 	);

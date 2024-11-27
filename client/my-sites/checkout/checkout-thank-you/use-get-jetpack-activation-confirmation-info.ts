@@ -9,13 +9,13 @@ import {
 } from '@automattic/calypso-products';
 import { useTranslate, TranslateResult } from 'i18n-calypso';
 import { createElement, ReactNode } from 'react';
-import { useSelector } from 'react-redux';
 import successImageAntiSpam from 'calypso/assets/images/jetpack/licensing-activation-success-Anti-Spam.png';
 import successImageComplete from 'calypso/assets/images/jetpack/licensing-activation-success-Complete.png';
 import successImageDefault from 'calypso/assets/images/jetpack/licensing-activation-success-Default.png';
 import successImageScan from 'calypso/assets/images/jetpack/licensing-activation-success-Scan.png';
 import successImageSearch from 'calypso/assets/images/jetpack/licensing-activation-success-Search.png';
-import { getSiteAdminUrl, getSiteSlug } from 'calypso/state/sites/selectors';
+import { useSelector } from 'calypso/state';
+import { getSiteSlug, getJetpackAdminUrl } from 'calypso/state/sites/selectors';
 
 type ActivationConfirmationInfo = {
 	image: string;
@@ -29,7 +29,9 @@ const useGetJetpackActivationConfirmationInfo = (
 ): ActivationConfirmationInfo => {
 	const translate = useTranslate();
 	const siteSlug = useSelector( ( state ) => getSiteSlug( state, siteId ) );
-	const wpAdminUrl = useSelector( ( state ) => getSiteAdminUrl( state, siteId ) );
+	const jetpackAdminUrl = useSelector( ( state ) =>
+		getJetpackAdminUrl( state, siteId, productSlug )
+	);
 
 	const baseJetpackCloudUrl = 'https://cloud.jetpack.com';
 
@@ -39,7 +41,7 @@ const useGetJetpackActivationConfirmationInfo = (
 			text: translate(
 				"We'll take care of everything from here. Now you can enjoy a spam-free site!"
 			),
-			buttonUrl: wpAdminUrl || baseJetpackCloudUrl,
+			buttonUrl: jetpackAdminUrl || baseJetpackCloudUrl,
 		},
 		jetpack_backup: {
 			image: successImageDefault,
@@ -104,12 +106,12 @@ const useGetJetpackActivationConfirmationInfo = (
 		jetpack_videopress: {
 			image: successImageDefault,
 			text: translate( 'Experience high-quality, ad-free video built specifically for WordPress.' ),
-			buttonUrl: wpAdminUrl || baseJetpackCloudUrl,
+			buttonUrl: jetpackAdminUrl || baseJetpackCloudUrl,
 		},
 		default: {
 			image: successImageDefault,
 			text: translate( "You're all set!" ),
-			buttonUrl: wpAdminUrl || baseJetpackCloudUrl,
+			buttonUrl: jetpackAdminUrl || baseJetpackCloudUrl,
 		},
 	};
 

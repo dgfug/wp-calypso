@@ -1,25 +1,28 @@
 import { Gridicon } from '@automattic/components';
-import { useLocale } from '@automattic/i18n-utils';
+import { localizeUrl, useLocale } from '@automattic/i18n-utils';
 import { useTranslate } from 'i18n-calypso';
 import { useMemo, useState, useCallback } from 'react';
+import DoNotSellDialogContainer from 'calypso/blocks/do-not-sell-dialog';
 import ExternalLink from 'calypso/components/external-link';
 import JetpackLogo from 'calypso/components/jetpack-logo';
 import SocialLogo from 'calypso/components/social-logo';
 import { useGeoLocationQuery } from 'calypso/data/geo/use-geolocation-query';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
+import { useDoNotSell } from 'calypso/lib/analytics/utils';
+import { preventWidows } from 'calypso/lib/formatting';
 import { addQueryArgs } from 'calypso/lib/url';
 import appStoreBadge from './assets/app-store-badge.png';
 import googlePlayBadge from './assets/google-play-badge.png';
 import a8cLogo from './assets/logo-a8c-white.svg';
 import LocalSwitcher from './locale-switcher';
+
 import './style.scss';
 
 const JPCOM_HOME = 'https://jetpack.com';
 const A8C_HOME = 'https://automattic.com/';
 const A8C_WORK = 'https://automattic.com/work-with-us/';
 const GOOGLE_PLAY_JETPACK_URL = 'https://play.google.com/store/apps/details?id=com.jetpack.android';
-const APP_STORE_JETPACK_URL =
-	'https://apps.apple.com/us/app/jetpack-wp-security-speed/id1565481562';
+const APP_STORE_JETPACK_URL = 'https://apps.apple.com/us/app/jetpack-website-builder/id1565481562';
 
 const utmParams = {
 	utm_medium: 'automattic_referred',
@@ -38,9 +41,20 @@ const getTrackLinkClick = ( link: string ) => () => {
 const JetpackComFooter: React.FC = () => {
 	const translate = useTranslate();
 	const region = useGeoLocationQuery()?.data?.region;
-	const hideCaliforniaNotice = useMemo( () => region && region.toLowerCase() !== 'california', [
-		region,
-	] );
+	const hideCaliforniaNotice = useMemo(
+		() => region && region.toLowerCase() !== 'california',
+		[ region ]
+	);
+	const { shouldSeeDoNotSell, isDoNotSell, onSetDoNotSell } = useDoNotSell();
+	const [ isDialogOpen, setIsDialogOpen ] = useState( false );
+
+	const openDialog = useCallback( () => {
+		setIsDialogOpen( true );
+	}, [] );
+	const closeDialog = useCallback( () => {
+		setIsDialogOpen( false );
+	}, [] );
+
 	const defaultLocale = useLocale();
 	const [ isLocaleSwitcherVisible, setLocaleSwitcherVisibility ] = useState( false );
 	const { sitemap, socialProps } = useMemo( () => {
@@ -49,24 +63,54 @@ const JetpackComFooter: React.FC = () => {
 				category: translate( 'WordPress Plugins' ),
 				items: [
 					{
+						label: translate( 'Akismet Anti-spam' ),
+						href: 'https://wordpress.org/plugins/akismet/',
+						trackId: 'jetpack_antispam',
+					},
+					{
 						label: translate( 'Jetpack' ),
-						href: 'https://jetpack.com/',
+						href: 'https://wordpress.org/plugins/jetpack/',
 						trackId: 'jetpack',
 					},
 					{
-						label: translate( 'Jetpack Backup' ),
-						href: 'https://jetpack.com/upgrade/backup/',
-						trackId: 'jetpack_backup',
+						label: translate( 'Jetpack Boost' ),
+						href: 'https://wordpress.org/plugins/jetpack-boost/',
+						trackId: 'jetpack_boost',
 					},
 					{
 						label: translate( 'Jetpack CRM' ),
-						href: addQueryArgs( utmParams, 'https://jetpackcrm.com/' ),
+						href: 'https://wordpress.org/plugins/zero-bs-crm/',
 						trackId: 'jetpack_crm',
 					},
 					{
-						label: translate( 'Jetpack Boost' ),
-						href: 'https://jetpack.com/boost/',
-						trackId: 'jetpack_boost',
+						label: translate( 'Jetpack Protect' ),
+						href: 'https://wordpress.org/plugins/jetpack-protect/',
+						trackId: 'jetpack_protect',
+					},
+					{
+						label: translate( 'Jetpack Search' ),
+						href: 'https://wordpress.org/plugins/jetpack-search/',
+						trackId: 'jetpack_search',
+					},
+					{
+						label: translate( 'Jetpack Social' ),
+						href: 'https://wordpress.org/plugins/jetpack-social/',
+						trackId: 'jetpack_social',
+					},
+					{
+						label: translate( 'Jetpack VideoPress' ),
+						href: 'https://wordpress.org/plugins/jetpack-videopress/',
+						trackId: 'jetpack_videopress',
+					},
+					{
+						label: translate( 'VaultPress Backup' ),
+						href: 'https://wordpress.org/plugins/jetpack-backup/',
+						trackId: 'jetpack_backup',
+					},
+					{
+						label: translate( 'WP Super Cache' ),
+						href: 'https://wordpress.org/plugins/wp-super-cache/',
+						trackId: 'wp_supercache',
 					},
 				],
 			},
@@ -87,6 +131,11 @@ const JetpackComFooter: React.FC = () => {
 						label: translate( 'For Agencies' ),
 						href: 'https://jetpack.com/for/agencies/',
 						trackId: 'become_an_agency',
+					},
+					{
+						label: translate( 'For Affiliates' ),
+						href: 'https://jetpack.com/affiliates/',
+						trackId: 'become_an_affiliate',
 					},
 				],
 			},
@@ -115,13 +164,21 @@ const JetpackComFooter: React.FC = () => {
 				items: [
 					{
 						label: translate( 'Terms of Service' ),
-						href: addQueryArgs( utmParams, 'http://wordpress.com/tos/' ),
+						href: addQueryArgs( utmParams, localizeUrl( 'https://wordpress.com/tos/' ) ),
 						trackId: 'terms_of_service',
 					},
 					{
 						label: translate( 'Privacy Policy' ),
-						href: addQueryArgs( utmParams, 'http://automattic.com/privacy/' ),
+						href: addQueryArgs( utmParams, localizeUrl( 'https://automattic.com/privacy/' ) ),
 						trackId: 'privacy_policy',
+					},
+					{
+						label: translate( 'GDPR', {
+							comment:
+								'GDPR refers to the General Data Protection Regulation in effect in the European Union',
+						} ),
+						href: addQueryArgs( utmParams, 'https://jetpack.com/gdpr/' ),
+						trackId: 'gdpr',
 					},
 					hideCaliforniaNotice
 						? null
@@ -129,10 +186,17 @@ const JetpackComFooter: React.FC = () => {
 								label: translate( 'Privacy Notice for California Users' ),
 								href: addQueryArgs(
 									utmParams,
+									// eslint-disable-next-line wpcalypso/i18n-unlocalized-url
 									'https://automattic.com/privacy/#california-consumer-privacy-act-ccpa'
 								),
 								trackId: 'privacy_policy_california',
 						  },
+					shouldSeeDoNotSell
+						? {
+								label: translate( 'Do Not Sell or Share My Data' ),
+								onClick: openDialog,
+						  }
+						: null,
 				],
 			},
 			{
@@ -149,6 +213,16 @@ const JetpackComFooter: React.FC = () => {
 						trackId: 'forums',
 					},
 					{
+						label: translate( 'Webinars' ),
+						href: 'https://jetpack.com/webinars/',
+						trackId: 'webinars',
+					},
+					{
+						label: translate( 'Reviews and Testimonials' ),
+						href: 'https://jetpack.com/testimonials/',
+						trackId: 'testimonials',
+					},
+					{
 						label: translate( 'Security Library' ),
 						href: 'https://jetpack.com/features/security/library',
 						trackId: 'security_library',
@@ -160,7 +234,7 @@ const JetpackComFooter: React.FC = () => {
 					},
 					{
 						label: translate( 'Press' ),
-						href: addQueryArgs( utmParams, 'https://automattic.com/press/' ),
+						href: 'https://jetpack.com/newsroom/',
 						trackId: 'press',
 					},
 				],
@@ -202,14 +276,16 @@ const JetpackComFooter: React.FC = () => {
 			sitemap,
 			socialProps,
 		};
-	}, [ translate, hideCaliforniaNotice ] );
+	}, [ translate, hideCaliforniaNotice, shouldSeeDoNotSell, openDialog ] );
 
-	const onLanguageClick = useCallback( () => setLocaleSwitcherVisibility( true ), [
-		setLocaleSwitcherVisibility,
-	] );
-	const onLocaleSwitcherClose = useCallback( () => setLocaleSwitcherVisibility( false ), [
-		setLocaleSwitcherVisibility,
-	] );
+	const onLanguageClick = useCallback(
+		() => setLocaleSwitcherVisibility( true ),
+		[ setLocaleSwitcherVisibility ]
+	);
+	const onLocaleSwitcherClose = useCallback(
+		() => setLocaleSwitcherVisibility( false ),
+		[ setLocaleSwitcherVisibility ]
+	);
 
 	/* eslint-disable wpcalypso/jsx-classname-namespace */
 	return (
@@ -250,7 +326,17 @@ const JetpackComFooter: React.FC = () => {
 												return;
 											}
 
-											const { label, href, trackId } = item;
+											const { label, href, trackId, onClick } = item;
+
+											if ( onClick ) {
+												return (
+													<li key={ label as string }>
+														<ExternalLink className="sitemap__link" onClick={ onClick }>
+															{ preventWidows( label ) }
+														</ExternalLink>
+													</li>
+												);
+											}
 
 											return (
 												<li key={ label as string }>
@@ -259,7 +345,7 @@ const JetpackComFooter: React.FC = () => {
 														className="sitemap__link"
 														onClick={ trackId ? getTrackLinkClick( trackId ) : null }
 													>
-														{ label }
+														{ preventWidows( label ) }
 													</ExternalLink>
 												</li>
 											);
@@ -280,7 +366,7 @@ const JetpackComFooter: React.FC = () => {
 												<span className="social-properties__accessible-name">
 													{ accessibleName }
 												</span>
-												<SocialLogo icon={ icon } aria-hidden={ true } />
+												<SocialLogo icon={ icon } aria-hidden />
 											</ExternalLink>
 										</li>
 									) ) }
@@ -360,6 +446,14 @@ const JetpackComFooter: React.FC = () => {
 					</li>
 				</ul>
 			</div>
+			{ shouldSeeDoNotSell && (
+				<DoNotSellDialogContainer
+					isOpen={ isDialogOpen }
+					isActive={ isDoNotSell }
+					onToggleActive={ onSetDoNotSell }
+					onClose={ closeDialog }
+				/>
+			) }
 		</footer>
 	);
 	/* eslint-enable wpcalypso/jsx-classname-namespace */

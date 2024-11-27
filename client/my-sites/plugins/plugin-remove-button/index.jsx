@@ -4,12 +4,12 @@
 
 import { Button } from '@wordpress/components';
 import { Icon, trash } from '@wordpress/icons';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import ExternalLink from 'calypso/components/external-link';
 import PopoverMenuItem from 'calypso/components/popover-menu/item';
-import accept from 'calypso/lib/accept';
 import { gaRecordEvent } from 'calypso/lib/analytics/ga';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import { REMOVE_PLUGIN } from 'calypso/lib/plugins/constants';
@@ -18,6 +18,7 @@ import PluginAction from 'calypso/my-sites/plugins/plugin-action/plugin-action';
 import { removePlugin } from 'calypso/state/plugins/installed/actions';
 import { isPluginActionInProgress } from 'calypso/state/plugins/installed/selectors';
 import { removePluginStatuses } from 'calypso/state/plugins/installed/status/actions';
+import { withShowPluginActionDialog } from '../hooks/use-show-plugin-action-dialog';
 
 import './style.scss';
 
@@ -25,31 +26,13 @@ class PluginRemoveButton extends Component {
 	static displayName = 'PluginRemoveButton';
 
 	removeAction = () => {
-		accept(
-			this.props.translate(
-				'Are you sure you want to remove {{strong}}%(pluginName)s{{/strong}} from' +
-					' %(siteName)s? {{br /}} {{em}}This will deactivate the plugin and delete all' +
-					' associated files and data.{{/em}}',
-				{
-					components: {
-						em: <em />,
-						br: <br />,
-						strong: <strong />,
-					},
-					args: {
-						pluginName: this.props.plugin.name,
-						siteName: this.props.site.title,
-					},
-				}
-			),
-			this.processRemovalConfirmation,
-			this.props.translate( 'Remove' )
-		);
+		const { plugin, site, showPluginActionDialog } = this.props;
+		showPluginActionDialog( 'remove', [ plugin ], [ site ], this.processRemovalConfirmation );
 	};
 
 	processRemovalConfirmation = ( accepted ) => {
 		if ( accepted ) {
-			this.props.removePluginStatuses( 'completed', 'error' );
+			this.props.removePluginStatuses( 'completed', 'error', 'up-to-date' );
 			this.props.removePlugin( this.props.site.ID, this.props.plugin );
 
 			if ( this.props.isEmbed ) {
@@ -79,7 +62,7 @@ class PluginRemoveButton extends Component {
 	};
 
 	getDisabledInfo = () => {
-		if ( ! this.props.site ) {
+		if ( ! this.props.site || ! this.props.site.options ) {
 			// we don't have enough info
 			return null;
 		}
@@ -157,7 +140,7 @@ class PluginRemoveButton extends Component {
 	renderButton = () => {
 		const disabledInfo = this.getDisabledInfo();
 		const disabled = !! disabledInfo || this.props.disabled;
-		const label = disabled
+		let label = disabled
 			? this.props.translate( 'Removal Disabled', {
 					context:
 						'this goes next to an icon that displays if site is in a state where it can\'t modify has "Removal Disabled" ',
@@ -166,13 +149,14 @@ class PluginRemoveButton extends Component {
 					context: 'Verb. Presented to user as a label for a button.',
 			  } );
 		if ( this.props.inProgress ) {
-			return (
-				<div className="plugin-action">
-					<span className="plugin-remove-button__remove">
-						{ this.props.translate( 'Removing…' ) }
-					</span>
-				</div>
-			);
+			label = this.props.translate( 'Removing…' );
+			if ( ! this.props.isJetpackCloud ) {
+				return (
+					<div className="plugin-action">
+						<span className="plugin-remove-button__remove">{ label }</span>
+					</div>
+				);
+			}
 		}
 
 		const handleClick = disabled ? null : this.removeAction;
@@ -182,7 +166,8 @@ class PluginRemoveButton extends Component {
 				<PopoverMenuItem
 					onClick={ handleClick }
 					icon="trash"
-					className="plugin-remove-button__remove-button"
+					disabled={ this.props.inProgress }
+					className={ clsx( 'plugin-remove-button__remove-button', this.props.classNames ) }
 				>
 					{ label }
 				</PopoverMenuItem>
@@ -210,8 +195,8 @@ class PluginRemoveButton extends Component {
 			return null;
 		}
 
-		if ( this.props.isMarketplaceProduct ) {
-			// Marketplace products are auto-managed.
+		if ( this.props.isMarketplaceProduct && this.props.productPurchase ) {
+			// Purchased Marketplace products are auto-managed.
 			return null;
 		}
 
@@ -228,4 +213,4 @@ export default connect(
 		inProgress: isPluginActionInProgress( state, site.ID, plugin.id, REMOVE_PLUGIN ),
 	} ),
 	{ removePlugin, removePluginStatuses }
-)( localize( PluginRemoveButton ) );
+)( withShowPluginActionDialog( localize( PluginRemoveButton ) ) );

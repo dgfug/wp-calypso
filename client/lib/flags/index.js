@@ -1,6 +1,5 @@
 /**
  * Given a country code, return a flag SVG file path
- *
  * @param   {string} countryCode  A two-letter ISO_3166-1_country code
  * @returns {string}              Flag SVG file path
  */
@@ -33,6 +32,7 @@ export function flagUrl( countryCode ) {
 				</g>
 			</svg>`;
 
-		return 'data:image/svg+xml;utf8,' + svg;
+		// Ensure that we URI-encode the SVG content
+		return 'data:image/svg+xml;utf8,' + encodeURIComponent( svg );
 	}
 }

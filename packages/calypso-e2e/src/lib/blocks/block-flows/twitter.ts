@@ -1,17 +1,17 @@
-import { Frame } from 'playwright';
-import { BlockFlow, EditorContext, PublishedPostContext } from '..';
+import { BlockFlow, EditorContext, PublishedPostContext } from '.';
 
 interface ConfigurationData {
 	embedUrl: string;
 	expectedTweetText: string;
 }
 
-const blockParentSelector = '[aria-label="Block: Embed"]:has-text("Twitter URL")';
+const blockParentSelector = '[aria-label*="Block: Twitter"]:has-text("Twitter")';
 const selectors = {
 	embedUrlInput: `${ blockParentSelector } input`,
 	embedButton: `${ blockParentSelector } button:has-text("Embed")`,
-	editorTwitterIframe: `iframe[title="Embedded content from twitter"]`,
-	publishedTwitterIframe: `iframe[title="Twitter Tweet"]`,
+	editorTwitterIframe: `iframe[title="Embedded content from twitter.com"]`,
+	publishedTwitterIframe: `iframe[title="X Post"]`,
+	publishedTwitterBareLink: `figure.wp-block-embed-twitter > div.wp-block-embed__wrapper > a[href^="https://twitter.com/automattic/"]`,
 };
 
 /**
@@ -29,7 +29,7 @@ export class TwitterBlockFlow implements BlockFlow {
 		this.configurationData = configurationData;
 	}
 
-	blockSidebarName = 'Twitter';
+	blockSidebarName = 'Twitter Embed';
 	blockEditorSelector = blockParentSelector;
 
 	/**
@@ -38,10 +38,17 @@ export class TwitterBlockFlow implements BlockFlow {
 	 * @param {EditorContext} context The current context for the editor at the point of test execution
 	 */
 	async configure( context: EditorContext ): Promise< void > {
-		await context.editorIframe.fill( selectors.embedUrlInput, this.configurationData.embedUrl );
-		await context.editorIframe.click( selectors.embedButton );
+		const editorCanvas = await context.editorPage.getEditorCanvas();
+
+		const urlInputLocator = editorCanvas.locator( selectors.embedUrlInput );
+		await urlInputLocator.fill( this.configurationData.embedUrl );
+
+		const embedButtonLocator = editorCanvas.locator( selectors.embedButton );
+		await embedButtonLocator.click();
+
 		// We should make sure the actual Iframe loads, because it takes a second.
-		await context.editorIframe.waitForSelector( selectors.editorTwitterIframe );
+		const twitterIframeLocator = editorCanvas.locator( selectors.editorTwitterIframe );
+		await twitterIframeLocator.waitFor();
 	}
 
 	/**
@@ -50,12 +57,15 @@ export class TwitterBlockFlow implements BlockFlow {
 	 * @param context The current context for the published post at the point of test execution
 	 */
 	async validateAfterPublish( context: PublishedPostContext ): Promise< void > {
-		const twitterIframeElement = await context.page.waitForSelector(
-			selectors.publishedTwitterIframe
-		);
-		const twitterIframeHandle = ( await twitterIframeElement.contentFrame() ) as Frame;
-		await twitterIframeHandle.waitForSelector(
-			`text=${ this.configurationData.expectedTweetText }`
-		);
+		// In most cases, the iframe will render, so look for that.
+		const iframeTweetLocator = context.page
+			.frameLocator( selectors.publishedTwitterIframe )
+			.locator( `text=${ this.configurationData.expectedTweetText }` )
+			.first();
+
+		// However, sometimes only the bare link renders, so we need to check for that fallback.
+		const bareTweetLinkLocator = context.page.locator( selectors.publishedTwitterBareLink ).first();
+
+		await Promise.any( [ iframeTweetLocator.waitFor(), bareTweetLinkLocator.waitFor() ] );
 	}
 }

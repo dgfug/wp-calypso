@@ -12,9 +12,8 @@ import { dispatchRequest } from 'calypso/state/data-layer/wpcom-http/utils';
 /**
  * Make a Threat object response contain only camel-case keys and transform
  * dates represented as string to Date object.
- *
- * @param {object} threat Raw threat object from Scan endpoint
- * @returns {object} Processed threat object
+ * @param {Object} threat Raw threat object from Scan endpoint
+ * @returns {Object} Processed threat object
  */
 export const formatScanThreat = ( threat ) => ( {
 	id: threat.id,
@@ -32,18 +31,19 @@ export const formatScanThreat = ( threat ) => ( {
 	table: threat.table,
 	context: threat.context,
 	severity: threat.severity,
+	source: threat.source,
+	version: threat.version,
 } );
 
 /**
  * Make a Scan object response contain only camel-case keys and transform
  * dates represented as string to Date object.
- *
- * @param {object} scanState Raw Scan state object from Scan endpoint
+ * @param {Object} scanState Raw Scan state object from Scan endpoint
  * @param {string} scanState.state State of the scan. E.g. "idle"
- * @param {object[]} scanState.threats Array of active threats
- * @param {object} scanState.most_recent Info about the most recent scan
- * @param {object} scanState.current Info about the current scan
- * @returns {object} Processed Scan state
+ * @param {Object[]} scanState.threats Array of active threats
+ * @param {Object} scanState.most_recent Info about the most recent scan
+ * @param {Object} scanState.current Info about the current scan
+ * @returns {Object} Processed Scan state
  */
 const formatScanStateRawResponse = ( {
 	state,
@@ -120,17 +120,20 @@ const onFetchStatusSuccess = ( action, scan ) => ( dispatch ) => {
 				type: JETPACK_SCAN_REQUEST,
 				siteId: action.siteId,
 				pooling: true,
+				retryCount: ( action.retryCount || 0 ) + 1,
 			} );
 		}, POOL_EVERY_MILLISECONDS );
 	}
 };
 
-const onFetchStatusFailure = ( { siteId } ) => ( dispatch ) => {
-	dispatch( {
-		type: JETPACK_SCAN_REQUEST_FAILURE,
-		siteId,
-	} );
-};
+const onFetchStatusFailure =
+	( { siteId } ) =>
+	( dispatch ) => {
+		dispatch( {
+			type: JETPACK_SCAN_REQUEST_FAILURE,
+			siteId,
+		} );
+	};
 
 registerHandlers( 'state/data-layer/wpcom/sites/scan', {
 	[ JETPACK_SCAN_REQUEST ]: [

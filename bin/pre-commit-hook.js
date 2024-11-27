@@ -26,7 +26,6 @@ require( './validate-config-keys' );
 
 /**
  * Parses the output of a git diff command into file paths.
- *
  * @param   {string} command Command to run. Expects output like `git diff --name-only […]`
  * @returns {Array}          Paths output from git command
  */
@@ -45,7 +44,6 @@ function getPathForCommand( command ) {
 	 *
 	 * If we cannot find these commands, we ask the user to run `composer install`, which will install all commands
 	 * and dependencies locally.
-	 *
 	 * @see printPhpcsDocs
 	 */
 	const path_to_command = path.join( __dirname, '..', 'vendor', 'bin', command );
@@ -100,7 +98,11 @@ const toFormat = files.filter( ( file ) => ! dirtyFiles.has( file ) );
 // Split the set to format into things to format with stylelint and things to format with prettier.
 // We avoid prettier on sass files because of outstanding bugs in how prettier handles
 // single line comments. We also split on PHP files for PHPCS handling.
-const { toPrettify = [], toStylelintfix = [], toPHPCBF = [] } = _.groupBy( toFormat, ( file ) => {
+const {
+	toPrettify = [],
+	toStylelintfix = [],
+	toPHPCBF = [],
+} = _.groupBy( toFormat, ( file ) => {
 	switch ( true ) {
 		case file.endsWith( '.scss' ):
 			return 'toStylelintfix';
@@ -152,7 +154,11 @@ if ( toPHPCBF.length ) {
 }
 
 // Now run the linters over everything staged to commit (excepting JSON), even if they are partially staged
-const { toEslint = [], toStylelint = [], toPHPCS = [] } = _.groupBy(
+const {
+	toEslint = [],
+	toStylelint = [],
+	toPHPCS = [],
+} = _.groupBy(
 	files.filter( ( file ) => ! file.endsWith( '.json' ) ),
 	( file ) => {
 		switch ( true ) {

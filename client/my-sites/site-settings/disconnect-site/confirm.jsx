@@ -1,12 +1,13 @@
+import { isEnabled } from '@automattic/calypso-config';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import DisconnectJetpack from 'calypso/blocks/disconnect-jetpack';
 import DocumentHead from 'calypso/components/data/document-head';
-import FormattedHeader from 'calypso/components/formatted-header';
 import Main from 'calypso/components/main';
 import enrichedSurveyData from 'calypso/components/marketing-survey/cancel-purchase-form/enriched-survey-data';
+import NavigationHeader from 'calypso/components/navigation-header';
 import NavigationLink from 'calypso/components/wizard/navigation-link';
 import { submitSurvey } from 'calypso/lib/purchases/actions';
 import redirectNonJetpack from 'calypso/my-sites/site-settings/redirect-non-jetpack';
@@ -22,6 +23,8 @@ class ConfirmDisconnection extends Component {
 		reason: PropTypes.string,
 		type: PropTypes.string,
 		text: PropTypes.oneOfType( [ PropTypes.string, PropTypes.arrayOf( PropTypes.string ) ] ),
+		disconnectHref: PropTypes.string,
+		stayConnectedHref: PropTypes.string,
 		// Provided by HOCs
 		purchase: PropTypes.object,
 		siteId: PropTypes.number,
@@ -60,7 +63,7 @@ class ConfirmDisconnection extends Component {
 	};
 
 	render() {
-		const { type, siteId, siteSlug, translate } = this.props;
+		const { disconnectHref, siteId, siteSlug, stayConnectedHref, translate, type } = this.props;
 
 		const backHref =
 			`/settings/disconnect-site/${ siteSlug }` +
@@ -69,19 +72,26 @@ class ConfirmDisconnection extends Component {
 		return (
 			<Main className="disconnect-site__confirm">
 				<DocumentHead title={ translate( 'Site Settings' ) } />
-				<FormattedHeader
-					headerText={ translate( 'Confirm Disconnection' ) }
-					subHeaderText={ translate(
+				<NavigationHeader
+					navigationItems={ [] }
+					title={ translate( 'Confirm Disconnection' ) }
+					subtitle={ translate(
 						'Confirm that you want to disconnect your site from WordPress.com.'
 					) }
 				/>
+
 				<DisconnectJetpack
-					disconnectHref="/stats"
+					disconnectHref={ disconnectHref ?? '/sites' }
 					isBroken={ false }
 					onDisconnectClick={ this.submitSurvey }
 					showTitle={ false }
 					siteId={ siteId }
-					stayConnectedHref={ '/settings/manage-connection/' + siteSlug }
+					stayConnectedHref={
+						stayConnectedHref ??
+						( isEnabled( 'untangling/hosting-menu' )
+							? '/sites/settings/administration/' + siteSlug + '/manage-connection'
+							: '/settings/manage-connection/' + siteSlug )
+					}
 				/>
 				<div className="disconnect-site__navigation-links">
 					<NavigationLink href={ backHref } direction="back" />

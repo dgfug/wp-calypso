@@ -89,7 +89,7 @@ Text displayed in the header of the panel when rendered on mobile.
 
 ## Nav Tabs
 
-The tabs sub component will render items inline when there is enough horizontal room to do so. Otherwise it will render them as a dropdown beyond a certain screen size. The mobile version displays them vertically inside the panel.
+The tabs sub component will render items inline when there is enough horizontal room to do so. Otherwise, it will render them as a dropdown beyond a certain screen size. This is unless the prop hasHorizontalScroll is added and set to true, which allows horizontal scrolling through the navigation tabs (unless viewing the mobile version). The mobile version displays them vertically inside the panel.
 
 ![Nav Tabs Example](https://cldup.com/SG0UuJKr3i.png)
 
@@ -118,7 +118,7 @@ Text displayed above tabs group when:
 
 ## Nav Segmented
 
-The segmented sub component utilizes [`SegmentedControl`](/client/components/segmented-control) to display `NavItems` inline.
+The segmented sub component utilizes [`SegmentedControl`](/packages/components/segmented-control) to display `NavItems` inline.
 
 ![Nav Segmented Example](https://cldup.com/tPEfoQ78pR.png)
 
@@ -168,3 +168,7 @@ Prevents the item from being selected. Default is `false`.
 `count` - _optional_ (number)
 
 Add an extra `item-count` element into nav item.
+
+`applyUpdatedStyles` - _optional_ (boolean)
+
+Applies new and updated styles for tabs. This replaces the tabs' original design by removing the border and displaying the count as a filled-in pill.

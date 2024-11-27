@@ -1,6 +1,7 @@
 import languages from '@automattic/languages';
 import { find } from 'lodash';
 import { stringify as stringifyQs } from 'qs';
+import { RequestError } from './request-error';
 
 /**
  * Constants
@@ -12,6 +13,7 @@ const DEFAULT_FIRST_PAGE = 1;
 
 const WPORG_THEMES_ENDPOINT = 'https://api.wordpress.org/themes/info/1.1/';
 const WPORG_CORE_TRANSLATIONS_ENDPOINT = 'https://api.wordpress.org/translations/core/1.0/';
+const WPORG_CORE_VERSIONS_ENDPOINT = 'https://api.wordpress.org/core/version-check/1.7/';
 
 function getWporgLocaleCode( currentUserLocale ) {
 	let wpOrgLocaleCode = find( languages, { langSlug: currentUserLocale } ).wpLocale;
@@ -32,12 +34,12 @@ async function getRequest( url, query ) {
 	if ( response.ok ) {
 		return await response.json();
 	}
-	throw new Error( await response.body );
+
+	throw new RequestError( await response.body, response );
 }
 
 /**
  * Fetches details for a particular plugin.
- *
  * @param {string} pluginSlug The plugin identifier.
  * @returns {Promise} Promise with the plugins details.
  */
@@ -59,13 +61,14 @@ export function fetchPluginsList( options ) {
 	const category = options.category || DEFAULT_CATEGORY;
 	const search = options.search;
 	const author = options.author;
+	const tag = options.tag;
 
 	const query = {
 		action: 'query_plugins',
 		'request[page]': page,
 		'request[per_page]': pageSize,
 		'request[fields]':
-			'icons,last_updated,rating,active_installs,tested,-downloaded,-ratings,-requires,-requires_php,-tags,-contributors,-added,-donate_link,-homepage',
+			'icons,last_updated,rating,active_installs,tested,-downloaded,-ratings,-requires,-requires_php,-contributors,-added,-donate_link,-homepage',
 		'request[locale]': getWporgLocaleCode( options.locale ),
 	};
 
@@ -77,7 +80,11 @@ export function fetchPluginsList( options ) {
 		query[ 'request[author]' ] = author;
 	}
 
-	if ( ! search && ! author ) {
+	if ( tag ) {
+		query[ 'request[tag]' ] = tag;
+	}
+
+	if ( ! search && ! author && ! tag ) {
 		query[ 'request[browse]' ] = category;
 	}
 
@@ -88,9 +95,8 @@ export function fetchPluginsList( options ) {
  * Get information about a given theme from the WordPress.org API.
  * If provided with a callback, will call that on succes with an object with theme details.
  * Otherwise, will return a promise.
- *
  * @param {string}     themeId  The theme identifier.
- * @returns {Promise.<object>}  A promise that returns a `theme` object
+ * @returns {Promise.<Object>}  A promise that returns a `theme` object
  */
 export function fetchThemeInformation( themeId ) {
 	const query = {
@@ -106,12 +112,11 @@ export function fetchThemeInformation( themeId ) {
 
 /**
  * Get information about a given theme from the WordPress.org API.
- *
- * @param  {object}        options         Theme query
+ * @param  {Object}        options         Theme query
  * @param  {string}        options.search  Search string
  * @param  {number}        options.number  How many themes to return per page
  * @param  {number}        options.page    Which page of matching themes to return
- * @returns {Promise.<object>}             A promise that returns an object containing a `themes` array and an `info` object
+ * @returns {Promise.<Object>}             A promise that returns an object containing a `themes` array and an `info` object
  */
 export function fetchThemesList( options = {} ) {
 	const { search, page, number } = options;
@@ -120,9 +125,11 @@ export function fetchThemesList( options = {} ) {
 		// Return an `author` object containing `user_nicename` and `display_name` attrs.
 		// This is for consistency with WP.com, which always returns the display name as `author`.
 		'request[fields][extended_author]': true,
+		'request[fields][tags]': true,
 		'request[search]': search,
 		'request[page]': page,
 		'request[per_page]:': number,
+		'request[browse]': 'popular',
 	};
 
 	return getRequest( WPORG_THEMES_ENDPOINT, query );
@@ -131,11 +138,20 @@ export function fetchThemesList( options = {} ) {
 /**
  * Get available WP.org translations.
  * See: https://codex.wordpress.org/WordPress.org_API
- *
  * @param  {string}        wpVersion       The WordPress.org version, like "5.8.1".
- * @returns {Promise.<object>}             A promise that returns an object containing a `translations` array.
+ * @returns {Promise.<Object>}             A promise that returns an object containing a `translations` array.
  */
 export function fetchTranslationsList( wpVersion ) {
 	const query = { version: wpVersion };
 	return getRequest( WPORG_CORE_TRANSLATIONS_ENDPOINT, query );
+}
+
+/**
+ * Get the WP.org versions.
+ * See: https://codex.wordpress.org/WordPress.org_API
+ * @returns {Promise<{ offers: [ { current: string } ] }>}  A promise that returns an object containing
+ * 								an `offers` array with the WP versions
+ */
+export function fetchWordPressVersions() {
+	return getRequest( WPORG_CORE_VERSIONS_ENDPOINT );
 }

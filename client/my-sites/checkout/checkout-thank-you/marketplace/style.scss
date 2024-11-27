@@ -1,0 +1,7 @@
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
+
+.marketplace-thank-you__container {
+	max-width: 750px;
+	padding: 0 24px 0;
+}

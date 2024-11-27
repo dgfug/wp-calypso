@@ -6,10 +6,9 @@ import SiteWordAdsTOS from './site.wordads.tos';
  * `SiteWordAds` constructor.
  *
  * Use a `WPCOM#Me` instance to create a new `SiteWordAds` instance.
- *
  * @param {string} sid - site identifier
  * @param {WPCOM} wpcom - wpcom instance
- * @returns {null} null
+ * @returns {SiteWordAds|undefined}
  */
 export default function SiteWordAds( sid, wpcom ) {
 	if ( ! ( this instanceof SiteWordAds ) ) {
@@ -23,14 +22,13 @@ export default function SiteWordAds( sid, wpcom ) {
 /**
  * Return a `SiteWordAdsSettings` instance.
  *
- * *Example:*
- *    // Create a SiteWordAdsSettings instance
+ * Example:*
+ * // Create a SiteWordAdsSettings instance
  *
- *    var wordAds = wpcom
- *      .site( 'my-blog.wordpress.com' )
- *      .wordAds()
- *      .settings();
- *
+ * var wordAds = wpcom
+ * .site( 'my-blog.wordpress.com' )
+ * .wordAds()
+ * .settings();
  * @returns {SiteWordAdsSettings} site WordAds settings instance
  */
 SiteWordAds.prototype.settings = function () {
@@ -40,14 +38,13 @@ SiteWordAds.prototype.settings = function () {
 /**
  * Return a `SiteWordAdsEarnings` instance.
  *
- * *Example:*
- *    // Create a SiteWordAdsEarnings instance
+ * Example:*
+ * // Create a SiteWordAdsEarnings instance
  *
- *    var wordAds = wpcom
- *      .site( 'my-blog.wordpress.com' )
- *      .wordAds()
- *      .earnings();
- *
+ * var wordAds = wpcom
+ * .site( 'my-blog.wordpress.com' )
+ * .wordAds()
+ * .earnings();
  * @returns {SiteWordAdsEarnings} site WordAds earnings instance
  */
 SiteWordAds.prototype.earnings = function () {
@@ -57,16 +54,15 @@ SiteWordAds.prototype.earnings = function () {
 /**
  * Return a `SiteWordAdsTOS` instance.
  *
- * *Example:*
- *    // Create a SiteWordAdsTOS instance
+ * Example:*
+ * // Create a SiteWordAdsTOS instance
  *
- *    var wordAds = wpcom
- *      .site( 'my-blog.wordpress.com' )
- *      .wordAds()
- *      .tos();
+ * var wordAds = wpcom
+ * .site( 'my-blog.wordpress.com' )
+ * .wordAds()
+ * .tos();
  *
  * Return  SiteWordAdsTOS object for the site.
- *
  * @returns {SiteWordAdsTOS} site wordAds TOS instance
  */
 SiteWordAds.prototype.tos = function () {

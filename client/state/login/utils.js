@@ -1,6 +1,6 @@
+import { localizeUrl } from '@automattic/i18n-utils';
 import { translate } from 'i18n-calypso';
 import { get, omit } from 'lodash';
-import { localizeUrl } from 'calypso/lib/i18n-utils';
 import { lostPassword } from 'calypso/lib/paths';
 
 export function getSMSMessageFromResponse( response ) {
@@ -38,8 +38,7 @@ export class HTTPError extends Error {
 
 /**
  * Retrieves the first error message from the specified HTTP error.
- *
- * @param {object} httpError HTTP error
+ * @param {Object} httpError HTTP error
  * @returns {{code: string?, message: string, field: string}} an error message and the id of the corresponding field, if not global
  */
 export function getErrorFromHTTPError( httpError ) {
@@ -125,8 +124,7 @@ export function getErrorFromHTTPError( httpError ) {
 
 /**
  * Transforms WPCOM error to the error object we use for login purposes
- *
- * @param {object} wpcomError HTTP error
+ * @param {Object} wpcomError HTTP error
  * @returns {{message: string, field: string, code: string}} an error message and the id of the corresponding field
  */
 export const getErrorFromWPCOMError = ( wpcomError ) => ( {
@@ -138,7 +136,6 @@ export const getErrorFromWPCOMError = ( wpcomError ) => ( {
 
 /**
  * Determines whether the user account uses regular authentication by password.
- *
  * @param {string} authAccountType - authentication account type
  * @returns {boolean} true if the account is regular, false otherwise
  */
@@ -146,7 +143,6 @@ export const isRegularAccount = ( authAccountType ) => authAccountType === 'regu
 
 /**
  * Determines whether the user account uses authentication without password.
- *
  * @param {string} authAccountType - authentication account type
  * @returns {boolean} true if the account is passwordless, false otherwise
  */
@@ -175,4 +171,47 @@ export async function postLoginRequest( action, bodyObj ) {
 		return { body: await response.json() };
 	}
 	throw new HTTPError( response, await response.text() );
+}
+
+/**
+ * https://woocommerce.com/partner-signup uses a wp.com branded login and signup flow
+ * while using woocommerces's oauth client id.
+ *
+ * This function check for is_partner_signup query or detects this situation by checking
+ * for a redirect back to that page.
+ */
+export function isPartnerSignupQuery( currentQuery ) {
+	if ( ! currentQuery ) {
+		return false;
+	}
+
+	// Check for is_partner_signup query
+	if ( currentQuery?.is_partner_signup ) {
+		return true;
+	}
+
+	try {
+		// Handles login through /log-in/?redirect_to=...
+		if ( typeof currentQuery?.redirect_to === 'string' ) {
+			return /woocommerce\.(?:com|test)\/partner-signup/.test(
+				decodeURIComponent( currentQuery.redirect_to )
+			);
+		}
+
+		// Handles user creation through /start/wpcc?oauth2_redirect=...
+		if ( typeof currentQuery?.oauth2_redirect === 'string' ) {
+			return /woocommerce\.(?:com|test)\/partner-signup/.test(
+				decodeURIComponent( currentQuery.oauth2_redirect )
+			);
+		}
+	} catch ( e ) {
+		if ( e instanceof URIError ) {
+			// Ignore the URIError
+			return false;
+		}
+		// Should not happen, re-throw the error
+		throw e;
+	}
+
+	return false;
 }

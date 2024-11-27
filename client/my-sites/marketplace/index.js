@@ -1,5 +1,5 @@
 import config from '@automattic/calypso-config';
-import page from 'page';
+import page from '@automattic/calypso-router';
 import { makeLayout, render as clientRender } from 'calypso/controller';
 import { navigation, siteSelection } from 'calypso/my-sites/controller';
 import {
@@ -7,7 +7,9 @@ import {
 	renderMarketplaceTestPage,
 	renderMarketplaceThankYou,
 	renderPluginsInstallPage,
+	renderThemesInstallPage,
 	redirectToHome,
+	renderMarketplaceSignupSuccess,
 } from './controller';
 
 export default function () {
@@ -27,16 +29,32 @@ export default function () {
 	}
 
 	page(
-		'/marketplace/:productSlug?/install/:site?',
+		'/marketplace/plugin/:productSlug?/install/:site?',
 		siteSelection,
 		renderPluginsInstallPage,
 		makeLayout,
 		clientRender
 	);
+
 	page(
-		'/marketplace/thank-you/:productSlug/:site?',
+		'/marketplace/theme/:themeSlug?/install/:site?',
+		siteSelection,
+		renderThemesInstallPage,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/marketplace/thank-you/:site?',
 		siteSelection,
 		renderMarketplaceThankYou,
+		makeLayout,
+		clientRender
+	);
+
+	page(
+		'/marketplace/submission-success',
+		renderMarketplaceSignupSuccess,
 		makeLayout,
 		clientRender
 	);

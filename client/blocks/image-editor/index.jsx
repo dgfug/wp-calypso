@@ -1,5 +1,5 @@
 import path from 'path';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import { isEqual } from 'lodash';
 import PropTypes from 'prop-types';
@@ -51,6 +51,7 @@ class ImageEditor extends Component {
 		setImageEditorDefaultAspectRatio: PropTypes.func,
 		translate: PropTypes.func,
 		isImageLoaded: PropTypes.bool,
+		displayOnlyIcon: PropTypes.bool,
 	};
 
 	static defaultProps = {
@@ -62,6 +63,7 @@ class ImageEditor extends Component {
 		defaultAspectRatio: AspectRatios.FREE,
 		allowedAspectRatios: AspectRatiosValues,
 		setImageEditorDefaultAspectRatio: noop,
+		displayOnlyIcon: false,
 	};
 
 	state = {
@@ -71,22 +73,18 @@ class ImageEditor extends Component {
 
 	editCanvasRef = createRef();
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( newProps ) {
-		const { media: currentMedia } = this.props;
+	componentDidUpdate( prevProps ) {
+		const { media } = this.props;
 
-		if ( newProps.media && ! isEqual( newProps.media, currentMedia ) ) {
+		if ( media && ! isEqual( prevProps.media, media ) ) {
 			this.props.resetAllImageEditorState();
-
-			this.updateFileInfo( newProps.media );
-
+			this.updateFileInfo();
 			this.setDefaultAspectRatio();
 		}
 	}
 
 	componentDidMount() {
-		this.updateFileInfo( this.props.media );
-
+		this.updateFileInfo();
 		this.setDefaultAspectRatio();
 	}
 
@@ -98,8 +96,8 @@ class ImageEditor extends Component {
 		);
 	};
 
-	updateFileInfo = ( media ) => {
-		const { site } = this.props;
+	updateFileInfo = () => {
+		const { site, media } = this.props;
 
 		let src;
 		let fileName = 'default';
@@ -237,11 +235,11 @@ class ImageEditor extends Component {
 	};
 
 	render() {
-		const { className, siteId, allowedAspectRatios } = this.props;
+		const { className, siteId, allowedAspectRatios, widthLimit, displayOnlyIcon } = this.props;
 
 		const { noticeText } = this.state;
 
-		const classes = classNames( 'image-editor', className );
+		const classes = clsx( 'image-editor', className );
 
 		return (
 			<div className={ classes }>
@@ -250,10 +248,15 @@ class ImageEditor extends Component {
 
 				<figure>
 					<div className="image-editor__content">
-						<ImageEditorCanvas ref={ this.editCanvasRef } onLoadError={ this.onLoadCanvasError } />
+						<ImageEditorCanvas
+							ref={ this.editCanvasRef }
+							widthLimit={ widthLimit }
+							onLoadError={ this.onLoadCanvasError }
+						/>
 						<ImageEditorToolbar
 							onShowNotice={ this.showNotice }
 							allowedAspectRatios={ allowedAspectRatios }
+							displayOnlyIcon={ displayOnlyIcon }
 						/>
 						<ImageEditorButtons
 							onCancel={ this.props.onCancel && this.onCancel }

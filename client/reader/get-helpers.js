@@ -1,13 +1,12 @@
 import { getUrlParts } from '@automattic/calypso-url';
 import { translate } from 'i18n-calypso';
 import { trim } from 'lodash';
-import { decodeEntities } from 'calypso/lib/formatting';
+import { decodeEntities, stripHTML } from 'calypso/lib/formatting';
+import { formatUrlForDisplay } from 'calypso/reader/lib/feed-display-helper';
 import { isSiteDescriptionBlocked } from 'calypso/reader/lib/site-description-blocklist';
-import { isAutomatticTeamMember } from 'calypso/reader/lib/teams';
 
 /**
  * Given a feed, site, or post: return the site url. return false if one could not be found.
- *
  * @param {*} options - an object containing a feed, site, and post. all optional.
  * @returns {string} the site url
  */
@@ -27,7 +26,6 @@ export const getSiteUrl = ( { feed, site, post } = {} ) => {
  * Given a feed, site, or post: return the feed url. return false if one could not be found.
  * The feed url is different from the site url in that it is unique per feed. A single siteUrl may
  * be home to many feeds
- *
  * @param {*} options - an object containing a feed, site, and post. all optional.
  * @returns {string} the site url
  */
@@ -40,8 +38,28 @@ export const getFeedUrl = ( { feed, site, post } = {} ) => {
 };
 
 /**
+ * getSiteDomain function extracts the domain of a website from the provided `site` and `feed` objects.
+ * It returns the domain of the site if available, otherwise, it extracts the domain from the site URL.
+ * @param {Object} param0 - An object containing `feed` and `site` objects.
+ * @param {Object|undefined} param0.feed - An object representing the feed data.
+ * @param {Object} param0.site - An object representing the site data. If it has a `domain` property and it is a string, that will be returned directly.
+ * @returns {string} - The domain of the site. If the `site` object has a `domain` property that is a string,
+ *                      it returns that. Otherwise, it gets the URL of the site from the `feed` and `site` objects,
+ *                      extracts the hostname from the URL, and returns it. If the hostname is an empty string,
+ *                      it returns the site URL. If the hostname starts with "www.", it removes the "www." and returns the rest.
+ */
+export const getSiteDomain = ( { feed, site } = {} ) => {
+	if ( typeof site?.domain === 'string' ) {
+		return site.domain;
+	}
+
+	const siteUrl = getSiteUrl( { feed, site } );
+	const hostname = getUrlParts( siteUrl ).hostname;
+	return formatUrlForDisplay( hostname === '' ? siteUrl : hostname );
+};
+
+/**
  * Given a feed, site, or post: output the best title to use for the owning site.
- *
  * @param {*} options - an object containing a feed, site, and post. all optional
  * @returns {string} the site title
  */
@@ -74,7 +92,7 @@ export const getSiteDescription = ( { site, feed } ) => {
 	if ( isSiteDescriptionBlocked( description ) ) {
 		return null;
 	}
-	return description;
+	return description ? stripHTML( description ) : description;
 };
 
 export const getSiteAuthorName = ( site ) => {
@@ -88,56 +106,45 @@ export const getSiteAuthorName = ( site ) => {
 };
 
 /**
- * Get list of routes that should not have unseen functionality.
- *
- * @returns {[string, string, string]} list of routes.
- */
-export const getRoutesWithoutSeenSupport = () => {
-	return [ '/read/conversations', '/read/conversations/a8c', '/activities/likes' ];
-};
-
-/**
- * Get default seen value given a route. FALSE if the route does not support seen functionality, TRUE otherwise.
- *
- * @param {string} currentRoute given route
- * @returns {boolean} default seen value for given route
- */
-export const getDefaultSeenValue = ( currentRoute ) => {
-	const routesWithoutSeen = getRoutesWithoutSeenSupport();
-	return routesWithoutSeen.includes( currentRoute ) ? false : true;
-};
-
-/**
- * Check if user is eligible to use seen posts feature (unseen counts and mark as seen)
- *
- * @param {object} flags eligibility data
- * @param {Array} flags.teams list of reader teams
+ * Check if route or feed/blog is eligible to use seen posts feature (unseen counts and mark as seen)
+ * @param {Object} flags eligibility data
+ * @param {string} flags.currentRoute current route
  * @param {boolean} flags.isWPForTeamsItem id if exists
+ * @param {boolean} flags.hasOrganization id if exists
  * @returns {boolean} whether or not the user can use the feature for the given site
  */
-export const isEligibleForUnseen = ( { teams, isWPForTeamsItem = false } ) => {
-	if ( isAutomatticTeamMember( teams ) ) {
-		return true;
+export const isEligibleForUnseen = ( {
+	isWPForTeamsItem = false,
+	currentRoute = null,
+	hasOrganization = null,
+} ) => {
+	let isEligible = isWPForTeamsItem;
+	if ( hasOrganization !== null ) {
+		isEligible = hasOrganization;
 	}
 
-	return isWPForTeamsItem;
+	if ( currentRoute ) {
+		if (
+			[ '/read/a8c', '/read/p2' ].includes( currentRoute ) ||
+			[ '/read/feeds/', '/read/blogs/' ].some( ( route ) => currentRoute.startsWith( route ) )
+		) {
+			return isEligible;
+		}
+
+		return false;
+	}
+
+	return isEligible;
 };
 
 /**
  * Check if the post/posts can be marked as seen based on the existence of `is_seen` flag and the current route.
- *
  * @param {Object} params method params
  * @param {Object} params.post object
  * @param {Array} params.posts list
- * @param {string} params.currentRoute given route
  * @returns {boolean} whether or not the post can be marked as seen
  */
-export const canBeMarkedAsSeen = ( { post = null, posts = [], currentRoute = '' } ) => {
-	const routesWithoutSeen = getRoutesWithoutSeenSupport();
-	if ( currentRoute && routesWithoutSeen.includes( currentRoute ) ) {
-		return false;
-	}
-
+export const canBeMarkedAsSeen = ( { post = null, posts = [] } ) => {
 	if ( post !== null ) {
 		return post.hasOwnProperty( 'is_seen' );
 	}
@@ -155,7 +162,6 @@ export const canBeMarkedAsSeen = ( { post = null, posts = [], currentRoute = '' 
 
 /**
  * Return Featured image alt text.
- *
  * @param {Object} post object containing post information
  * @returns {string} Featured image alt text
  */
@@ -175,4 +181,22 @@ export const getFeaturedImageAlt = ( post ) => {
 	}
 
 	return featuredImageAlt;
+};
+
+/**
+ * Get the follower count from a site/feed.
+ * @param {Object} feed Feed object.
+ * @param {Object} site Site object.
+ * @returns {number|null}
+ */
+export const getFollowerCount = ( feed, site ) => {
+	if ( site && site.subscribers_count ) {
+		return site.subscribers_count;
+	}
+
+	if ( feed && feed.subscribers_count > 0 ) {
+		return feed.subscribers_count;
+	}
+
+	return null;
 };

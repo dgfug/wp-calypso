@@ -1,5 +1,5 @@
 import { Button, Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { useTranslate } from 'i18n-calypso';
 import { useSelector } from 'react-redux';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
@@ -16,15 +16,15 @@ const ModalFooterBar = ( { onBackClick = () => {}, course = {}, isCourseComplete
 		} );
 		onBackClick( event );
 	};
-	const onStartWritingClick = () => {
+	const onCourseCompletedCTAClick = () => {
 		recordTracksEvent( 'calypso_courses_cta_click', {
 			course: course?.slug,
 		} );
 	};
 
-	const getStartWritingUrl = () => {
+	const getCourseCompletedUrl = () => {
 		if ( ! course?.cta?.url || ! selectedSite?.domain ) {
-			return 'https://wordpress.com/post/';
+			return 'https://wordpress.com/post';
 		}
 		return `${ course.cta.url }/${ selectedSite.domain }`;
 	};
@@ -41,11 +41,11 @@ const ModalFooterBar = ( { onBackClick = () => {}, course = {}, isCourseComplete
 	return (
 		<div className="videos-ui__footer-bar">
 			<div
-				className={ classNames( 'videos-ui__bar videos-ui__modal-footer-bar', {
+				className={ clsx( 'videos-ui__bar videos-ui__modal-footer-bar', {
 					'videos-ui__course-completed': isCourseComplete,
 				} ) }
 			>
-				<a href="/" className={ 'videos-ui__back-button' } onClick={ onBackLinkClick }>
+				<a href="/" className="videos-ui__back-button" onClick={ onBackLinkClick }>
 					<Gridicon icon="chevron-left" size={ 24 } />
 					<span>{ translate( 'Back' ) }</span>
 				</a>
@@ -53,9 +53,9 @@ const ModalFooterBar = ( { onBackClick = () => {}, course = {}, isCourseComplete
 
 				{ isCourseComplete && (
 					<Button
-						onClick={ onStartWritingClick }
+						onClick={ onCourseCompletedCTAClick }
 						className="videos-ui__button"
-						href={ getStartWritingUrl() }
+						href={ getCourseCompletedUrl() }
 					>
 						{ course?.cta.action }
 					</Button>

@@ -2,10 +2,10 @@ import styled from '@emotion/styled';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import debugFactory from 'debug';
-import PropTypes from 'prop-types';
 import { useCallback, useContext } from 'react';
 import CheckoutContext from '../lib/checkout-context';
 import joinClasses from '../lib/join-classes';
+import { useAvailablePaymentMethodIds } from '../lib/payment-methods';
 import {
 	useAllPaymentMethods,
 	usePaymentMethod,
@@ -21,8 +21,8 @@ import type { ReactNode } from 'react';
 
 const debug = debugFactory( 'composite-checkout:checkout-payment-methods' );
 
-export const RadioButtons = styled.div`
-	margin-bottom: 16px;
+const CheckoutPaymentMethodsWrapper = styled.div`
+	padding-top: 4px;
 `;
 
 export default function CheckoutPaymentMethods( {
@@ -33,12 +33,13 @@ export default function CheckoutPaymentMethods( {
 	summary?: boolean;
 	isComplete: boolean;
 	className?: string;
-} ): JSX.Element | null {
+} ) {
 	const { __ } = useI18n();
 	const { onPageLoadError, onPaymentMethodChanged } = useContext( CheckoutContext );
-	const onError = useCallback( ( error ) => onPageLoadError?.( 'payment_method_load', error ), [
-		onPageLoadError,
-	] );
+	const onError = useCallback(
+		( error: Error ) => onPageLoadError?.( 'payment_method_load', error ),
+		[ onPageLoadError ]
+	);
 
 	const paymentMethod = usePaymentMethod();
 	const [ , setPaymentMethod ] = usePaymentMethodId();
@@ -52,7 +53,9 @@ export default function CheckoutPaymentMethods( {
 	if ( summary && isComplete && paymentMethod ) {
 		debug( 'rendering selected paymentMethod', paymentMethod );
 		return (
-			<div className={ joinClasses( [ className, 'checkout-payment-methods' ] ) }>
+			<CheckoutPaymentMethodsWrapper
+				className={ joinClasses( [ className, 'checkout-payment-methods' ] ) }
+			>
 				<CheckoutErrorBoundary
 					errorMessage={ __( 'There was a problem with this payment method.' ) }
 					onError={ onError }
@@ -62,12 +65,12 @@ export default function CheckoutPaymentMethods( {
 						label={ paymentMethod.label }
 						activeContent={ paymentMethod.activeContent }
 						inactiveContent={ paymentMethod.inactiveContent }
-						checked={ true }
-						summary={ true }
+						checked
+						summary
 						ariaLabel={ paymentMethod.getAriaLabel( __ as ( text: string ) => string ) }
 					/>
 				</CheckoutErrorBoundary>
-			</div>
+			</CheckoutPaymentMethodsWrapper>
 		);
 	}
 
@@ -83,8 +86,10 @@ export default function CheckoutPaymentMethods( {
 	debug( 'rendering paymentMethods', paymentMethods );
 
 	return (
-		<div className={ joinClasses( [ className, 'checkout-payment-methods' ] ) }>
-			<RadioButtons>
+		<CheckoutPaymentMethodsWrapper
+			className={ joinClasses( [ className, 'checkout-payment-methods' ] ) }
+		>
+			<div>
 				{ paymentMethods.map( ( method ) => (
 					<CheckoutErrorBoundary
 						key={ method.id }
@@ -106,18 +111,12 @@ export default function CheckoutPaymentMethods( {
 						/>
 					</CheckoutErrorBoundary>
 				) ) }
-			</RadioButtons>
-		</div>
+			</div>
+		</CheckoutPaymentMethodsWrapper>
 	);
 }
 
-CheckoutPaymentMethods.propTypes = {
-	summary: PropTypes.bool,
-	isComplete: PropTypes.bool.isRequired,
-	className: PropTypes.string,
-};
-
-export function CheckoutPaymentMethodsTitle(): JSX.Element {
+export function CheckoutPaymentMethodsTitle() {
 	const { __ } = useI18n();
 	const isActive = useIsStepActive();
 	const isComplete = useIsStepComplete();
@@ -137,7 +136,8 @@ function PaymentMethod( {
 	onClick,
 	ariaLabel,
 	summary,
-}: PaymentMethodProps ): JSX.Element {
+}: PaymentMethodProps ) {
+	const availablePaymentMethodIds = useAvailablePaymentMethodIds();
 	const { formStatus } = useFormStatus();
 	if ( summary ) {
 		return <>{ inactiveContent && inactiveContent }</>;
@@ -150,6 +150,7 @@ function PaymentMethod( {
 			id={ id }
 			checked={ checked }
 			disabled={ formStatus !== FormStatus.READY }
+			hidden={ ! availablePaymentMethodIds.includes( id ) }
 			onChange={ onClick ? () => onClick( id ) : undefined }
 			ariaLabel={ ariaLabel }
 			label={ label }
@@ -158,17 +159,6 @@ function PaymentMethod( {
 		</RadioButton>
 	);
 }
-
-PaymentMethod.propTypes = {
-	id: PropTypes.string.isRequired,
-	onClick: PropTypes.func,
-	checked: PropTypes.bool.isRequired,
-	ariaLabel: PropTypes.string.isRequired,
-	activeContent: PropTypes.node,
-	label: PropTypes.node,
-	inactiveContent: PropTypes.node,
-	summary: PropTypes.bool,
-};
 
 interface PaymentMethodProps {
 	id: string;

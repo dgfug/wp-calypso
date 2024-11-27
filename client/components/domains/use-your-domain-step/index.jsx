@@ -1,10 +1,16 @@
 import { isPlan } from '@automattic/calypso-products';
+import page from '@automattic/calypso-router';
 import { Card, Button, Gridicon } from '@automattic/components';
 import formatCurrency from '@automattic/format-currency';
+import { localizeUrl } from '@automattic/i18n-utils';
 import { withShoppingCart } from '@automattic/shopping-cart';
+import {
+	CALYPSO_HELP_WITH_HELP_CENTER,
+	INCOMING_DOMAIN_TRANSFER,
+	MAP_EXISTING_DOMAIN,
+} from '@automattic/urls';
 import { localize } from 'i18n-calypso';
 import { get, isEmpty } from 'lodash';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { stringify } from 'qs';
 import { Component } from 'react';
@@ -23,11 +29,6 @@ import {
 	getDomainProductSlug,
 	getDomainTransferSalePrice,
 } from 'calypso/lib/domains';
-import {
-	CALYPSO_CONTACT,
-	INCOMING_DOMAIN_TRANSFER,
-	MAP_EXISTING_DOMAIN,
-} from 'calypso/lib/url/support';
 import withCartKey from 'calypso/my-sites/checkout/with-cart-key';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import { getCurrentUserCurrencyCode } from 'calypso/state/currency-code/selectors';
@@ -355,7 +356,13 @@ class UseYourDomainStep extends Component {
 		const buttonText = translate( 'Transfer to WordPress.com' );
 		const learnMore = translate( '{{a}}Learn more about domain transfers{{/a}}', {
 			components: {
-				a: <a href={ INCOMING_DOMAIN_TRANSFER } rel="noopener noreferrer" target="_blank" />,
+				a: (
+					<a
+						href={ localizeUrl( INCOMING_DOMAIN_TRANSFER ) }
+						rel="noopener noreferrer"
+						target="_blank"
+					/>
+				),
 			},
 		} );
 
@@ -384,7 +391,13 @@ class UseYourDomainStep extends Component {
 		const buttonText = translate( 'Map your domain' );
 		const learnMore = translate( '{{a}}Learn more about domain mapping{{/a}}', {
 			components: {
-				a: <a href={ MAP_EXISTING_DOMAIN } rel="noopener noreferrer" target="_blank" />,
+				a: (
+					<a
+						href={ localizeUrl( MAP_EXISTING_DOMAIN ) }
+						rel="noopener noreferrer"
+						target="_blank"
+					/>
+				),
 			},
 		} );
 
@@ -419,7 +432,13 @@ class UseYourDomainStep extends Component {
 				<p className="use-your-domain-step__footer">
 					{ translate( "Not sure what works best for you? {{a}}We're happy to help!{{/a}}", {
 						components: {
-							a: <a href={ CALYPSO_CONTACT } target="_blank" rel="noopener noreferrer" />,
+							a: (
+								<a
+									href={ CALYPSO_HELP_WITH_HELP_CENTER }
+									target="_blank"
+									rel="noopener noreferrer"
+								/>
+							),
 						},
 					} ) }
 				</p>

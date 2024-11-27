@@ -28,7 +28,6 @@ export type KeyedReducerAction< TAction extends Action > = TAction | CalypsoInit
  * The keyed reducer implements the `serialize` and `deserialize` methods and makes sure
  * that Calypso state persistence works as expected (ignoring empty and initial state,
  * serialization into multiple storage keys etc.)
- *
  * @example
  * const age = ( state = 0, action ) =>
  *     GROW === action.type
@@ -55,14 +54,13 @@ export type KeyedReducerAction< TAction extends Action > = TAction | CalypsoInit
  *         title: 'grunt',
  *     }
  * }
- *
  * @param {string} keyPath lodash-style path to the key in action referencing item in state map
  * @param {Function} reducer applied to referenced item in state map
  * @returns {Function} super-reducer applying reducer over map of keyed items
  */
 export const keyedReducer = < TState, TAction extends AnyAction = Action >(
 	keyPath: PropertyPath,
-	reducer: SerializableReducer< TState, KeyedReducerAction< TAction > >
+	reducer: SerializableReducer< TState, Action >
 ): SerializableReducer< Record< string | number, TState >, TAction > => {
 	// some keys are invalid
 	if ( 'string' !== typeof keyPath ) {

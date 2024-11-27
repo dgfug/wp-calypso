@@ -1,10 +1,19 @@
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useTranslate } from 'i18n-calypso';
 import wp from 'calypso/lib/wp';
 
 function useSiteRolesQuery( siteId, queryOptions = {} ) {
-	return useQuery( [ 'site-roles', siteId ], () => wp.req.get( `/sites/${ siteId }/roles` ), {
+	const translate = useTranslate();
+
+	return useQuery( {
+		queryKey: [ 'site-roles', siteId ],
+		queryFn: () => wp.req.get( `/sites/${ siteId }/roles` ),
 		...queryOptions,
-		select: ( { roles } ) => roles,
+		select: ( { roles } ) => {
+			return roles.map( ( role ) =>
+				role.name === 'subscriber' ? { ...role, display_name: translate( 'Viewer' ) } : role
+			);
+		},
 		enabled: !! siteId,
 	} );
 }

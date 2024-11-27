@@ -1,4 +1,4 @@
-import { filter, forEach, compact, partition, get } from 'lodash';
+import { filter, forEach, partition, get } from 'lodash';
 import { v4 as uuid } from 'uuid';
 import { bumpStat } from 'calypso/lib/analytics/mc';
 import wpcom from 'calypso/lib/wp';
@@ -33,7 +33,12 @@ function fetchForKey( postKey ) {
 	}
 
 	if ( postKey.blogId ) {
-		return wpcom.req.get( `/read/sites/${ postKey.blogId }/posts/${ postKey.postId }`, query );
+		return wpcom.req.get(
+			`/read/sites/${ encodeURIComponent( postKey.blogId ) }/posts/${ encodeURIComponent(
+				postKey.postId
+			) }`,
+			query
+		);
 	}
 	const { postId, feedId, ...params } = postKey;
 	return wpcom.req.get(
@@ -53,9 +58,8 @@ const hideRejections = ( promise ) => promise.catch( () => null );
 
 /**
  * Returns an action object to signal that post objects have been received.
- *
  * @param  {Array}  posts Posts received
- * @returns {object} Action object
+ * @returns {Object} Action object
  */
 export const receivePosts = ( posts ) => ( dispatch ) => {
 	if ( ! posts ) {
@@ -65,7 +69,7 @@ export const receivePosts = ( posts ) => ( dispatch ) => {
 	const [ toReload, toProcess ] = partition( posts, '_should_reload' );
 	toReload.forEach( ( post ) => dispatch( reloadPost( post ) ) );
 
-	const normalizedPosts = compact( toProcess ).map( runFastRules );
+	const normalizedPosts = toProcess.filter( Boolean ).map( runFastRules );
 
 	// dispatch post like additions before the posts. Cuts down on rerenders a bit.
 	forEach( normalizedPosts, ( post ) => {
@@ -90,7 +94,7 @@ export const receivePosts = ( posts ) => ( dispatch ) => {
 		( processedPosts ) =>
 			dispatch( {
 				type: READER_POSTS_RECEIVE,
-				posts: compact( processedPosts ), // prune out the "null" rejections
+				posts: processedPosts.filter( Boolean ), // prune out the "null" rejections
 			} )
 	);
 
@@ -101,25 +105,28 @@ export const receivePosts = ( posts ) => ( dispatch ) => {
 };
 
 const requestsInFlight = new Set();
-export const fetchPost = ( postKey ) => ( dispatch ) => {
-	const requestKey = keyToString( postKey );
-	if ( requestsInFlight.has( requestKey ) ) {
-		return;
-	}
-	requestsInFlight.add( requestKey );
-	function removeKey() {
-		requestsInFlight.delete( requestKey );
-	}
-	return fetchForKey( postKey )
-		.then( ( data ) => {
-			removeKey();
-			return dispatch( receivePosts( [ data ] ) );
-		} )
-		.catch( ( error ) => {
-			removeKey();
-			return dispatch( receiveErrorForPostKey( error, postKey ) );
-		} );
-};
+export const fetchPost =
+	( postKey, isHelpCenter = false ) =>
+	( dispatch ) => {
+		const requestKey = keyToString( postKey );
+		if ( requestsInFlight.has( requestKey ) ) {
+			return;
+		}
+
+		requestsInFlight.add( requestKey );
+		function removeKey() {
+			requestsInFlight.delete( requestKey );
+		}
+		return fetchForKey( postKey, isHelpCenter )
+			.then( ( data ) => {
+				removeKey();
+				return dispatch( receivePosts( [ data ] ) );
+			} )
+			.catch( ( error ) => {
+				removeKey();
+				return dispatch( receiveErrorForPostKey( error, postKey ) );
+			} );
+	};
 
 function receiveErrorForPostKey( error, postKey ) {
 	return {

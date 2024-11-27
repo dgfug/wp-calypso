@@ -2,10 +2,10 @@
 
 import { Button, Card, Gridicon } from '@automattic/components';
 import { useTranslate } from 'i18n-calypso';
-import * as React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useState } from 'react';
 import FollowButton from 'calypso/blocks/follow-button/button';
 import SitePlaceholder from 'calypso/blocks/site/placeholder';
+import { useDispatch, useSelector } from 'calypso/state';
 import { addReaderListSite, deleteReaderListSite } from 'calypso/state/reader/lists/actions';
 import { getMatchingItem } from 'calypso/state/reader/lists/selectors';
 import ItemRemoveDialog from './item-remove-dialog';
@@ -67,7 +67,7 @@ export default function SiteItem( props: {
 	item: Item;
 	list: List;
 	owner: string;
-} ): React.ReactElement | null {
+} ) {
 	const { item, list, owner } = props;
 	const site = props.item.meta?.data?.site as Site | SiteError | undefined;
 	const dispatch = useDispatch();
@@ -77,7 +77,7 @@ export default function SiteItem( props: {
 		getMatchingItem( state, { siteId: props.item.site_ID, listId: props.list.ID } )
 	);
 
-	const [ showDeleteConfirmation, setShowDeleteConfirmation ] = React.useState( false );
+	const [ showDeleteConfirmation, setShowDeleteConfirmation ] = useState( false );
 	const addItem = () => dispatch( addReaderListSite( list.ID, owner, list.slug, item.site_ID ) );
 	const deleteItem = ( shouldDelete: boolean ) => {
 		setShowDeleteConfirmation( false );

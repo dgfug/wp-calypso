@@ -1,19 +1,18 @@
+import { Count } from '@automattic/components';
 import { localize } from 'i18n-calypso';
 import { map } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
-import AutomatticLogo from 'calypso/assets/images/icons/a8c-logo.svg';
-import P2Logo from 'calypso/assets/images/icons/p2-logo.svg';
-import Count from 'calypso/components/count';
-import SVGIcon from 'calypso/components/svg-icon';
 import ExpandableSidebarMenu from 'calypso/layout/sidebar/expandable';
 import SidebarItem from 'calypso/layout/sidebar/item';
+import ReaderA8cIcon from 'calypso/reader/components/icons/a8c-icon';
+import ReaderP2Icon from 'calypso/reader/components/icons/p2-icon';
 import ReaderSidebarHelper from 'calypso/reader/sidebar/helper';
-import { toggleReaderSidebarOrganization } from 'calypso/state/reader-ui/sidebar/actions';
-import { isOrganizationOpen } from 'calypso/state/reader-ui/sidebar/selectors';
 import getOrganizationSites from 'calypso/state/reader/follows/selectors/get-reader-follows-organization';
 import { AUTOMATTIC_ORG_ID } from 'calypso/state/reader/organizations/constants';
+import { toggleReaderSidebarOrganization } from 'calypso/state/reader-ui/sidebar/actions';
+import { isOrganizationOpen } from 'calypso/state/reader-ui/sidebar/selectors';
 import ReaderSidebarOrganizationsListItem from './list-item';
 import '../style.scss';
 
@@ -32,9 +31,9 @@ export class ReaderSidebarOrganizationsList extends Component {
 	renderIcon() {
 		const { organization } = this.props;
 		if ( organization.id === AUTOMATTIC_ORG_ID ) {
-			return <SVGIcon name="a8c-logo" icon={ AutomatticLogo } classes="sidebar__menu-icon" />;
+			return <ReaderA8cIcon size={ 24 } viewBox="-5 0 24 24" />;
 		}
-		return <SVGIcon name="p2-logo" icon={ P2Logo } classes="sidebar__menu-icon" />;
+		return <ReaderP2Icon viewBox="-3 0 24 24" />;
 	}
 
 	renderAll() {
@@ -81,7 +80,7 @@ export class ReaderSidebarOrganizationsList extends Component {
 				title={ organization.title }
 				onClick={ this.handleClick }
 				customIcon={ this.renderIcon() }
-				disableFlyout={ true }
+				disableFlyout
 				className={
 					( '/read/' + organization.slug === path ||
 						sites.some( ( site ) => `/read/feeds/${ site.feed_ID }` === path ) ) &&

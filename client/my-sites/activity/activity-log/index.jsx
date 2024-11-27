@@ -1,6 +1,6 @@
 /* eslint-disable wpcalypso/jsx-classname-namespace */
 
-import { isFreePlan } from '@automattic/calypso-products';
+import { WPCOM_FEATURES_FULL_ACTIVITY_LOG } from '@automattic/calypso-products';
 import { isMobile } from '@automattic/viewport';
 import { localize } from 'i18n-calypso';
 import { get, isEmpty, isEqual } from 'lodash';
@@ -10,18 +10,19 @@ import { connect, useSelector } from 'react-redux';
 import TimeMismatchWarning from 'calypso/blocks/time-mismatch-warning';
 import VisibleDaysLimitUpsell from 'calypso/components/activity-card-list/visible-days-limit-upsell';
 import DocumentHead from 'calypso/components/data/document-head';
+import QueryJetpackCredentialsStatus from 'calypso/components/data/query-jetpack-credentials-status';
 import QueryJetpackPlugins from 'calypso/components/data/query-jetpack-plugins';
 import QueryRewindBackupStatus from 'calypso/components/data/query-rewind-backup-status';
 import QueryRewindBackups from 'calypso/components/data/query-rewind-backups';
 import QueryRewindPolicies from 'calypso/components/data/query-rewind-policies';
 import QueryRewindState from 'calypso/components/data/query-rewind-state';
-import QuerySitePurchases from 'calypso/components/data/query-site-purchases';
+import QuerySiteFeatures from 'calypso/components/data/query-site-features';
 import QuerySiteSettings from 'calypso/components/data/query-site-settings'; // For site time offset
 import EmptyContent from 'calypso/components/empty-content';
-import FormattedHeader from 'calypso/components/formatted-header';
 import JetpackColophon from 'calypso/components/jetpack-colophon';
 import { withLocalizedMoment } from 'calypso/components/localized-moment';
 import Main from 'calypso/components/main';
+import NavigationHeader from 'calypso/components/navigation-header';
 import Pagination from 'calypso/components/pagination';
 import SidebarNavigation from 'calypso/components/sidebar-navigation';
 import useActivityLogQuery from 'calypso/data/activity-log/use-activity-log-query';
@@ -29,6 +30,7 @@ import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
 import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
 import { applySiteOffset } from 'calypso/lib/site/timezone';
+import { withSyncStatus } from 'calypso/sites/tools/staging-site/hooks/use-site-sync-status';
 import {
 	getRewindRestoreProgress,
 	rewindRequestDismiss,
@@ -43,11 +45,8 @@ import {
 	withAnalytics,
 } from 'calypso/state/analytics/actions';
 import { updateBreadcrumbs } from 'calypso/state/breadcrumb/actions';
+import { areJetpackCredentialsInvalid } from 'calypso/state/jetpack/credentials/selectors';
 import { getPreference } from 'calypso/state/preferences/selectors';
-import {
-	siteHasBackupProductPurchase,
-	siteHasScanProductPurchase,
-} from 'calypso/state/purchases/selectors';
 import getActivityLogVisibleDays from 'calypso/state/rewind/selectors/get-activity-log-visible-days';
 import getRewindPoliciesRequestStatus from 'calypso/state/rewind/selectors/get-rewind-policies-request-status';
 import getActivityLogFilter from 'calypso/state/selectors/get-activity-log-filter';
@@ -60,13 +59,12 @@ import getSettingsUrl from 'calypso/state/selectors/get-settings-url';
 import getSiteGmtOffset from 'calypso/state/selectors/get-site-gmt-offset';
 import getSiteTimezoneValue from 'calypso/state/selectors/get-site-timezone-value';
 import isAtomicSite from 'calypso/state/selectors/is-site-automated-transfer';
-import isVipSite from 'calypso/state/selectors/is-vip-site';
-import { getCurrentPlan } from 'calypso/state/sites/plans/selectors';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
 import {
 	getSiteSlug,
 	getSiteTitle,
 	isJetpackSite,
-	isJetpackSiteSecondaryNetworkSite as getIsJetpackSiteSecondaryNetworkSite,
+	isJetpackSiteMultiSite,
 } from 'calypso/state/sites/selectors';
 import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import ActivityLogBanner from '../activity-log-banner';
@@ -123,7 +121,8 @@ class ActivityLog extends Component {
 		// localize
 		moment: PropTypes.func.isRequired,
 		translate: PropTypes.func.isRequired,
-		isJetpackSiteSecondaryNetworkSite: PropTypes.bool,
+		isMultisite: PropTypes.bool,
+		hideRewindProgress: PropTypes.bool,
 	};
 
 	state = {
@@ -209,7 +208,6 @@ class ActivityLog extends Component {
 
 	/**
 	 * Close Restore, Backup, or Transfer confirmation dialog.
-	 *
 	 * @param {string} type Type of dialog to close.
 	 */
 	handleCloseDialog = ( type ) => {
@@ -227,9 +225,8 @@ class ActivityLog extends Component {
 	/**
 	 * Adjust a moment by the site timezone or gmt offset. Use the resulting function wherever log
 	 * times need to be formatted for display to ensure all times are displayed as site times.
-	 *
-	 * @param   {object} date Moment to adjust.
-	 * @returns {object}      Moment adjusted for site timezone or gmtOffset.
+	 * @param   {Object} date Moment to adjust.
+	 * @returns {Object}      Moment adjusted for site timezone or gmtOffset.
 	 */
 	applySiteOffset = ( date ) => {
 		const { timezone, gmtOffset } = this.props;
@@ -244,13 +241,12 @@ class ActivityLog extends Component {
 
 	/**
 	 * Render a card showing the progress of a restore.
-	 *
-	 * @returns {object} Component showing progress.
+	 * @returns {Object} Component showing progress.
 	 */
 	renderActionProgress() {
-		const { siteId, restoreProgress, backupProgress } = this.props;
+		const { siteId, restoreProgress, backupProgress, hideRewindProgress } = this.props;
 
-		if ( ! restoreProgress && ! backupProgress ) {
+		if ( ( ! restoreProgress && ! backupProgress ) || hideRewindProgress ) {
 			return null;
 		}
 
@@ -282,23 +278,14 @@ class ActivityLog extends Component {
 
 	/**
 	 * Display the status of the operation currently being performed.
-	 *
 	 * @param   {number} siteId         Id of the site where the operation is performed.
-	 * @param   {object}  actionProgress Current status of operation performed.
+	 * @param   {Object}  actionProgress Current status of operation performed.
 	 * @param   {string}  action         Action type. Allows to set the right text without waiting for data.
-	 * @returns {object}                 Card showing progress.
+	 * @returns {Object}                 Card showing progress.
 	 */
 	getProgressBanner( siteId, actionProgress, action ) {
-		const {
-			percent,
-			progress,
-			restoreId,
-			downloadId,
-			status,
-			timestamp,
-			rewindId,
-			context,
-		} = actionProgress;
+		const { percent, progress, restoreId, downloadId, status, timestamp, rewindId, context } =
+			actionProgress;
 		return (
 			<ProgressBanner
 				key={ `progress-${ restoreId || downloadId }` }
@@ -317,10 +304,9 @@ class ActivityLog extends Component {
 
 	/**
 	 * Display a success or error card based on the last status of operation.
-	 *
 	 * @param   {number} siteId   Id of the site where the operation was performed.
-	 * @param   {object}  progress Last status of operation.
-	 * @returns {object}           Card showing success or error.
+	 * @param   {Object}  progress Last status of operation.
+	 * @returns {Object}           Card showing success or error.
 	 */
 	getEndBanner( siteId, progress ) {
 		const {
@@ -372,9 +358,9 @@ class ActivityLog extends Component {
 	}
 
 	renderErrorMessage() {
-		const { rewindState, translate } = this.props;
+		const { rewindState, translate, hideRewindProgress } = this.props;
 
-		if ( ! rewindState.rewind || rewindState.rewind.status !== 'failed' ) {
+		if ( ! rewindState.rewind || rewindState.rewind.status !== 'failed' || hideRewindProgress ) {
 			return null;
 		}
 
@@ -394,15 +380,16 @@ class ActivityLog extends Component {
 			logsLoaded,
 			siteId,
 			translate,
-			siteHasNoLog,
+			hasFullActivityLog,
 			slug,
+			syncLoaded,
 		} = this.props;
 
 		const isFilterEmpty = isEqual( emptyFilter, filter );
 
-		if ( displayRulesLoaded && logsLoaded ) {
+		if ( displayRulesLoaded && logsLoaded && syncLoaded ) {
 			return isFilterEmpty ? (
-				<ActivityLogExample siteId={ siteId } siteIsOnFreePlan={ siteHasNoLog } />
+				<ActivityLogExample siteId={ siteId } siteIsOnFreePlan={ ! hasFullActivityLog } />
 			) : (
 				<Fragment>
 					<EmptyContent
@@ -442,17 +429,19 @@ class ActivityLog extends Component {
 			moment,
 			rewindState,
 			siteId,
-			siteHasNoLog,
+			hasFullActivityLog,
 			translate,
 			isAtomic,
 			isJetpack,
 			isIntroDismissed,
-			isJetpackSiteSecondaryNetworkSite,
+			isMultisite,
+			areCredentialsInvalid,
 		} = this.props;
 
 		const disableRestore =
 			! enableRewind ||
 			[ 'queued', 'running' ].includes( get( this.props, [ 'restoreProgress', 'status' ] ) ) ||
+			( ! isAtomic && areCredentialsInvalid ) ||
 			'active' !== rewindState.state;
 		const disableBackup = 0 <= get( this.props, [ 'backupProgress', 'progress' ], -Infinity );
 
@@ -490,20 +479,18 @@ class ActivityLog extends Component {
 					<QueryRewindBackupStatus siteId={ siteId } />
 				) }
 				<QuerySiteSettings siteId={ siteId } />
-				<QuerySitePurchases siteId={ siteId } />
+				<QuerySiteFeatures siteIds={ [ siteId ] } />
 				<QueryRewindBackups siteId={ siteId } />
+				{ ! isAtomic && <QueryJetpackCredentialsStatus siteId={ siteId } role="main" /> }
 
 				{ isJetpackCloud() && <SidebarNavigation /> }
 
-				<FormattedHeader
-					brandFont
-					className="activity-log__page-heading"
-					headerText={ translate( 'Activity' ) }
-					subHeaderText={ translate(
-						"Keep tabs on all your site's activity — plugin and theme updates, user logins, " +
-							'setting modifications, and more.'
+				<NavigationHeader
+					navigationItems={ [] }
+					title={ translate( 'Activity' ) }
+					subtitle={ translate(
+						"Keep tabs on all your site's activity — plugin and theme updates, user logins, setting modifications, and more."
 					) }
-					align="left"
 				/>
 
 				{ siteId && isJetpack && ! isAtomic && <RewindAlerts siteId={ siteId } /> }
@@ -511,7 +498,7 @@ class ActivityLog extends Component {
 					<RewindUnavailabilityNotice siteId={ siteId } />
 				) }
 				<IntroBanner siteId={ siteId } />
-				{ siteHasNoLog && isIntroDismissed && ! isJetpackSiteSecondaryNetworkSite && (
+				{ ! hasFullActivityLog && isIntroDismissed && ! isMultisite && (
 					<UpgradeBanner siteId={ siteId } />
 				) }
 				{ siteId && isJetpack && <ActivityLogTasklist siteId={ siteId } /> }
@@ -534,7 +521,7 @@ class ActivityLog extends Component {
 							total={ logs.length }
 						/>
 						<section className="activity-log__wrapper">
-							{ siteHasNoLog && <div className="activity-log__fader" /> }
+							{ ! hasFullActivityLog && <div className="activity-log__fader" /> }
 							{ theseLogs.map( ( log ) =>
 								log.isAggregate ? (
 									<Fragment key={ log.activityId }>
@@ -565,7 +552,7 @@ class ActivityLog extends Component {
 						{ showVisibleDaysLimitUpsell && (
 							<VisibleDaysLimitUpsell cardClassName="activity-log-item__card" />
 						) }
-						{ siteHasNoLog && ! isIntroDismissed && <UpgradeBanner siteId={ siteId } /> }
+						{ ! hasFullActivityLog && ! isIntroDismissed && <UpgradeBanner siteId={ siteId } /> }
 						<Pagination
 							compact={ isMobile() }
 							className="activity-log__pagination is-bottom-pagination"
@@ -584,10 +571,10 @@ class ActivityLog extends Component {
 	}
 
 	renderFilterbar() {
-		const { siteId, filter, logs, siteHasNoLog, displayRulesLoaded, logsLoaded } = this.props;
+		const { siteId, filter, logs, hasFullActivityLog, displayRulesLoaded, logsLoaded } = this.props;
 		const isFilterEmpty = isEqual( emptyFilter, filter );
 
-		if ( siteHasNoLog ) {
+		if ( ! hasFullActivityLog ) {
 			return null;
 		}
 
@@ -598,6 +585,7 @@ class ActivityLog extends Component {
 					filter={ filter }
 					isLoading={ ! displayRulesLoaded || ! logsLoaded }
 					isVisible={ ! ( isEmpty( logs ) && isFilterEmpty ) }
+					variant="compact"
 				/>
 			</div>
 		);
@@ -615,7 +603,7 @@ class ActivityLog extends Component {
 
 		return (
 			<Main wideLayout>
-				<QuerySitePurchases siteId={ siteId } />
+				<QuerySiteFeatures siteIds={ [ siteId ] } />
 				<PageViewTracker path="/activity-log/:site" title="Activity" />
 				<DocumentHead title={ translate( 'Activity' ) } />
 				{ siteId && <QueryRewindPolicies siteId={ siteId } /> }
@@ -680,13 +668,7 @@ export default connect(
 		const rewindState = getRewindState( state, siteId );
 		const restoreStatus = rewindState.rewind && rewindState.rewind.status;
 		const filter = getActivityLogFilter( state, siteId );
-		const siteIsOnFreePlan =
-			isFreePlan( get( getCurrentPlan( state, siteId ), 'productSlug' ) ) &&
-			! isVipSite( state, siteId );
-		const siteHasNoLog =
-			siteIsOnFreePlan &&
-			! siteHasBackupProductPurchase( state, siteId ) &&
-			! siteHasScanProductPurchase( state, siteId );
+
 		const isJetpack = isJetpackSite( state, siteId );
 
 		const displayRulesLoaded = getRewindPoliciesRequestStatus( state, siteId ) === 'success';
@@ -710,9 +692,10 @@ export default connect(
 			siteSettingsUrl: getSettingsUrl( state, siteId, 'general' ),
 			slug: getSiteSlug( state, siteId ),
 			timezone,
-			siteHasNoLog,
+			hasFullActivityLog: siteHasFeature( state, siteId, WPCOM_FEATURES_FULL_ACTIVITY_LOG ),
 			isIntroDismissed: getPreference( state, 'dismissible-card-activity-introduction-banner' ),
-			isJetpackSiteSecondaryNetworkSite: getIsJetpackSiteSecondaryNetworkSite( state, siteId ),
+			isMultisite: isJetpackSiteMultiSite( state, siteId ),
+			areCredentialsInvalid: areJetpackCredentialsInvalid( state, siteId, 'main' ),
 		};
 	},
 	{
@@ -745,4 +728,4 @@ export default connect(
 		selectPage: ( siteId, pageNumber ) => updateFilter( siteId, { page: pageNumber } ),
 		updateBreadcrumbs,
 	}
-)( withActivityLog( localize( withLocalizedMoment( ActivityLog ) ) ) );
+)( withSyncStatus( withActivityLog( localize( withLocalizedMoment( ActivityLog ) ) ) ) );

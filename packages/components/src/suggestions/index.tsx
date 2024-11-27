@@ -1,4 +1,4 @@
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { find, groupBy, isEqual, partition, property } from 'lodash';
 import { Fragment, Component } from 'react';
 import ReactDOM from 'react-dom';
@@ -12,7 +12,7 @@ import './style.scss';
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 const noop = () => {};
 
-type Suggestion = { label: string; category?: string };
+type Suggestion = { name: string; label: string; category?: string };
 
 type CategorizedSuggestions = {
 	category?: string;
@@ -66,7 +66,9 @@ class Suggestions extends Component< Props, State > {
 
 	getOriginalIndexFromPosition = ( index: number ): number =>
 		this.getCategories().reduce( ( foundIndex, category ) => {
-			if ( foundIndex !== -1 ) return foundIndex;
+			if ( foundIndex !== -1 ) {
+				return foundIndex;
+			}
 
 			const suggestion = find( category.suggestions, { index } );
 			return suggestion ? suggestion.originalIndex : -1;
@@ -175,9 +177,9 @@ class Suggestions extends Component< Props, State > {
 		return categories;
 	}
 
-	render(): JSX.Element | null {
+	render() {
 		const { query, className, title } = this.props;
-		const containerClass = classnames( 'suggestions', className );
+		const containerClass = clsx( 'suggestions', className );
 
 		if ( ! this.getSuggestionsCount() ) {
 			return null;

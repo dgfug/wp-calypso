@@ -1,4 +1,4 @@
-@import 'calypso/assets/stylesheets/_p2-extends.scss';
+@import "calypso/assets/stylesheets/p2-extends";
 
 .is-p2-invite.invite-accept,
 .is-p2-signup .signup__step.is-user {
@@ -24,8 +24,8 @@
 	}
 
 	.form-label {
-		font-size: var( --p2-font-size-form-xxs );
-		font-weight: 500; /* stylelint-disable-line */
+		font-size: var(--p2-font-size-form-xxs);
+		font-weight: 500;
 		margin-bottom: 0.5em;
 	}
 
@@ -43,7 +43,12 @@
 
 	button {
 		&.social-buttons__button {
+			@extend %p2-form-button;
 			box-shadow: none;
+
+			> svg {
+				border: none;
+			}
 		}
 	}
 
@@ -54,19 +59,20 @@
 		align-items: center;
 	}
 
-	.signup-form__social {
+	.auth-form__social {
 		width: 100%;
 		padding: 0;
 		max-width: none;
 	}
 
-	.signup-form__social-buttons {
+	.auth-form__social-buttons {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		gap: 0;
 	}
 
-	.signup-form__social-buttons-tos {
+	.auth-form__social-buttons-tos {
 		display: none;
 	}
 
@@ -74,8 +80,8 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		font-size: var( --p2-font-size-form-xs );
-		color: var( --p2-color-text );
+		font-size: var(--p2-font-size-form-xs);
+		color: var(--p2-color-text);
 		margin-top: 24px;
 	}
 
@@ -95,14 +101,14 @@
 	text-align: center;
 	width: 100%;
 	max-width: 400px;
-	color: var( --p2-color-text-light );
-	font-size: var( --p2-font-size-form-xxs );
+	color: var(--p2-color-text-light);
+	font-size: var(--p2-font-size-form-xxs);
 	margin-bottom: 2rem;
 
 	&::before,
 	&::after {
-		background-color: var( --p2-color-border );
-		content: '';
+		background-color: var(--p2-color-border);
+		content: "";
 		display: inline-block;
 		height: 1px;
 		position: relative;

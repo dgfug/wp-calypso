@@ -2,7 +2,7 @@
 	.domain-management-header__children {
 		@include placeholder( --color-neutral-10 );
 
-		@include breakpoint-deprecated( '>480px' ) {
+		@include breakpoint-deprecated( ">480px" ) {
 			max-width: 60%;
 			margin: 0 auto;
 		}
@@ -18,4 +18,8 @@
 			width: 35%;
 		}
 	}
+}
+
+.is-mobile-app-view .domain__main-placeholder .breadcrumbs-back {
+	display: none;
 }

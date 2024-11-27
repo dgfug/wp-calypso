@@ -1,10 +1,10 @@
 {
 	"name": "@automattic/social-previews",
-	"version": "1.1.1",
+	"version": "2.1.0-beta.8",
 	"description": "A suite of components to generate previews for a post for both social and search engines.",
 	"main": "dist/cjs/index.js",
 	"module": "dist/esm/index.js",
-	"calypso:src": "src/index.js",
+	"calypso:src": "src/index.ts",
 	"sideEffects": [
 		"*.css",
 		"*.scss"
@@ -29,31 +29,45 @@
 	"bugs": "https://github.com/Automattic/wp-calypso/issues",
 	"files": [
 		"dist",
-		"src"
+		"src",
+		"CHANGELOG.md"
 	],
+	"types": "dist/types",
 	"scripts": {
-		"clean": "rm -rf dist",
-		"build": "transpile && copy-assets",
-		"prepack": "yarn run clean && yarn run build"
+		"clean": "tsc --build ./tsconfig.json ./tsconfig-cjs.json --clean && rm -rf dist",
+		"build": "tsc --build ./tsconfig.json ./tsconfig-cjs.json && copy-assets",
+		"prepare": "yarn run build",
+		"prepack": "yarn run clean && yarn run build",
+		"watch": "tsc --build ./tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@wordpress/components": "^19.2.0",
-		"@wordpress/i18n": "^4.2.4",
-		"classnames": "^2.3.1",
-		"lodash": "^4.17.21",
-		"moment": "^2.26.0",
-		"prop-types": "^15.7.2"
+		"@emotion/react": "^11.11.1",
+		"@wordpress/components": "^28.8.0",
+		"@wordpress/element": "^6.8.0",
+		"@wordpress/i18n": "^5.8.0",
+		"clsx": "^2.1.1",
+		"prop-types": "^15.7.2",
+		"tslib": "^2.3.0"
 	},
 	"devDependencies": {
+		"@automattic/calypso-build": "workspace:^",
 		"@automattic/calypso-typescript-config": "workspace:^",
-		"enzyme": "^3.11.0",
-		"react": "^17.0.2",
-		"react-dom": "^17.0.2"
+		"@testing-library/jest-dom": "^6.4.5",
+		"@testing-library/react": "^15.0.7",
+		"postcss": "^8.4.5",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"typescript": "^5.3.3",
+		"webpack": "^5.95.0"
 	},
 	"peerDependencies": {
-		"@wordpress/data": "^6.1.5",
-		"react": "^17.0.2",
-		"reakit-utils": "^0.15.1",
-		"redux": "^4.1.2"
+		"@babel/runtime": "^7.25.7",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1"
+	},
+	"peerDependenciesMeta": {
+		"@babel/runtime": {
+			"optional": true
+		}
 	}
 }

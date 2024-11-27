@@ -15,8 +15,14 @@ export function makeLayoutMiddleware( LayoutComponent ) {
 			query,
 			primary,
 			secondary,
+			renderHeaderSection,
 			showGdprBanner,
+			cachedMarkup,
 		} = context;
+		// Markup exists in the cache; no need to do extra work which won't be used.
+		if ( cachedMarkup ) {
+			return next();
+		}
 
 		// On server, only render LoggedOutLayout when logged-out.
 		if ( ! ( context.isServerSide && isUserLoggedIn( context.store.getState() ) ) ) {
@@ -30,6 +36,7 @@ export function makeLayoutMiddleware( LayoutComponent ) {
 					currentQuery={ query }
 					primary={ primary }
 					secondary={ secondary }
+					renderHeaderSection={ renderHeaderSection }
 					redirectUri={ context.originalUrl }
 					showGdprBanner={ showGdprBanner }
 				/>
@@ -52,6 +59,12 @@ export function setSectionMiddleware( section ) {
 
 export function setLocaleMiddleware( param = 'lang' ) {
 	return ( context, next ) => {
+		const queryLocale = context.query[ param ];
+		if ( queryLocale ) {
+			context.lang = queryLocale;
+			context.store.dispatch( setLocale( queryLocale ) );
+		}
+
 		const paramsLocale = context.params[ param ];
 		if ( paramsLocale ) {
 			context.lang = paramsLocale;
@@ -63,9 +76,8 @@ export function setLocaleMiddleware( param = 'lang' ) {
 
 /**
  * Composes multiple handlers into one.
- *
- * @param { ...( context, Function ) => void } handlers - A list of route handlers to compose
- * @returns  { ( context, Function ) => void } - A new route handler that executes the handlers in succession
+ * @param {Object[]} handlers { ...( context, Function ) => void } - A list of route handlers to compose
+ * @returns {Function} { ( context, Function ) => void } - A new route handler that executes the handlers in succession
  */
 export function composeHandlers( ...handlers ) {
 	return ( context, next ) => {

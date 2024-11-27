@@ -1,15 +1,15 @@
-import classNames from 'classnames';
+import clsx from 'clsx';
 import PropTypes from 'prop-types';
 
 import './style.scss';
 
 function FormSettingExplanation( {
-	className = undefined,
+	className = '',
 	noValidate = false,
 	isIndented = false,
 	...rest
 } ) {
-	const classes = classNames( 'form-setting-explanation', className, {
+	const classes = clsx( 'form-setting-explanation', className, {
 		'no-validate': noValidate,
 		'is-indented': isIndented,
 	} );

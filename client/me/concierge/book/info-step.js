@@ -1,5 +1,6 @@
 import config from '@automattic/calypso-config';
-import { CompactCard } from '@automattic/components';
+import { CompactCard, FormInputValidation, FormLabel } from '@automattic/components';
+import { getLanguage } from '@automattic/i18n-utils';
 import { localize } from 'i18n-calypso';
 import { includes } from 'lodash';
 import PropTypes from 'prop-types';
@@ -9,15 +10,12 @@ import Site from 'calypso/blocks/site';
 import QuerySmsCountries from 'calypso/components/data/query-countries/sms';
 import FormButton from 'calypso/components/forms/form-button';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormInputValidation from 'calypso/components/forms/form-input-validation';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormPhoneInput from 'calypso/components/forms/form-phone-input';
 import FormSettingExplanation from 'calypso/components/forms/form-setting-explanation';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import FormTextarea from 'calypso/components/forms/form-textarea';
 import Notice from 'calypso/components/notice';
 import Timezone from 'calypso/components/timezone';
-import { getLanguage } from 'calypso/lib/i18n-utils';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import { updateConciergeSignupForm } from 'calypso/state/concierge/actions';
 import { getCurrentUserLocale } from 'calypso/state/current-user/selectors';
@@ -204,7 +202,7 @@ class InfoStep extends Component {
 
 					<FormButton
 						disabled={ ! this.canSubmitForm() }
-						isPrimary={ true }
+						isPrimary
 						type="button"
 						onClick={ onComplete }
 					>

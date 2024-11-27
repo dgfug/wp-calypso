@@ -1,6 +1,7 @@
 import '@emotion/react';
-import { ReactElement } from 'react';
-import { Theme as ThemeType } from './lib/theme';
+import type { SubscriptionManager } from './lib/subscription-manager';
+import type { Theme as ThemeType } from './lib/theme';
+import type { ReactElement } from 'react';
 
 declare module '@emotion/react' {
 	// eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -12,8 +13,11 @@ export interface CheckoutStepProps {
 	titleContent: React.ReactNode;
 	isCompleteCallback: IsCompleteCallback;
 	activeStepContent?: React.ReactNode;
+	activeStepFooter?: React.ReactNode;
+	activeStepHeader?: React.ReactNode;
 	completeStepContent?: React.ReactNode;
 	className?: string;
+	canEditStep?: boolean;
 	editButtonText?: string;
 	editButtonAriaLabel?: string;
 	nextStepButtonText?: string;
@@ -24,56 +28,44 @@ export interface CheckoutStepProps {
 
 export type IsCompleteCallback = () => boolean | Promise< boolean >;
 
-export interface OrderSummaryData {
-	className: string;
-	summaryContent: React.ReactNode;
+export type StepCompleteCallback = () => Promise< boolean >;
+
+export interface PaymentMethodSubmitButtonProps {
+	disabled?: boolean;
+	onClick?: ProcessPayment;
 }
 
 export interface PaymentMethod {
 	id: string;
+	paymentProcessorId: string;
 	label?: React.ReactNode;
 	activeContent?: React.ReactNode;
 	inactiveContent?: React.ReactNode;
-	submitButton: ReactElement;
+	submitButton: ReactElement< PaymentMethodSubmitButtonProps >;
 	getAriaLabel: ( localize: ( value: string ) => string ) => string;
+	hasRequiredFields?: boolean;
+	isInitiallyDisabled?: boolean;
 }
 
 export type ExternalPaymentMethod = Partial< PaymentMethod >;
 
-export interface LineItem {
-	id: string;
-	type: string;
-	label: string;
-	sublabel?: string;
-	amount: LineItemAmount;
+export interface FormAndTransactionStatus {
+	formStatus: FormStatus;
+	transactionStatus: TransactionStatusState;
 }
-
-export type ExternalLineItem = Partial< LineItem >;
-
-export interface TotalValidatedLineItem extends ExternalLineItem {
-	label: LineItem[ 'label' ];
-	amount: LineItem[ 'amount' ];
-}
-
-export interface LineItemAmount {
-	currency: string;
-	value: number;
-	displayValue: string;
-}
-
-export type ExternalLineItemAmount = Partial< LineItemAmount >;
 
 export enum FormStatus {
 	LOADING = 'loading',
 	READY = 'ready',
 	SUBMITTING = 'submitting',
 	VALIDATING = 'validating',
-	COMPLETE = 'complete',
 }
 
 export interface FormStatusState {
 	formStatus: FormStatus;
 }
+
+export type FormAndTransactionStatusAction = FormStatusAction | TransactionStatusAction;
 
 export type FormStatusAction = ReactStandardAction< 'FORM_STATUS_CHANGE', FormStatus >;
 
@@ -82,12 +74,27 @@ export interface FormStatusController extends FormStatusState {
 	setFormLoading: () => void;
 	setFormValidating: () => void;
 	setFormSubmitting: () => void;
-	setFormComplete: () => void;
 }
 
 export type FormStatusSetter = ( newStatus: FormStatus ) => void;
 
-export type FormStatusManager = [ FormStatus, FormStatusSetter ];
+export type FormAndTransactionStatusManager = FormStatusManager & TransactionStatusManager;
+
+export type FormStatusManager = {
+	formStatus: FormStatus;
+	setFormStatus: FormStatusSetter;
+};
+
+export interface CheckoutContextInterface {
+	allPaymentMethods: PaymentMethod[];
+	disabledPaymentMethodIds: string[];
+	setDisabledPaymentMethodIds: ( methods: string[] ) => void;
+	paymentMethodId: string | null;
+	setPaymentMethodId: ( id: string ) => void;
+	paymentProcessors: PaymentProcessorProp;
+	onPageLoadError?: CheckoutPageErrorCallback;
+	onPaymentMethodChanged?: PaymentMethodChangedCallback;
+}
 
 export type ReactStandardAction< T = string, P = unknown > = P extends void
 	? {
@@ -101,8 +108,6 @@ export type ReactStandardAction< T = string, P = unknown > = P extends void
 
 export interface CheckoutProviderProps {
 	theme?: ThemeType;
-	total?: LineItem;
-	items?: LineItem[];
 	paymentMethods: PaymentMethod[];
 	onPaymentComplete?: PaymentEventCallback;
 	onPaymentRedirect?: PaymentEventCallback;
@@ -115,6 +120,7 @@ export interface CheckoutProviderProps {
 	paymentProcessors: PaymentProcessorProp;
 	isValidating?: boolean;
 	initiallySelectedPaymentMethodId?: string | null;
+	selectFirstAvailablePaymentMethod?: boolean;
 	children: React.ReactNode;
 }
 
@@ -131,7 +137,7 @@ export type PaymentErrorCallback = ( args: {
 } ) => void;
 export type CheckoutPageErrorCallback = (
 	errorType: string,
-	errorMessage: string,
+	error: Error,
 	errorData?: Record< string, string | number | undefined >
 ) => void;
 
@@ -142,7 +148,6 @@ export type StepChangedEventArguments = {
 };
 
 export type PaymentEventCallbackArguments = {
-	paymentMethodId: string | null;
 	transactionLastResponse: PaymentProcessorResponseData;
 };
 
@@ -160,16 +165,11 @@ export type PaymentProcessorRedirect = {
 	type: PaymentProcessorResponseType.REDIRECT;
 	payload: string | undefined;
 };
-export type PaymentProcessorManual = {
-	type: PaymentProcessorResponseType.MANUAL;
-	payload: unknown;
-};
 
 export type PaymentProcessorResponse =
 	| PaymentProcessorError
 	| PaymentProcessorSuccess
-	| PaymentProcessorRedirect
-	| PaymentProcessorManual;
+	| PaymentProcessorRedirect;
 
 export type PaymentProcessorSubmitData = unknown;
 
@@ -180,7 +180,6 @@ export type PaymentProcessorFunction = (
 export enum PaymentProcessorResponseType {
 	SUCCESS = 'SUCCESS',
 	REDIRECT = 'REDIRECT',
-	MANUAL = 'MANUAL',
 	ERROR = 'ERROR',
 }
 
@@ -239,7 +238,10 @@ export type TransactionStatusPayload =
 	| TransactionStatusPayloadRedirecting
 	| TransactionStatusPayloadError;
 
-export type TransactionStatusAction = ReactStandardAction< 'STATUS_SET', TransactionStatusPayload >;
+export type TransactionStatusAction = ReactStandardAction<
+	'TRANSACTION_STATUS_CHANGE',
+	TransactionStatusPayload
+>;
 
 export interface TransactionStatusManager extends TransactionStatusState {
 	resetTransaction: ResetTransaction;
@@ -250,7 +252,6 @@ export interface TransactionStatusManager extends TransactionStatusState {
 }
 
 export type ProcessPayment = (
-	paymentProcessorId: string,
 	processorData: PaymentProcessorSubmitData
 ) => Promise< PaymentProcessorResponse >;
 
@@ -264,12 +265,40 @@ export type SetTransactionError = ( message: string ) => void;
 
 export type ResetTransaction = () => void;
 
-export interface LineItemsState {
-	items: LineItem[];
-	total: LineItem;
+export type StepIdMap = Record< string, number >;
+
+export type StepCompleteCallbackMap = Record< string, StepCompleteCallback >;
+
+export type SetStepComplete = ( stepId: string ) => Promise< boolean >;
+
+export type CheckoutStepCompleteStatus = Record< string, boolean >;
+
+export interface CheckoutStepGroupStore {
+	state: CheckoutStepGroupState;
+	actions: CheckoutStepGroupActions;
+	subscription: SubscriptionManager;
 }
 
-export interface LineItemsProviderProps {
-	items: LineItem[];
-	total: LineItem;
+export interface CheckoutStepGroupState {
+	activeStepNumber: number;
+	totalSteps: number;
+	stepCompleteStatus: CheckoutStepCompleteStatus;
+	stepIdMap: StepIdMap;
+	stepCompleteCallbackMap: StepCompleteCallbackMap;
 }
+
+export interface CheckoutStepGroupActions {
+	setActiveStepNumber: ( stepNumber: number ) => void;
+	setStepCompleteStatus: ( newStatus: CheckoutStepCompleteStatus ) => void;
+	setStepComplete: SetStepComplete;
+	getStepNumberFromId: ( stepId: string ) => number | undefined;
+	setStepCompleteCallback: (
+		stepNumber: number,
+		stepId: string,
+		callback: StepCompleteCallback
+	) => void;
+	getStepCompleteCallback: ( stepNumber: number ) => StepCompleteCallback;
+	setTotalSteps: ( totalSteps: number ) => void;
+}
+
+export type TogglePaymentMethod = ( paymentMethodId: string, available: boolean ) => void;

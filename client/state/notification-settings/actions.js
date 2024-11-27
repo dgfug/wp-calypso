@@ -18,16 +18,14 @@ import 'calypso/state/notification-settings/init';
 
 /**
  * Returns an action object to signal the request of the current user notification settings.
- *
- * @returns {object} action object
+ * @returns {Object} action object
  */
 export const requestNotificationSettings = () => ( { type: NOTIFICATION_SETTINGS_REQUEST } );
 
 /**
  * Returns an action object to signal the arrival of the requested notification settings.
- *
- * @param  {object} settings User Notification Settings
- * @returns {object}          action object
+ * @param  {Object} settings User Notification Settings
+ * @returns {Object}          action object
  */
 export const updateNotificationSettings = ( settings ) => ( {
 	type: NOTIFICATION_SETTINGS_UPDATE,
@@ -91,24 +89,26 @@ export const showSaveErrorNotice = () =>
 		id: 'notif-settings-save',
 	} );
 
-export const saveSettings = ( source, settings, applyToAll = false ) => ( dispatch ) => {
-	dispatch( { type: NOTIFICATION_SETTINGS_SAVE } );
+export const saveSettings =
+	( source, settings, applyToAll = false ) =>
+	( dispatch ) => {
+		dispatch( { type: NOTIFICATION_SETTINGS_SAVE } );
 
-	const query = applyToAll ? { applyToAll: true } : {};
+		const query = applyToAll ? { applyToAll: true } : {};
 
-	wpcom.req
-		.post( '/me/notifications/settings/', query, buildSavePayload( source, settings ) )
-		.then( ( data ) => {
-			dispatch( showSaveSuccessNotice() );
-			dispatch( {
-				type: NOTIFICATION_SETTINGS_SAVE_COMPLETE,
-				data,
+		wpcom.req
+			.post( '/me/notifications/settings/', query, buildSavePayload( source, settings ) )
+			.then( ( data ) => {
+				dispatch( showSaveSuccessNotice() );
+				dispatch( {
+					type: NOTIFICATION_SETTINGS_SAVE_COMPLETE,
+					data,
+				} );
+			} )
+			.catch( () => {
+				dispatch( showSaveErrorNotice() );
+				dispatch( {
+					type: NOTIFICATION_SETTINGS_SAVE_FAILED,
+				} );
 			} );
-		} )
-		.catch( () => {
-			dispatch( showSaveErrorNotice() );
-			dispatch( {
-				type: NOTIFICATION_SETTINGS_SAVE_FAILED,
-			} );
-		} );
-};
+	};

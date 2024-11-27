@@ -1,10 +1,9 @@
-import { Button, CompactCard, ScreenReaderText, Gridicon } from '@automattic/components';
-import classNames from 'classnames';
+import { Button, CompactCard, ScreenReaderText, Gridicon, Spinner } from '@automattic/components';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
 import PropTypes from 'prop-types';
 import { Fragment, PureComponent } from 'react';
 import Notice from 'calypso/components/notice';
-import Spinner from 'calypso/components/spinner';
 
 class Task extends PureComponent {
 	static propTypes = {
@@ -103,12 +102,12 @@ class Task extends PureComponent {
 			return (
 				<div>
 					<div className="checklist__task-warning-background" />
-					<Gridicon icon={ 'notice-outline' } size={ 24 } />
+					<Gridicon icon="notice-outline" size={ 24 } />
 				</div>
 			);
 		}
 
-		return <Gridicon icon={ 'checkmark' } size={ 18 } />;
+		return <Gridicon icon="checkmark" size={ 18 } />;
 	}
 
 	render() {
@@ -151,7 +150,7 @@ class Task extends PureComponent {
 
 		return (
 			<CompactCard
-				className={ classNames( 'checklist__task', {
+				className={ clsx( 'checklist__task', {
 					warning: isWarning,
 					'is-completed': completed,
 					'is-in-progress': inProgress,

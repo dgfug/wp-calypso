@@ -1,5 +1,7 @@
 import config from '@automattic/calypso-config';
+import { getLanguageRouteParam } from '@automattic/i18n-utils';
 import { Provider as ReduxProvider } from 'react-redux';
+import CalypsoI18nProvider from 'calypso/components/calypso-i18n-provider';
 import { RouteProvider } from 'calypso/components/route';
 import { setHrefLangLinks } from 'calypso/controller/localized-links';
 import {
@@ -8,16 +10,16 @@ import {
 	makeLayoutMiddleware,
 } from 'calypso/controller/shared';
 import LayoutLoggedOut from 'calypso/layout/logged-out';
-import { getLanguageRouteParam } from 'calypso/lib/i18n-utils';
 import {
 	login,
 	magicLogin,
+	qrCodeLogin,
 	magicLoginUse,
 	redirectJetpack,
 	redirectDefaultLocale,
 } from './controller';
 import redirectLoggedIn from './redirect-logged-in';
-import { setShouldServerSideRenderLogin } from './ssr';
+import { setShouldServerSideRenderLogin, ssrSetupLocaleLogin, setMetaTags } from './ssr';
 
 export const LOGIN_SECTION_DEFINITION = {
 	name: 'login',
@@ -36,22 +38,25 @@ const ReduxWrappedLayout = ( {
 	secondary,
 	redirectUri,
 	showGdprBanner,
+	i18n,
 } ) => {
 	return (
-		<RouteProvider
-			currentSection={ currentSection }
-			currentRoute={ currentRoute }
-			currentQuery={ currentQuery }
-		>
-			<ReduxProvider store={ store }>
-				<LayoutLoggedOut
-					primary={ primary }
-					secondary={ secondary }
-					redirectUri={ redirectUri }
-					showGdprBanner={ showGdprBanner }
-				/>
-			</ReduxProvider>
-		</RouteProvider>
+		<CalypsoI18nProvider i18n={ i18n }>
+			<RouteProvider
+				currentSection={ currentSection }
+				currentRoute={ currentRoute }
+				currentQuery={ currentQuery }
+			>
+				<ReduxProvider store={ store }>
+					<LayoutLoggedOut
+						primary={ primary }
+						secondary={ secondary }
+						redirectUri={ redirectUri }
+						showGdprBanner={ showGdprBanner }
+					/>
+				</ReduxProvider>
+			</RouteProvider>
+		</CalypsoI18nProvider>
 	);
 };
 
@@ -65,6 +70,7 @@ export default ( router ) => {
 			[ `/log-in/link/use/${ lang }`, `/log-in/jetpack/link/use/${ lang }` ],
 			redirectLoggedIn,
 			setLocaleMiddleware(),
+			setMetaTags,
 			setSectionMiddleware( LOGIN_SECTION_DEFINITION ),
 			magicLoginUse,
 			makeLoggedOutLayout
@@ -72,8 +78,8 @@ export default ( router ) => {
 
 		router(
 			[ `/log-in/link/${ lang }`, `/log-in/jetpack/link/${ lang }`, `/log-in/new/link/${ lang }` ],
-			redirectLoggedIn,
 			setLocaleMiddleware(),
+			setMetaTags,
 			setSectionMiddleware( LOGIN_SECTION_DEFINITION ),
 			magicLogin,
 			makeLoggedOutLayout
@@ -81,23 +87,37 @@ export default ( router ) => {
 	}
 
 	router(
+		[ `/log-in/qr/${ lang }` ],
+		redirectLoggedIn,
+		setLocaleMiddleware(),
+		setMetaTags,
+		setSectionMiddleware( LOGIN_SECTION_DEFINITION ),
+		qrCodeLogin,
+		makeLoggedOutLayout
+	);
+
+	router(
 		[
 			`/log-in/:twoFactorAuthType(authenticator|backup|sms|push|webauthn)/${ lang }`,
 			`/log-in/:flow(social-connect|private-site)/${ lang }`,
-			`/log-in/:socialService(google|apple)/callback/${ lang }`,
+			`/log-in/:socialService(google|apple|github)/callback/${ lang }`,
 			`/log-in/:isJetpack(jetpack)/${ lang }`,
 			`/log-in/:isJetpack(jetpack)/:twoFactorAuthType(authenticator|backup|sms|push|webauthn)/${ lang }`,
+			`/log-in/:isJetpack(jetpack)/:action(lostpassword)/${ lang }`,
 			`/log-in/:isGutenboarding(new)/${ lang }`,
 			`/log-in/:isGutenboarding(new)/:twoFactorAuthType(authenticator|backup|sms|push|webauthn)/${ lang }`,
+			`/log-in/:action(lostpassword)/${ lang }`,
 			`/log-in/${ lang }`,
 		],
 		redirectJetpack,
 		redirectDefaultLocale,
 		setLocaleMiddleware(),
 		setHrefLangLinks,
+		setMetaTags,
 		setSectionMiddleware( LOGIN_SECTION_DEFINITION ),
 		login,
 		setShouldServerSideRenderLogin,
+		ssrSetupLocaleLogin,
 		makeLoggedOutLayout
 	);
 };

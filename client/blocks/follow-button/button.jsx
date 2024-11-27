@@ -16,6 +16,9 @@ class FollowButton extends Component {
 		disabled: PropTypes.bool,
 		followLabel: PropTypes.string,
 		followingLabel: PropTypes.string,
+		followIcon: PropTypes.object,
+		followingIcon: PropTypes.object,
+		hasButtonStyle: PropTypes.bool,
 	};
 
 	static defaultProps = {
@@ -41,7 +44,9 @@ class FollowButton extends Component {
 	};
 
 	render() {
-		let label = this.props.followLabel ? this.props.followLabel : this.props.translate( 'Follow' );
+		let label = this.props.followLabel
+			? this.props.followLabel
+			: this.props.translate( 'Subscribe' );
 		const menuClasses = [ 'button', 'follow-button', 'has-icon', this.props.className ];
 		const iconSize = this.props.iconSize;
 
@@ -49,15 +54,23 @@ class FollowButton extends Component {
 			menuClasses.push( 'is-following' );
 			label = this.props.followingLabel
 				? this.props.followingLabel
-				: this.props.translate( 'Following' );
+				: this.props.translate( 'Subscribed' );
 		}
 
 		if ( this.props.disabled ) {
 			menuClasses.push( 'is-disabled' );
 		}
 
-		const followingIcon = <Gridicon key="following" icon="reader-following" size={ iconSize } />;
-		const followIcon = <Gridicon key="follow" icon="reader-follow" size={ iconSize } />;
+		if ( this.props.hasButtonStyle ) {
+			menuClasses.push( 'has-button-style' );
+		}
+
+		const followingIcon = this.props.followingIcon || (
+			<Gridicon key="following" icon="reader-following" size={ iconSize } />
+		);
+		const followIcon = this.props.followIcon || (
+			<Gridicon key="follow" icon="reader-follow" size={ iconSize } />
+		);
 		const followLabelElement = (
 			<span key="label" className="follow-button__label">
 				{ label }

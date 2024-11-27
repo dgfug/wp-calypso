@@ -3,8 +3,10 @@ import { isEqual, memoize } from 'lodash';
 /**
  * Module variables
  */
-const REGEXP_ATTR_STRING = /(\w+)\s*=\s*"([^"]*)"(?:\s|$)|(\w+)\s*=\s*'([^']*)'(?:\s|$)|(\w+)\s*=\s*([^\s'"]+)(?:\s|$)|"([^"]*)"(?:\s|$)|(\S+)(?:\s|$)/g;
-const REGEXP_SHORTCODE = /\[(\[?)([^[\]/\s\u00a0\u200b]+)(?![\w-])([^\]/]*(?:\/(?!\])[^\]/]*)*?)(?:(\/)\]|\](?:([^[]*(?:\[(?!\/\2\])[^[]*)*)(\[\/\2\]))?)(\]?)/;
+const REGEXP_ATTR_STRING =
+	/(\w+)\s*=\s*"([^"]*)"(?:\s|$)|(\w+)\s*=\s*'([^']*)'(?:\s|$)|(\w+)\s*=\s*([^\s'"]+)(?:\s|$)|"([^"]*)"(?:\s|$)|(\S+)(?:\s|$)/g;
+const REGEXP_SHORTCODE =
+	/\[(\[?)([^[\]/\s\u00a0\u200b]+)(?![\w-])([^\]/]*(?:\/(?!\])[^\]/]*)*?)(?:(\/)\]|\](?:([^[]*(?:\[(?!\/\2\])[^[]*)*)(\[\/\2\]))?)(\]?)/;
 
 /**
  * Given a string, parses shortcode attributes and returns an object containing
@@ -12,7 +14,6 @@ const REGEXP_SHORTCODE = /\[(\[?)([^[\]/\s\u00a0\u200b]+)(?![\w-])([^\]/]*(?:\/(
  * basis, while numeric attributes are treated as an array. Named attributes
  * can be formatted as either `name="value"`, `name='value'`, or `name=value`.
  * Numeric attributes can be formatted as `"value"` or just `value`.
- *
  * @see https://github.com/WordPress/WordPress/blob/HEAD/wp-includes/js/shortcode.js
  * @param  {string} text A shortcode attribute string
  * @returns {{named: Object.<string, string>, numeric: string[]}} An object of attributes, split as named and numeric
@@ -49,10 +50,9 @@ export const parseAttributes = memoize( function ( text ) {
 /**
  * Given a value of mixed type, returns a normalized object of named and
  * numeric attributes.
- *
  * @see parseAttributes
  * @param  {*}      attributes An object to normalize
- * @returns {object}            An object of attributes, split as named and numeric
+ * @returns {Object}            An object of attributes, split as named and numeric
  */
 export const normalizeAttributes = function ( attributes ) {
 	let named;
@@ -79,8 +79,7 @@ export const normalizeAttributes = function ( attributes ) {
 
 /**
  * Given a shortcode object, returns the string value of that shortcode.
- *
- * @param  {object} shortcode A shortcode object
+ * @param  {Object} shortcode A shortcode object
  * @returns {string}           The string value of the shortcode
  */
 export const stringify = function ( shortcode ) {
@@ -121,7 +120,6 @@ export const stringify = function ( shortcode ) {
 
 /**
  * Given a shortcode string, returns the object value of that shortcode.
- *
  * @param  {string} shortcode A shortcode string
  * @returns {null|{tag: string, type: string, attrs?: {named: Object.<string, string>, numeric: string[]}, content?: string}} The object value of the shortcode
  */
@@ -172,7 +170,6 @@ export const parse = function ( shortcode ) {
  * 5. The content of a shortcode when it wraps some content.
  * 6. The closing tag.
  * 7. An extra `]` to allow for escaping shortcodes with double `[[]]`
- *
  * @param {string} tag - shortcode name
  * @returns {RegExp} regular expression
  */
@@ -193,11 +190,10 @@ export const regexp = memoize( function ( tag ) {
  *
  * Shortcodes are formatted as an object that contains the match
  * `content`, the matching `index`, and the parsed `shortcode` object.
- *
  * @param {string} tag - shortcode tagName (e.g. gallery)
  * @param {string} text - text to search for next shortcode
  * @param {number} index - last index
- * @returns {object|void} next match
+ * @returns {Object | void} next match
  */
 export const next = function ( tag, text, index = 0 ) {
 	const re = regexp( tag );

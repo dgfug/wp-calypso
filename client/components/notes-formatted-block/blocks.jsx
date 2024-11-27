@@ -1,5 +1,13 @@
 import { startsWith } from 'lodash';
+import { useSelector } from 'react-redux';
+import { useLocalizedMoment } from 'calypso/components/localized-moment';
+import isA8CForAgencies from 'calypso/lib/a8c-for-agencies/is-a8c-for-agencies';
+import { INDEX_FORMAT } from 'calypso/lib/jetpack/backup-utils';
 import isJetpackCloud from 'calypso/lib/jetpack/is-jetpack-cloud';
+import { applySiteOffset } from 'calypso/lib/site/timezone';
+import getSiteGmtOffset from 'calypso/state/selectors/get-site-gmt-offset';
+import getSiteTimezoneValue from 'calypso/state/selectors/get-site-timezone-value';
+import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 
 export const Strong = ( { children } ) => <strong>{ children }</strong>;
 
@@ -13,7 +21,7 @@ export const Link = ( { content, onClick, children } ) => {
 	const isWordPressLink = startsWith( originalUrl, 'https://wordpress.com' );
 
 	// Don't render links to WordPress.com inside Jetpack Cloud
-	if ( isWordPressLink && isJetpackCloud() ) {
+	if ( isWordPressLink && ( isJetpackCloud() || isA8CForAgencies() ) ) {
 		return children;
 	}
 
@@ -40,25 +48,25 @@ export const FilePath = ( { children } ) => (
 );
 
 export const Post = ( { content, children } ) => {
+	let titleContent = children;
+
 	// Don't render links to WordPress.com inside Jetpack Cloud
-	if ( isJetpackCloud() ) {
-		return content.isTrashed ? children : <em>{ children }</em>;
+	if ( ! ( isJetpackCloud() || isA8CForAgencies() ) ) {
+		if ( content.isTrashed ) {
+			titleContent = <a href={ `/posts/${ content.siteId }/trash` }>{ children }</a>;
+		} else {
+			titleContent = (
+				<a href={ `/read/blogs/${ content.siteId }/posts/${ content.postId }` }>{ children }</a>
+			);
+		}
 	}
 
-	if ( content.isTrashed ) {
-		return <a href={ `/posts/${ content.siteId }/trash` }>{ children }</a>;
-	}
-
-	return (
-		<a href={ `/read/blogs/${ content.siteId }/posts/${ content.postId }` }>
-			<em>{ children }</em>
-		</a>
-	);
+	return titleContent;
 };
 
 export const Comment = ( { content, children } ) => {
 	// Don't render links to WordPress.com inside Jetpack Cloud
-	if ( isJetpackCloud() ) {
+	if ( isJetpackCloud() || isA8CForAgencies() ) {
 		return children;
 	}
 
@@ -73,7 +81,7 @@ export const Comment = ( { content, children } ) => {
 
 export const Person = ( { content, onClick, meta, children } ) => {
 	// Don't render links to WordPress.com inside Jetpack Cloud
-	if ( isJetpackCloud() ) {
+	if ( isJetpackCloud() || isA8CForAgencies() ) {
 		return <strong>{ children }</strong>;
 	}
 
@@ -92,7 +100,7 @@ export const Person = ( { content, onClick, meta, children } ) => {
 
 export const Plugin = ( { content, onClick, meta, children } ) => {
 	// Don't render links to WordPress.com inside Jetpack Cloud
-	if ( isJetpackCloud() ) {
+	if ( isJetpackCloud() || isA8CForAgencies() ) {
 		return children;
 	}
 
@@ -117,7 +125,7 @@ export const Theme = ( { content, onClick, meta, children } ) => {
 
 	if ( /wordpress\.com/.test( themeUri ) ) {
 		// Don't render links to WordPress.com inside Jetpack Cloud
-		return isJetpackCloud() ? (
+		return isJetpackCloud() || isA8CForAgencies() ? (
 			children
 		) : (
 			<a
@@ -140,6 +148,31 @@ export const Theme = ( { content, onClick, meta, children } ) => {
 			onClick={ onClick }
 			data-activity={ meta.activity }
 			data-section="themes"
+			data-intent="view"
+		>
+			{ children }
+		</a>
+	);
+};
+
+export const Backup = ( { content, onClick, meta, children } ) => {
+	const moment = useLocalizedMoment();
+
+	const siteId = useSelector( getSelectedSiteId );
+	const timezone = useSelector( ( state ) => getSiteTimezoneValue( state, siteId ) );
+	const gmtOffset = useSelector( ( state ) => getSiteGmtOffset( state, siteId ) );
+
+	const rewindDateLocal = applySiteOffset( moment( content.rewindId * 1000 ), {
+		timezone,
+		gmtOffset,
+	} );
+
+	return (
+		<a
+			href={ `/backup/${ content.siteSlug }?date=` + rewindDateLocal.format( INDEX_FORMAT ) }
+			onClick={ onClick }
+			data-activity={ meta.activity }
+			data-section="backups"
 			data-intent="view"
 		>
 			{ children }

@@ -1,24 +1,29 @@
-import classNames from 'classnames';
-import { useTranslate } from 'i18n-calypso';
-import { ReactChild, ReactElement } from 'react';
+import { WordPressLogo, JetpackLogo, WooCommerceWooLogo } from '@automattic/components';
+import clsx from 'clsx';
+import { TranslateResult, useTranslate } from 'i18n-calypso';
+import { ReactElement } from 'react';
 import ActionButtons from '../action-buttons';
 import StepNavigationLink from '../step-navigation-link';
 import './style.scss';
 
 interface Props {
+	stepName: string;
+	stepSectionName?: string;
 	stepContent: ReactElement;
+	shouldHideNavButtons?: boolean;
+	shouldStickyNavButtons?: boolean;
+	hasStickyNavButtonsPadding?: boolean;
 	hideBack?: boolean;
 	hideSkip?: boolean;
 	hideNext?: boolean;
-	formattedHeader?: ReactElement;
-	shouldHideNavButtons?: boolean;
 	skipButtonAlign?: 'top' | 'bottom';
 	skipHeadingText?: string;
+	backLabelText?: TranslateResult;
+	skipLabelText?: TranslateResult;
+	nextLabelText?: TranslateResult;
+	formattedHeader?: ReactElement;
 	hideFormattedHeader?: boolean;
 	headerImageUrl?: string;
-	backLabelText?: string | ReactChild;
-	skipLabelText?: string | ReactChild;
-	nextLabelText?: string | ReactChild;
 	className?: string;
 	// Displays an <hr> above the skip button and adds more white space
 	isLargeSkipLayout?: boolean;
@@ -26,46 +31,60 @@ interface Props {
 	headerButton?: ReactElement;
 	customizedActionButtons?: ReactElement;
 	isWideLayout?: boolean;
+	isExtraWideLayout?: boolean;
 	isFullLayout?: boolean;
 	isHorizontalLayout?: boolean;
 	goBack?: () => void;
+	onSkip?: () => void;
 	goNext?: () => void;
 	flowName?: string;
 	intent?: string;
-	stepName?: string;
-	stepSectionName?: string;
 	recordTracksEvent: ( eventName: string, eventProperties: object ) => void;
+	showHeaderJetpackPowered?: boolean;
+	showJetpackPowered?: boolean;
+	showHeaderWooCommercePowered?: boolean;
+	showFooterWooCommercePowered?: boolean;
+	backUrl?: string;
 }
 
 const StepContainer: React.FC< Props > = ( {
 	stepContent,
-	hideBack,
-	hideSkip,
-	hideNext = true,
-	formattedHeader,
+	stepName,
 	shouldHideNavButtons,
-	skipButtonAlign = 'bottom',
-	skipHeadingText,
-	headerImageUrl,
-	hideFormattedHeader,
+	shouldStickyNavButtons,
+	hasStickyNavButtonsPadding,
+	hideBack,
 	backLabelText,
+	hideSkip,
 	skipLabelText,
+	skipButtonAlign = 'top',
+	skipHeadingText,
+	hideNext = true,
 	nextLabelText,
+	formattedHeader,
+	headerImageUrl,
+	headerButton,
+	hideFormattedHeader,
 	className,
 	isHorizontalLayout,
 	isFullLayout,
 	isWideLayout,
-	headerButton,
+	isExtraWideLayout,
 	isExternalBackUrl,
 	isLargeSkipLayout,
 	customizedActionButtons,
+	backUrl,
 	goBack,
+	onSkip,
 	goNext,
 	flowName,
 	intent,
-	stepName,
 	stepSectionName,
 	recordTracksEvent,
+	showHeaderJetpackPowered,
+	showHeaderWooCommercePowered,
+	showJetpackPowered,
+	showFooterWooCommercePowered,
 } ) => {
 	const translate = useTranslate();
 
@@ -86,14 +105,16 @@ const StepContainer: React.FC< Props > = ( {
 		}
 	};
 
-	function renderBack() {
-		if ( shouldHideNavButtons ) {
+	function BackButton() {
+		// Hide back button if goBack is falsy, it won't do anything in that case.
+		if ( shouldHideNavButtons || ( ! goBack && ! backUrl ) ) {
 			return null;
 		}
 		return (
 			<StepNavigationLink
 				direction="back"
 				handleClick={ goBack }
+				backUrl={ backUrl }
 				label={ backLabelText }
 				hasBackIcon
 				rel={ isExternalBackUrl ? 'external' : '' }
@@ -102,14 +123,10 @@ const StepContainer: React.FC< Props > = ( {
 		);
 	}
 
-	function renderSkip( {
-		borderless,
-		hasForwardIcon,
-	}: {
-		borderless: boolean;
-		hasForwardIcon?: boolean;
-	} ) {
-		if ( shouldHideNavButtons || ! goNext ) {
+	function SkipButton() {
+		const skipAction = onSkip ?? goNext;
+
+		if ( shouldHideNavButtons || ! skipAction ) {
 			return null;
 		}
 
@@ -120,20 +137,19 @@ const StepContainer: React.FC< Props > = ( {
 				) }
 				<StepNavigationLink
 					direction="forward"
-					handleClick={ goNext }
+					handleClick={ skipAction }
 					label={ skipLabelText }
-					cssClass={ classNames( 'step-container__navigation-link', 'has-underline', {
+					cssClass={ clsx( 'step-container__navigation-link', 'has-underline', {
 						'has-skip-heading': skipHeadingText,
 					} ) }
-					borderless={ borderless }
-					hasForwardIcon={ hasForwardIcon }
+					borderless
 					recordClick={ () => recordClick( 'forward' ) }
 				/>
 			</div>
 		);
 	}
 
-	function renderNext() {
+	function NextButton() {
 		if ( shouldHideNavButtons || ! goNext ) {
 			return null;
 		}
@@ -150,24 +166,30 @@ const StepContainer: React.FC< Props > = ( {
 		);
 	}
 
-	const backButton = ! hideBack && renderBack();
-	const skipButton = ! hideSkip && skipButtonAlign === 'top' && renderSkip( { borderless: true } );
-	const nextButton = ! hideNext && renderNext();
-	const hasNavigation = backButton || skipButton || nextButton || customizedActionButtons;
-	const classes = classNames( 'step-container', className, {
+	const classes = clsx( 'step-container', className, flowName, stepName, {
 		'is-horizontal-layout': isHorizontalLayout,
 		'is-wide-layout': isWideLayout,
 		'is-full-layout': isFullLayout,
 		'is-large-skip-layout': isLargeSkipLayout,
-		'has-navigation': hasNavigation,
+		'has-navigation': ! shouldHideNavButtons,
+		'is-extra-wide-layout': isExtraWideLayout,
 	} );
 
 	return (
 		<div className={ classes }>
-			<ActionButtons className="step-container__navigation" sticky={ null }>
-				{ backButton }
-				{ skipButton }
-				{ nextButton }
+			<ActionButtons
+				className={ clsx( 'step-container__navigation', {
+					'should-hide-nav-buttons': shouldHideNavButtons,
+					'should-sticky-nav-buttons': shouldStickyNavButtons,
+					'has-sticky-nav-buttons-padding': hasStickyNavButtonsPadding,
+				} ) }
+			>
+				{ shouldStickyNavButtons && (
+					<WordPressLogo className="step-container__navigation-logo" size={ 24 } />
+				) }
+				{ ! hideBack && <BackButton /> }
+				{ ! hideSkip && skipButtonAlign === 'top' && <SkipButton /> }
+				{ ! hideNext && <NextButton /> }
 				{ customizedActionButtons }
 			</ActionButtons>
 			{ ! hideFormattedHeader && (
@@ -179,6 +201,16 @@ const StepContainer: React.FC< Props > = ( {
 						</div>
 					) }
 					{ headerButton && <div className="step-container__header-button">{ headerButton }</div> }
+					{ showHeaderJetpackPowered && (
+						<div className="step-container__header-jetpack-powered">
+							<JetpackLogo monochrome size={ 18 } /> <span>{ translate( 'Jetpack powered' ) }</span>
+						</div>
+					) }
+					{ showHeaderWooCommercePowered && (
+						<div className="step-container__header-woocommerce-powered">
+							<WooCommerceWooLogo /> <span>{ translate( 'WooCommerce powered' ) }</span>
+						</div>
+					) }
 				</div>
 			) }
 
@@ -187,7 +219,18 @@ const StepContainer: React.FC< Props > = ( {
 			{ ! hideSkip && skipButtonAlign === 'bottom' && (
 				<div className="step-container__buttons">
 					{ isLargeSkipLayout && <hr className="step-container__skip-hr" /> }
-					{ renderSkip( { borderless: true } ) }
+					<SkipButton />
+				</div>
+			) }
+			{ showJetpackPowered && (
+				<div className="step-container__jetpack-powered">
+					<JetpackLogo monochrome size={ 18 } /> <span>{ translate( 'Jetpack powered' ) }</span>
+				</div>
+			) }
+
+			{ showFooterWooCommercePowered && (
+				<div className="step-container__woocommerce-powered">
+					<WooCommerceWooLogo /> <span>{ translate( 'WooCommerce powered' ) }</span>
 				</div>
 			) }
 		</div>

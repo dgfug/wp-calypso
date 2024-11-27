@@ -61,7 +61,6 @@ class Stepper {
 
 	/**
 	 * Jump directly to a position, bypassing the stepper
-	 *
 	 * @param {number} x - x coord
 	 * @param {number} y - y coord
 	 */
@@ -85,7 +84,6 @@ class Stepper {
 
 	/**
 	 * Move a step along the timeline, with optional easing
-	 *
 	 * @param {number} ts - timestamp
 	 */
 	step = ( ts ) => {
@@ -133,7 +131,6 @@ class Stepper {
 
 /**
  * Eases the progress of a curve from 0 to 1. Slows down as it approaches the target.
- *
  * @param {number} val current value to be eased. [0,1]
  * @returns {number} eased val
  */
@@ -144,8 +141,7 @@ function circularOutEasing( val ) {
 
 /**
  * Scrolls a container to the specified location
- *
- * @param {object} options - options object (see below)
+ * @param {Object} options - options object (see below)
  * @param {number} [options.x] - desired left or x coordinate
  * @param {number} [options.y] - desired top or y coordinate
  * @param {Function} [options.easing] - easing function, defaults to TWEEN.Easing.Circular.Out
@@ -153,7 +149,7 @@ function circularOutEasing( val ) {
  * @param {Function} [options.onStart] - callback before start is called
  * @param {Function} [options.onComplete] - callback when scroll is finished
  * @param {HTMLElement} [options.container] - the container to scroll instead of window, if any
- * @returns {object} - the stepper
+ * @returns {Object | undefined} - the stepper
  */
 export default function scrollTo( options ) {
 	const container = options.container || window;

@@ -2,15 +2,9 @@
  * @jest-environment jsdom
  */
 
+import nock from 'nock';
 import flows from 'calypso/signup/config/flows';
-import { useNock } from 'calypso/test-helpers/use-nock';
-import {
-	createSiteWithCart,
-	isDomainFulfilled,
-	isPlanFulfilled,
-	isSiteTopicFulfilled,
-	isSiteTypeFulfilled,
-} from '../step-actions';
+import { createSiteWithCart, isDomainFulfilled, isPlanFulfilled } from '../step-actions';
 
 jest.mock( 'calypso/signup/config/steps', () => require( './mocks/signup/config/steps' ) );
 jest.mock( 'calypso/signup/config/flows', () => require( './mocks/signup/config/flows' ) );
@@ -18,85 +12,44 @@ jest.mock( 'calypso/signup/config/flows-pure', () =>
 	require( './mocks/signup/config/flows-pure' )
 );
 
+// A Promise wrapper around the callback which resolves after the callback completes
+// to ensure jest waits for the test to finish.
+async function testCreateSite( cb, ...args ) {
+	return new Promise( ( resolve ) => {
+		createSiteWithCart(
+			( response ) => {
+				cb( response );
+				resolve();
+			},
+			...args
+		);
+	} );
+}
+
 describe( 'createSiteWithCart()', () => {
 	// createSiteWithCart() function is not designed to be easy for test at the moment.
 	// Thus we intentionally mock the failing case here so that the parts we want to test
 	// would be easier to write.
-	useNock( ( nock ) => {
-		nock( 'https://public-api.wordpress.com:443' )
-			.persist()
-			.post( '/rest/v1.1/sites/new' )
-			.reply( 400, function ( uri, requestBody ) {
-				return {
-					error: 'error',
-					message: 'something goes wrong!',
-					requestBody,
-				};
-			} );
-	} );
+	nock( 'https://public-api.wordpress.com' )
+		.persist()
+		.post( '/rest/v1.1/sites/new' )
+		.reply( 400, function ( uri, requestBody ) {
+			return {
+				error: 'error',
+				message: 'something goes wrong!',
+				requestBody,
+			};
+		} );
 
-	test( 'should use the vertical field in the survey tree if the site topic one is empty.', () => {
-		const vertical = 'foo topic';
-		const fakeStore = {
-			getState: () => ( {
-				signup: {
-					steps: {
-						survey: {
-							vertical,
-						},
-					},
-				},
-			} ),
-		};
-
-		createSiteWithCart(
-			( response ) => {
-				expect( response.requestBody.options.site_vertical ).toBeUndefined();
-			},
-			[],
-			[],
-			fakeStore
-		);
-	} );
-
-	test( 'should use the site topic state if it is not empty.', () => {
-		const verticalId = 'meh';
-		const siteTopicSlug = 'foo topic';
-		const fakeStore = {
-			getState: () => ( {
-				signup: {
-					steps: {
-						siteType: 'blog',
-						siteVertical: {
-							id: verticalId,
-							slug: siteTopicSlug,
-						},
-						survey: {
-							vertical: 'should not use this',
-						},
-					},
-				},
-			} ),
-		};
-
-		createSiteWithCart(
-			( response ) => {
-				expect( response.requestBody.options.site_vertical ).toEqual( verticalId );
-			},
-			[],
-			[],
-			fakeStore
-		);
-	} );
-
-	test( 'should find available url if siteUrl is empty and enable auto generated blog name', () => {
+	test( 'should find available url if siteUrl is empty and enable auto generated blog name', async () => {
+		expect.assertions( 1 );
 		const fakeStore = {
 			getState: () => ( {
 				signup: { dependencyStore: { shouldHideFreePlan: true } },
 			} ),
 		};
 
-		createSiteWithCart(
+		await testCreateSite(
 			( response ) => {
 				expect( response.requestBody.find_available_url ).toBe( true );
 			},
@@ -106,12 +59,13 @@ describe( 'createSiteWithCart()', () => {
 		);
 	} );
 
-	test( "don't automatically find available url if siteUrl is defined", () => {
+	test( "don't automatically find available url if siteUrl is defined", async () => {
+		expect.assertions( 1 );
 		const fakeStore = {
 			getState: () => ( {} ),
 		};
 
-		createSiteWithCart(
+		await testCreateSite(
 			( response ) => {
 				expect( response.requestBody.find_available_url ).toBeFalsy();
 			},
@@ -121,7 +75,8 @@ describe( 'createSiteWithCart()', () => {
 		);
 	} );
 
-	test( 'use username for blog_name if user data available and enable auto generated blog name', () => {
+	test( 'use username for blog_name if user data available and enable auto generated blog name', async () => {
+		expect.assertions( 1 );
 		const fakeStore = {
 			getState: () => ( {
 				currentUser: {
@@ -133,7 +88,7 @@ describe( 'createSiteWithCart()', () => {
 			} ),
 		};
 
-		createSiteWithCart(
+		await testCreateSite(
 			( response ) => {
 				expect( response.requestBody.blog_name ).toBe( 'alex' );
 			},
@@ -143,70 +98,17 @@ describe( 'createSiteWithCart()', () => {
 		);
 	} );
 
-	test( "use username from dependency store for blog_name if user data isn't available and enable auto generated blog name", () => {
+	test( "use username from dependency store for blog_name if user data isn't available and enable auto generated blog name", async () => {
+		expect.assertions( 1 );
 		const fakeStore = {
 			getState: () => ( {
 				signup: { dependencyStore: { username: 'alex', shouldHideFreePlan: true } },
 			} ),
 		};
 
-		createSiteWithCart(
+		await testCreateSite(
 			( response ) => {
 				expect( response.requestBody.blog_name ).toBe( 'alex' );
-			},
-			[],
-			{ siteUrl: undefined },
-			fakeStore
-		);
-	} );
-
-	test( "use site title for blog_name if username isn't available and enable auto generated blog name", () => {
-		const fakeStore = {
-			getState: () => ( {
-				signup: { steps: { siteTitle: 'mytitle' }, dependencyStore: { shouldHideFreePlan: true } },
-			} ),
-		};
-
-		createSiteWithCart(
-			( response ) => {
-				expect( response.requestBody.blog_name ).toBe( 'mytitle' );
-			},
-			[],
-			{ siteUrl: undefined },
-			fakeStore
-		);
-	} );
-
-	test( "use site type for blog_name if username and title aren't available and enable auto generated blog name", () => {
-		const fakeStore = {
-			getState: () => ( {
-				signup: { steps: { siteType: 'blog' }, dependencyStore: { shouldHideFreePlan: true } },
-			} ),
-		};
-
-		createSiteWithCart(
-			( response ) => {
-				expect( response.requestBody.blog_name ).toBe( 'blog' );
-			},
-			[],
-			{ siteUrl: undefined },
-			fakeStore
-		);
-	} );
-
-	test( "use site vertical for blog_name if username, title, and site type isn't available and enable auto generated blog name", () => {
-		const fakeStore = {
-			getState: () => ( {
-				signup: {
-					steps: { siteVertical: { name: 'art' } },
-					dependencyStore: { shouldHideFreePlan: true },
-				},
-			} ),
-		};
-
-		createSiteWithCart(
-			( response ) => {
-				expect( response.requestBody.blog_name ).toBe( 'art' );
 			},
 			[],
 			{ siteUrl: undefined },
@@ -300,7 +202,7 @@ describe( 'isPlanFulfilled()', () => {
 			submitSignupStep,
 		};
 		const defaultDependencies = { cartItem: 'testPlan' };
-		const cartItem = { product_slug: defaultDependencies.cartItem };
+		const cartItems = [ { product_slug: defaultDependencies.cartItem } ];
 
 		expect( flows.excludeStep ).not.toHaveBeenCalled();
 		expect( submitSignupStep ).not.toHaveBeenCalled();
@@ -308,8 +210,34 @@ describe( 'isPlanFulfilled()', () => {
 		isPlanFulfilled( stepName, defaultDependencies, nextProps );
 
 		expect( submitSignupStep ).toHaveBeenCalledWith(
-			{ stepName, cartItem, wasSkipped: true },
-			{ cartItem }
+			{ stepName, cartItems, wasSkipped: true },
+			{ cartItems }
+		);
+		expect( flows.excludeStep ).toHaveBeenCalledWith( stepName );
+	} );
+
+	test( 'should remove a step when a domain transfer is selected in the `domain-transfer` flow', () => {
+		const stepName = 'plans';
+		const nextProps = {
+			isPaidPlan: false,
+			sitePlanSlug: 'sitePlanSlug',
+			flowName: 'domain-transfer',
+			signupDependencies: {
+				domainItem: {
+					product_slug: 'domain_transfer',
+				},
+			},
+			submitSignupStep,
+		};
+
+		expect( flows.excludeStep ).not.toHaveBeenCalled();
+		expect( submitSignupStep ).not.toHaveBeenCalled();
+
+		isPlanFulfilled( stepName, undefined, nextProps );
+
+		expect( submitSignupStep ).toHaveBeenCalledWith(
+			{ stepName, cartItems: null, wasSkipped: true },
+			{ cartItems: null }
 		);
 		expect( flows.excludeStep ).toHaveBeenCalledWith( stepName );
 	} );
@@ -329,163 +257,5 @@ describe( 'isPlanFulfilled()', () => {
 
 		expect( flows.excludeStep ).not.toHaveBeenCalled();
 		expect( submitSignupStep ).not.toHaveBeenCalled();
-	} );
-} );
-
-describe( 'isSiteTypeFulfilled()', () => {
-	const submitSiteType = jest.fn();
-
-	beforeEach( () => {
-		flows.excludeStep.mockClear();
-		submitSiteType.mockClear();
-	} );
-
-	test( 'should remove a fulfilled step', () => {
-		const stepName = 'site-type';
-		const initialContext = { query: { site_type: 'blog' } };
-		const nextProps = { initialContext, submitSiteType };
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-		expect( submitSiteType ).not.toHaveBeenCalled();
-
-		isSiteTypeFulfilled( stepName, undefined, nextProps );
-
-		expect( submitSiteType ).toHaveBeenCalledWith( 'blog' );
-		expect( flows.excludeStep ).toHaveBeenCalledWith( 'site-type' );
-	} );
-
-	test( 'should not remove unfulfilled step', () => {
-		const stepName = 'site-type';
-		const initialContext = {};
-		const nextProps = { initialContext, submitSiteType };
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-
-		isSiteTypeFulfilled( stepName, undefined, nextProps );
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-	} );
-
-	test( 'should not remove step given an invalid site type', () => {
-		const stepName = 'site-type';
-		const initialContext = { query: { site_type: 'an-invalid-site-type-slug' } };
-		const nextProps = { initialContext, submitSiteType };
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-
-		isSiteTypeFulfilled( stepName, undefined, nextProps );
-
-		expect( submitSiteType ).not.toHaveBeenCalled();
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-	} );
-} );
-
-describe( 'isSiteTopicFulfilled()', () => {
-	const setSurvey = jest.fn();
-	const submitSignupStep = jest.fn();
-	const submitSiteVertical = jest.fn();
-
-	beforeEach( () => {
-		flows.excludeStep.mockClear();
-		setSurvey.mockClear();
-		submitSignupStep.mockClear();
-		submitSiteVertical.mockClear();
-	} );
-
-	test( 'should remove a step fulfilled', () => {
-		const flowName = 'flowWithSiteTopic';
-		const stepName = 'site-topic';
-		const initialContext = { query: { vertical: 'verticalSlug' } };
-		const nextProps = { initialContext, flowName, submitSignupStep, submitSiteVertical, setSurvey };
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-
-		isSiteTopicFulfilled( stepName, undefined, nextProps );
-
-		expect( flows.excludeStep ).toHaveBeenCalledWith( 'site-topic' );
-	} );
-
-	test( 'should not remove any step unfulfilled', () => {
-		const flowName = 'flowWithSiteTopicAndTitle';
-		const stepName = 'site-topic-and-title';
-		const initialContext = { query: { vertical: 'verticalSlug' } };
-		const nextProps = { initialContext, flowName, submitSignupStep, submitSiteVertical, setSurvey };
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-
-		isSiteTopicFulfilled( stepName, undefined, nextProps );
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-	} );
-
-	test( 'should call both setSurvey() and submitSiteVertical() when vertical query param passed', () => {
-		const flowName = 'flowWithSiteTopic';
-		const stepName = 'site-topic';
-		const initialContext = { query: { vertical: 'verticalSlug' } };
-		const nextProps = { initialContext, flowName, submitSignupStep, submitSiteVertical, setSurvey };
-
-		expect( setSurvey ).not.toHaveBeenCalled();
-		expect( submitSiteVertical ).not.toHaveBeenCalled();
-
-		isSiteTopicFulfilled( stepName, undefined, nextProps );
-
-		expect( setSurvey ).toHaveBeenCalled();
-		expect( submitSiteVertical ).toHaveBeenCalled();
-	} );
-
-	test( 'should call neither setSurvey() nor submitSiteVertical() when no vertical query param passed', () => {
-		const flowName = 'flowWithSiteTopic';
-		const stepName = 'site-topic';
-		const initialContext = { query: {} };
-		const nextProps = { initialContext, flowName, submitSiteVertical, setSurvey };
-
-		expect( setSurvey ).not.toHaveBeenCalled();
-		expect( submitSiteVertical ).not.toHaveBeenCalled();
-
-		isSiteTopicFulfilled( stepName, undefined, nextProps );
-
-		expect( setSurvey ).not.toHaveBeenCalled();
-		expect( submitSiteVertical ).not.toHaveBeenCalled();
-	} );
-
-	test( 'should call neither setSurvey() nor submitSiteVertical() when the flow contains survey step', () => {
-		const flowName = 'flowWithSiteTopicAndSurvey';
-		const stepName = 'site-topic';
-		const initialContext = { query: { vertical: 'verticalSlug' } };
-		const nextProps = { initialContext, flowName, submitSiteVertical, setSurvey };
-
-		expect( setSurvey ).not.toHaveBeenCalled();
-		expect( submitSiteVertical ).not.toHaveBeenCalled();
-
-		isSiteTopicFulfilled( stepName, undefined, nextProps );
-
-		expect( setSurvey ).not.toHaveBeenCalled();
-		expect( submitSiteVertical ).not.toHaveBeenCalled();
-	} );
-
-	test( 'should remove a step with optional dependency not met', () => {
-		const flowName = 'flowWithSiteTopicWithOptionalTheme';
-		const stepName = 'site-topic-with-optional-theme';
-		const initialContext = { query: { vertical: 'verticalSlug' } };
-		const nextProps = { initialContext, flowName, submitSignupStep, submitSiteVertical, setSurvey };
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-
-		isSiteTopicFulfilled( stepName, undefined, nextProps );
-
-		expect( flows.excludeStep ).toHaveBeenCalledWith( 'site-topic-with-optional-theme' );
-	} );
-
-	test( 'should remove a step with optional dependency met', () => {
-		const flowName = 'flowWithSiteTopicWithOptionalSurveyQuestion';
-		const stepName = 'site-topic-with-optional-survey-question';
-		const initialContext = { query: { vertical: 'verticalSlug' } };
-		const nextProps = { initialContext, flowName, submitSignupStep, submitSiteVertical, setSurvey };
-
-		expect( flows.excludeStep ).not.toHaveBeenCalled();
-
-		isSiteTopicFulfilled( stepName, undefined, nextProps );
-
-		expect( flows.excludeStep ).toHaveBeenCalledWith( 'site-topic-with-optional-survey-question' );
 	} );
 } );

@@ -8,47 +8,42 @@ const identity = ( data ) => data;
 
 /**
  * Returns response data from an HTTP request success action if available
- *
- * @param {object} action may contain HTTP response data
- * @returns {*|undefined} response data if available
+ * @param {Object} action may contain HTTP response data
+ * @returns {*} response data if available
  */
 export const getData = ( action ) => get( action, 'meta.dataLayer.data', undefined );
 
 /**
  * Returns error data from an HTTP request failure action if available
- *
- * @param {object} action may contain HTTP response error data
- * @returns {*|undefined} error data if available
+ * @param {Object} action may contain HTTP response error data
+ * @returns {*} error data if available
  */
 export const getError = ( action ) => get( action, 'meta.dataLayer.error', undefined );
 
 /**
  * Returns (response) headers data from an HTTP request action if available
- *
- * @param   {object}      action Request action for which to retrieve HTTP response headers
- * @returns {*|undefined}        Headers data if available
+ * @param   {Object}      action Request action for which to retrieve HTTP response headers
+ * @returns {*} Headers data if available
  */
 export const getHeaders = ( action ) => get( action, 'meta.dataLayer.headers', undefined );
 
 /**
- * @typedef {object} ProgressData
+ * @typedef {Object} ProgressData
  * @property {number} loaded Number of bytes already transferred
  * @property {number} total  Total number of bytes to transfer
  */
 
 /**
  * Returns progress data from an HTTP request progress action if available
- *
- * @param  {object} action          may contain HTTP progress data
+ * @param  {Object} action          may contain HTTP progress data
  * @returns {ProgressData|undefined} Progress data if available
  */
 export const getProgress = ( action ) => get( action, 'meta.dataLayer.progress', undefined );
 
 /**
  * Returns stream record from an HTTP request action if available
- *
- * @param {object} action may contain stream record
- * @returns {*|undefined} response data if available
+ * @param {Object} action may contain stream record
+ * @returns {*} response data if available
  */
 export const getStreamRecord = ( action ) =>
 	get( action, 'meta.dataLayer.streamRecord', undefined );
@@ -105,7 +100,6 @@ export const reducer = keyedReducer( 'meta.dataLayer.requestKey', requestsReduce
  * _not_ about network activity, which is why this is code is
  * here operating on the _REQUEST actions and not in the HTTP
  * pipeline as a processor on HTTP_REQUEST actions.
- *
  * @param {Function} next next link in HTTP middleware chain
  * @returns {Function} middleware function to track requests
  */
@@ -130,7 +124,6 @@ export const trackRequests = ( next ) => ( store, action ) => {
 
 /**
  * Dispatches to appropriate function based on HTTP request meta
- *
  * @see state/data-layer/wpcom-http/actions#fetch creates HTTP requests
  *
  * When the WPCOM HTTP data layer handles requests it will add
@@ -211,12 +204,12 @@ function createRequestAction( options, action ) {
 	} = options;
 
 	const error = getError( action );
-	if ( error ) {
+	if ( undefined !== error ) {
 		return onError( action, error );
 	}
 
 	const data = getData( action );
-	if ( data ) {
+	if ( undefined !== data ) {
 		try {
 			return onSuccess( action, fromApi( data ) );
 		} catch ( err ) {
@@ -225,12 +218,12 @@ function createRequestAction( options, action ) {
 	}
 
 	const progress = getProgress( action );
-	if ( progress ) {
+	if ( undefined !== progress ) {
 		return onProgress( action, progress );
 	}
 
 	const record = getStreamRecord( action );
-	if ( record ) {
+	if ( undefined !== record ) {
 		return onStreamRecord( action, record );
 	}
 

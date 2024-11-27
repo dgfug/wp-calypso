@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import { shouldFetchRelated, relatedPostsForPost } from '../selectors';
 
 describe( 'selectors', () => {
@@ -17,7 +16,7 @@ describe( 'selectors', () => {
 					1,
 					1
 				)
-			).to.be.true;
+			).toBe( true );
 		} );
 		test( 'should return false if key present', () => {
 			expect(
@@ -26,7 +25,7 @@ describe( 'selectors', () => {
 						reader: {
 							relatedPosts: {
 								queuedRequests: {
-									'1-1-all': true,
+									'1-1-all-2': true,
 								},
 								items: {},
 							},
@@ -35,7 +34,7 @@ describe( 'selectors', () => {
 					1,
 					1
 				)
-			).to.be.false;
+			).toBe( false );
 		} );
 
 		test( 'should return false if we have a value', () => {
@@ -46,7 +45,7 @@ describe( 'selectors', () => {
 							relatedPosts: {
 								queuedRequests: {},
 								items: {
-									'1-1-all': [],
+									'1-1-all-2': [],
 								},
 							},
 						},
@@ -54,7 +53,7 @@ describe( 'selectors', () => {
 					1,
 					1
 				)
-			).to.be.false;
+			).toBe( false );
 		} );
 	} );
 
@@ -66,7 +65,7 @@ describe( 'selectors', () => {
 						reader: {
 							relatedPosts: {
 								items: {
-									'1-1-all': [ 1, 2 ],
+									'1-1-all-2': [ 1, 2 ],
 								},
 							},
 						},
@@ -74,7 +73,7 @@ describe( 'selectors', () => {
 					1,
 					1
 				)
-			).to.eql( [ 1, 2 ] );
+			).toEqual( [ 1, 2 ] );
 		} );
 
 		test( 'should return undefined if nothing present', () => {
@@ -84,7 +83,7 @@ describe( 'selectors', () => {
 						reader: {
 							relatedPosts: {
 								items: {
-									'1-2-all': [ 1, 2 ],
+									'1-2-all-2': [ 1, 2 ],
 								},
 							},
 						},
@@ -92,7 +91,7 @@ describe( 'selectors', () => {
 					1,
 					1
 				)
-			).to.be.undefined;
+			).toBeUndefined();
 		} );
 	} );
 } );

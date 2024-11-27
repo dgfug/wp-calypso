@@ -1,0 +1,141 @@
+@use "sass:math";
+@import "@wordpress/base-styles/breakpoints";
+@import "@automattic/components/src/highlight-cards/variables";
+@import "@wordpress/base-styles/mixins";
+
+.stats__post-detail-highlights-section {
+	@include break-small {
+		// padding-bottom: $vertical-margin;
+	}
+	padding-top: $vertical-margin;
+
+	padding-bottom: $vertical-margin;
+
+	.stats > & {
+		@media (max-width: $break-small) {
+			padding-top: $mobile-highlights-section-top-padding;
+		}
+	}
+
+	.highlight-cards {
+		background-color: inherit;
+		box-shadow: none;
+	}
+
+
+	.section-nav {
+		box-shadow: inset 0 -1px 0 #0000000d;
+	}
+
+	.highlight-cards-list {
+		display: grid;
+		grid-template-columns: minmax(600px, 3fr) minmax(200px, 1fr);
+		grid-template-rows: 1fr;
+		column-gap: 10px;
+		overflow-x: auto;
+
+		@media (max-width: $break-medium) {
+			display: block;
+			padding: 0;
+
+			& > * {
+				padding: 24px;
+			}
+
+			.post-stats-card {
+				min-width: unset;
+				border-radius: 0;
+				border-top: 1px solid var(--color-border-subtle);
+			}
+
+			.highlight-card {
+				height: 180px;
+				margin: math.div($vertical-margin, 2) 0;
+				border-left: 0;
+				border-right: 0;
+				border-radius: 0;
+			}
+		}
+	}
+
+	.post-stats-card {
+		margin: 0;
+		max-height: unset;
+
+		@media (max-width: $break-small) {
+			gap: 24px 12px;
+		}
+	}
+
+	.post-stats-card__thumbnail {
+		max-height: 300px;
+
+		@media (max-width: $break-medium) {
+			max-height: unset;
+		}
+	}
+
+	.highlight-card {
+		width: 100%;
+		max-height: 300px;
+		padding: 24px;
+		overflow-y: auto;
+	}
+
+	.highlight-card-heading {
+		display: flex;
+		align-items: center;
+		margin-bottom: $vertical-margin;
+		color: var(--color-neutral-100);
+		font-family: inherit;
+		font-weight: 500;
+		font-size: $font-title-small;
+		line-height: 26px;
+	}
+
+	// Overwrite the styles from component Count
+	.count {
+		margin-left: 8px;
+		padding: 4px 8px;
+		background-color: var(--color-neutral-5);
+		border-radius: 2px;
+		font-weight: 500;
+		font-size: $font-body-extra-small;
+		line-height: 20px;
+		border: 0;
+	}
+
+	.card.stats-post-likes {
+		padding: 0;
+		margin: 0 0 -7px 0;
+		box-shadow: none;
+		overflow: hidden;
+
+		.module-header {
+			display: none;
+		}
+
+		.stats-post-likes__content {
+			padding: 0;
+		}
+
+		.post-likes:not(.no-likes) {
+			margin: 0 -7px;
+		}
+
+		.post-likes__item {
+			padding: 7px;
+		}
+
+		.post-likes__count {
+			vertical-align: bottom;
+			margin: 0;
+			padding: 6px 16px;
+			border: 0;
+			color: var(--color-neutral-60);
+			font-size: $font-body-small;
+			font-weight: 400;
+			line-height: 20px;
+		}
+	}
+}

@@ -3,9 +3,9 @@ package _self.projects
 import Settings
 import _self.bashNodeScript
 import _self.lib.customBuildType.E2EBuildType
+import _self.lib.utils.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.FailureAction
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.commitStatusPublisher
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.notifications
@@ -13,7 +13,13 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.perfmon
 import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
 import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
 import jetbrains.buildServer.configs.kotlin.v2019_2.projectFeatures.buildReportTab
+import jetbrains.buildServer.configs.kotlin.v2019_2.Triggers
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.schedule
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.finishBuildTrigger
+import jetbrains.buildServer.configs.kotlin.v2019_2.ParameterDisplay
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.exec
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.ScriptBuildStep
 
 object WPComTests : Project({
 	id("WPComTests")
@@ -32,209 +38,61 @@ object WPComTests : Project({
 		}
 	}
 
-	// Keep the previous ID in order to preserve the historical data
-	buildType(gutenbergBuildType("desktop", "aee94c18-ee11-4c80-b6aa-245b967a97db"));
-	buildType(gutenbergBuildType("mobile","2af2eaed-87d5-41f4-ab1d-4ed589d5ae82"));
-	buildType(gutenbergPlaywrightBuildType("desktop", "fab2e82e-d27b-4ba2-bbd7-232df944e75c"));
-	buildType(gutenbergPlaywrightBuildType("mobile", "77a5a0f1-9644-4c04-9d27-0066cd2d4ada"));
-	buildType(coblocksPlaywrightBuildType("desktop", "08f88b93-993e-4de8-8d80-4a94981d9af4"));
-	buildType(coblocksPlaywrightBuildType("mobile", "cbcd44d5-4d31-4adc-b1b5-97f1225c6a7c"));
-	buildType(jetpackBuildType("desktop"));
-	buildType(jetpackBuildType("mobile"));
-	buildType(VisualRegressionTests);
+	// Gutenberg Simple
+	buildType(gutenbergPlaywrightBuildType("desktop", "fab2e82e-d27b-4ba2-bbd7-232df944e75c", atomic=false, edge=false));
+	buildType(gutenbergPlaywrightBuildType("mobile", "77a5a0f1-9644-4c04-9d27-0066cd2d4ada", atomic=false, edge=false));
+	// Gutenberg Simple Edge
+	buildType(gutenbergPlaywrightBuildType("desktop", "e8817ab4-ec4e-4d58-a215-d1f87b2227b6", atomic=false, edge=true));
+	buildType(gutenbergPlaywrightBuildType("mobile", "a655d304-4dcf-4864-8d82-8b22dba29feb", atomic=false, edge=true));
+	// Gutenberg Atomic
+	buildType(gutenbergPlaywrightBuildType("desktop", "c341e9b9-1118-48e9-a569-325100f5fd9" , atomic=true, edge=false));
+	buildType(gutenbergPlaywrightBuildType("mobile", "e0f7e412-ae6c-41d3-9eec-c57c94dd8385", atomic=true, edge=false));
+	// Gutenberg Atomic Edge
+	buildType(gutenbergPlaywrightBuildType("desktop", "4c66d90d-99c6-4ecb-9507-18bc2f44b551" , atomic=true, edge=true));
+	buildType(gutenbergPlaywrightBuildType("mobile", "ba0f925b-497b-4156-977e-5bfbe94f5744", atomic=true, edge=true));
+	// Gutenberg Atomic Nightly
+	buildType(gutenbergPlaywrightBuildType("desktop", "a3f58555-56bb-42c6-8543-ab27213d3085" , atomic=true, nightly=true));
+	buildType(gutenbergPlaywrightBuildType("mobile", "8191e677-0682-4709-9201-66a7788980f0", atomic=true, nightly=true));
+
+	// E2E Tests for Jetpack Simple Deployment
+	buildType(jetpackSimpleDeploymentE2eBuildType("desktop", "3007d7a1-5642-4dbf-9935-d93f3cdb4dcc"));
+	buildType(jetpackSimpleDeploymentE2eBuildType("mobile", "ccfe7d2c-8f04-406b-8b83-3db6c8475661"));
+
+	// E2E Tests for Jetpack Atomic Deployment
+	// Just desktop to start
+	buildType(jetpackAtomicDeploymentE2eBuildType("desktop", "81015cf6-27e7-40bd-a52d-df6bd19ffb01"));
+
+	// E2E Tests for smoke testing each new Jetpack build on Atomic
+	// Also just desktop to start
+	buildType(jetpackAtomicBuildSmokeE2eBuildType("desktop", "f39587ab-f526-42aa-a88b-814702135af3"));
+
 	buildType(I18NTests);
 	buildType(P2E2ETests)
 })
 
-fun gutenbergBuildType(screenSize: String, buildUuid: String): BuildType {
-	return BuildType {
-		uuid = buildUuid
-		id("WPComTests_gutenberg_$screenSize")
-		name = "Gutenberg tests ($screenSize)"
-		description = "Runs Gutenberg E2E tests using $screenSize screen resolution"
-
-		artifactRules = """
-			reports => reports
-			logs.tgz => logs.tgz
-			screenshots => screenshots
-		""".trimIndent()
-
-		vcs {
-			root(Settings.WpCalypso)
-			cleanCheckout = true
-		}
-
-		params {
-			text(
-				name = "URL",
-				value = "https://wordpress.com",
-				label = "Test URL",
-				description = "URL to test against",
-				allowEmpty = false
-			)
-			checkbox(
-				name = "GUTENBERG_EDGE",
-				value = "false",
-				label = "Use gutenberg-edge",
-				description = "Use a blog with gutenberg-edge sticker",
-				checked = "true",
-				unchecked = "false"
-			)
-			checkbox(
-				name = "COBLOCKS_EDGE",
-				value = "false",
-				label = "Use coblocks-edge",
-				description = "Use a blog with coblocks-edge sticker",
-				checked = "true",
-				unchecked = "false"
-			)
-		}
-
-		steps {
-			bashNodeScript {
-				name = "Prepare environment"
-				scriptContent = """
-					export NODE_ENV="test"
-
-					# Install modules
-					${_self.yarn_install_cmd}
-				"""
-			}
-			bashNodeScript {
-				name = "Run e2e tests ($screenSize)"
-				scriptContent = """
-					shopt -s globstar
-					set -x
-
-					cd test/e2e
-					mkdir temp
-
-					export LIVEBRANCHES=false
-					export NODE_CONFIG_ENV=test
-					export TEST_VIDEO=true
-					export HIGHLIGHT_ELEMENT=true
-					export GUTENBERG_EDGE=%GUTENBERG_EDGE%
-					export COBLOCKS_EDGE=%COBLOCKS_EDGE%
-					export URL=%URL%
-					export BROWSERSIZE=$screenSize
-					export BROWSERLOCALE=en
-					export NODE_CONFIG="{\"calypsoBaseURL\":\"${'$'}{URL}\"}"
-
-					# Instructs Magellan to not hide the output from individual `mocha` processes. This is required for
-					# mocha-teamcity-reporter to work.
-					export MAGELLANDEBUG=true
-
-					# Decrypt config
-					openssl aes-256-cbc -md sha1 -d -in ./config/encrypted.enc -out ./config/local-test.json -k "%E2E_CONFIG_ENCRYPTION_KEY%"
-
-					# Run the test
-					yarn magellan --config=magellan-wpcom.json --max_workers=%E2E_WORKERS% --local_browser=chrome --mocha_args="--reporter mocha-multi-reporters --reporter-options configFile=mocha-reporter.json"
-				""".trimIndent()
-				dockerRunParameters = "-u %env.UID% --security-opt seccomp=.teamcity/docker-seccomp.json --shm-size=8gb"
-			}
-			bashNodeScript {
-				name = "Collect results"
-				executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-				scriptContent = """
-					set -x
-
-					mkdir -p screenshots
-					find test/e2e -type f -path '*/screenshots/*' -print0 | xargs -r -0 mv -t screenshots
-
-					mkdir -p logs
-					find test/e2e -name '*.log' -print0 | xargs -r -0 tar cvfz logs.tgz
-				""".trimIndent()
-			}
-		}
-
-		features {
-			perfmon {
-			}
-			notifications {
-				notifierSettings = slackNotifier {
-					connection = "PROJECT_EXT_11"
-					sendTo = "#gutenberg-e2e"
-					messageFormat = verboseMessageFormat {
-						addBranch = true
-						addStatusText = true
-						maximumNumberOfChanges = 10
-					}
-				}
-				branchFilter = "+:<default>"
-				buildFailed = true
-				buildFinishedSuccessfully = true
-			}
-			commitStatusPublisher {
-				vcsRootExtId = "${Settings.WpCalypso.id}"
-				publisher = github {
-					githubUrl = "https://api.github.com"
-					authType = personalToken {
-						token = "credentialsJSON:57e22787-e451-48ed-9fea-b9bf30775b36"
-					}
-				}
-			}
-		}
-
-		failureConditions {
-			executionTimeoutMin = 20
-			// TeamCity will mute a test if it fails and then succeeds within the same build. Otherwise TeamCity UI will not
-			// display a difference between real errors and retries, making it hard to understand what is actually failing.
-			supportTestRetry = true
-
-			// Don't fail if the runner exists with a non zero code. This allows a build to pass if the failed tests have
-			// been muted previously.
-			nonZeroExitCode = false
-
-			// Fail if the number of passing tests is 50% or less than the last build. This will catch the case where the test runner
-			// crashes and no tests are run.
-			failOnMetricChange {
-				metric = BuildFailureOnMetric.MetricType.PASSED_TEST_COUNT
-				threshold = 50
-				units = BuildFailureOnMetric.MetricUnit.PERCENTS
-				comparison = BuildFailureOnMetric.MetricComparison.LESS
-				compareTo = build {
-					buildRule = lastSuccessful()
-				}
-			}
-		}
-
-		triggers {
-			schedule {
-				schedulingPolicy = daily {
-					hour = 4
-				}
-				branchFilter = """
-					+:trunk
-				""".trimIndent()
-				triggerBuild = always()
-				withPendingChangesOnly = false
-			}
-		}
+fun gutenbergPlaywrightBuildType( targetDevice: String, buildUuid: String, atomic: Boolean = false, edge: Boolean = false, nightly: Boolean = false): E2EBuildType {
+	var siteType = if (atomic) "atomic" else "simple";
+	var releaseType = when {
+		nightly -> "nightly"
+		edge -> "edge"
+		else -> "production"
 	}
-}
 
-fun gutenbergPlaywrightBuildType( targetDevice: String, buildUuid: String ): E2EBuildType {
-    return E2EBuildType (
-		buildId = "WPComTests_gutenberg_Playwright_$targetDevice",
+	val buildName = "Gutenberg $siteType E2E tests $releaseType ($targetDevice)"
+
+	return E2EBuildType (
+		buildId = "WPComTests_gutenberg_${siteType}_${releaseType}_$targetDevice",
 		buildUuid = buildUuid,
-		buildName = "Playwright Gutenberg E2E tests ($targetDevice)",
-		buildDescription = "Runs Gutenberg e2e tests on $targetDevice size",
+		buildName = buildName,
+		buildDescription = "Runs Gutenberg $siteType E2E tests on $targetDevice size",
 		testGroup = "gutenberg",
 		buildParams = {
 			text(
-				name = "env.URL",
+				name = "env.CALYPSO_BASE_URL",
 				value = "https://wordpress.com",
 				label = "Test URL",
 				description = "URL to test against",
 				allowEmpty = false
-			)
-			checkbox(
-				name = "env.GUTENBERG_EDGE",
-				value = "false",
-				label = "Use gutenberg-edge",
-				description = "Use a blog with gutenberg-edge sticker",
-				checked = "true",
-				unchecked = "false"
 			)
 			checkbox(
 				name = "env.COBLOCKS_EDGE",
@@ -244,8 +102,46 @@ fun gutenbergPlaywrightBuildType( targetDevice: String, buildUuid: String ): E2E
 				checked = "true",
 				unchecked = "false"
 			)
-			param("env.AUTHENTICATE_ACCOUNTS", "gutenbergSimpleSiteEdgeUser,gutenbergSimpleSiteUser,coBlocksSimpleSiteEdgeUser,simpleSitePersonalPlanUser")
+			param("env.AUTHENTICATE_ACCOUNTS", "gutenbergSimpleSiteEdgeUser,gutenbergSimpleSiteUser,coBlocksSimpleSiteEdgeUser,simpleSitePersonalPlanUser,gutenbergAtomicSiteUser,gutenbergAtomicSiteEdgeUser,gutenbergAtomicSiteEdgeNightliesUser")
 			param("env.VIEWPORT_NAME", "$targetDevice")
+			if (atomic) {
+				param("env.TEST_ON_ATOMIC", "true")
+				// Overrides the inherited max workers settings and sets it to not run any tests in parallel.
+				// The reason for this is an inconsistent issue breaking the login in AT test sites when
+				// more than one test runs in parallel. Remove or set it to 16 after the issue is solved.
+				param("JEST_E2E_WORKERS", "1")
+
+			}
+
+			if (nightly) {
+				param("env.GUTENBERG_NIGHTLY", "true");
+			}
+
+			if (edge) {
+				param("env.GUTENBERG_EDGE", "true")
+			}
+
+			password("GB_E2E_ANNOUNCEMENT_SLACK_API_TOKEN", "credentialsJSON:8196e9b8-cf0a-4ab5-9547-95145134f04a", display = ParameterDisplay.HIDDEN);
+			// Uncomment the following to route it to the test channel, don't forget to change the reference in the exec() calls below, too.
+			// Ask someone from the Team Calypso Platform to know what these channels are. They are also available in the source for `announce.sh` (par of Gutenbot).
+			// password("GB_E2E_ANNOUNCEMENT_SLACK_CHANNEL_ID_TEST", "credentialsJSON:180d1bb6-a28e-4985-bf9a-8acba63bb90c", display = ParameterDisplay.HIDDEN);
+			password("GB_E2E_ANNOUNCEMENT_SLACK_CHANNEL_ID", "credentialsJSON:b8ca97ea-322f-499f-aa21-ecdb8b373527", display = ParameterDisplay.HIDDEN);
+			text("GB_E2E_ANNOUNCEMENT_THREAD_TS", value = "", allowEmpty = true, display = ParameterDisplay.HIDDEN);
+		},
+		buildSteps = {
+			exec {
+				name = "Post Successful Message to Slack"
+				executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+				path = "./bin/post-threaded-slack-message.sh"
+				arguments = "%GB_E2E_ANNOUNCEMENT_SLACK_CHANNEL_ID% %GB_E2E_ANNOUNCEMENT_THREAD_TS% \"The $buildName passed successfully! <%teamcity.serverUrl%/viewLog.html?buildId=%teamcity.build.id%|View build>\" %GB_E2E_ANNOUNCEMENT_SLACK_API_TOKEN%"
+			}
+
+			exec {
+				name = "Post Failure Message to Slack"
+				executionMode = BuildStep.ExecutionMode.RUN_ONLY_ON_FAILURE
+				path = "./bin/post-threaded-slack-message.sh"
+				arguments = "%GB_E2E_ANNOUNCEMENT_SLACK_CHANNEL_ID% %GB_E2E_ANNOUNCEMENT_THREAD_TS% \"The $buildName failed! Could you have a look?! <%teamcity.serverUrl%/viewLog.html?buildId=%teamcity.build.id%|View build>\" %GB_E2E_ANNOUNCEMENT_SLACK_API_TOKEN%"
+			}
 		},
 		buildFeatures = {
 			notifications {
@@ -278,249 +174,201 @@ fun gutenbergPlaywrightBuildType( targetDevice: String, buildUuid: String ): E2E
 	)
 }
 
-fun coblocksPlaywrightBuildType( targetDevice: String, buildUuid: String ): E2EBuildType {
-    return E2EBuildType (
-		buildId = "WPComTests_coblocks_Playwright_$targetDevice",
-		buildUuid = buildUuid,
-		buildName = "Playwright CoBlocks E2E Tests ($targetDevice)",
-		buildDescription = "Runs CoBlocks E2E tests as $targetDevice",
-		testGroup = "coblocks",
-		buildParams = {
-			text(
-				name = "env.URL",
-				value = "https://wordpress.com",
-				label = "Test URL",
-				description = "URL to test against",
-				allowEmpty = false
-			)
-			checkbox(
-				name = "env.COBLOCKS_EDGE",
-				value = "false",
-				label = "Use coblocks-edge",
-				description = "Use a blog with coblocks-edge sticker",
-				checked = "true",
-				unchecked = "false"
-			)
-			param("env.AUTHENTICATE_ACCOUNTS", "gutenbergSimpleSiteEdgeUser,gutenbergSimpleSiteUser,coBlocksSimpleSiteEdgeUser")
-			param("env.VIEWPORT_NAME", "$targetDevice")
-		},
-		buildFeatures = {
-			notifications {
-				notifierSettings = slackNotifier {
-					connection = "PROJECT_EXT_11"
-					sendTo = "#gutenberg-e2e"
-					messageFormat = verboseMessageFormat {
-						addBranch = true
-						addStatusText = true
-						maximumNumberOfChanges = 10
-					}
-				}
-				branchFilter = "+:<default>"
-				buildFailed = true
-				buildFinishedSuccessfully = true
-			}
-		},
-	)
-}
+fun jetpackSimpleDeploymentE2eBuildType( targetDevice: String, buildUuid: String ): BuildType {
+	return BuildType({
+		id("WPComTests_jetpack_simple_deployment_e2e_$targetDevice")
+		uuid = buildUuid
+		name = "Jetpack Simple Deployment E2E Tests ($targetDevice)"
+		description = "Runs E2E tests validating the deployment of Jetpack on Simple sites on $targetDevice viewport"
 
-fun jetpackBuildType(screenSize: String): BuildType {
-	return BuildType {
-		id("WPComTests_jetpack_$screenSize")
-		name = "Jetpack tests ($screenSize)"
-		description = "Runs Calypso Jetpack E2E tests using $screenSize screen resolution"
-
-		params {
-			select(
-				name = "JETPACKHOST",
-				value = "PRESSABLEBLEEDINGEDGE",
-				label = "Jetpack Host",
-				options = listOf("PRESSABLE","PRESSABLEBLEEDINGEDGE")
-			)
-		}
-
-		artifactRules = """
-			reports => reports
-			logs.tgz => logs.tgz
-			screenshots => screenshots
-		""".trimIndent()
+		artifactRules = defaultE2eArtifactRules();
 
 		vcs {
 			root(Settings.WpCalypso)
 			cleanCheckout = true
 		}
 
-		steps {
-			bashNodeScript {
-				name = "Prepare environment"
-				scriptContent = """
-					export NODE_ENV="test"
+		params {
+			defaultE2eParams()
+			calypsoBaseUrlParam()
+			param("env.VIEWPORT_NAME", "$targetDevice")
+			param("env.JETPACK_TARGET", "wpcom-deployment")
+		}
 
-					# Install modules
-					${_self.yarn_install_cmd}
-				"""
-			}
-			bashNodeScript {
-				name = "Run e2e tests ($screenSize)"
-				scriptContent = """
-					shopt -s globstar
-					set -x
-
-					cd test/e2e
-					mkdir temp
-
-					export LIVEBRANCHES=false
-					export NODE_CONFIG_ENV=test
-					export TEST_VIDEO=true
-					export HIGHLIGHT_ELEMENT=true
-					export BROWSERSIZE=$screenSize
-					export BROWSERLOCALE=en
-					export JETPACKHOST=%JETPACKHOST%
-					export TARGET=JETPACK
-
-					# Instructs Magellan to not hide the output from individual `mocha` processes. This is required for
-					# mocha-teamcity-reporter to work.
-					export MAGELLANDEBUG=true
-
-					# Decrypt config
-					openssl aes-256-cbc -md sha1 -d -in ./config/encrypted.enc -out ./config/local-test.json -k "%E2E_CONFIG_ENCRYPTION_KEY%"
-
-					# Run the test
-					yarn magellan --config=magellan-jetpack.json --max_workers=%E2E_WORKERS% --local_browser=chrome --mocha_args="--reporter mocha-multi-reporters --reporter-options configFile=mocha-reporter.json"
-				""".trimIndent()
-				dockerRunParameters = "-u %env.UID% --security-opt seccomp=.teamcity/docker-seccomp.json --shm-size=8gb"
-			}
-			bashNodeScript {
-				name = "Collect results"
-				executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-				scriptContent = """
-					set -x
-
-					mkdir -p screenshots
-					find test/e2e -type f -path '*/screenshots/*' -print0 | xargs -r -0 mv -t screenshots
-
-					mkdir -p logs
-					find test/e2e -name '*.log' -print0 | xargs -r -0 tar cvfz logs.tgz
-				""".trimIndent()
+		triggers {
+			finishBuildTrigger {
+				buildType = "JetpackStaging_JetpackSunMoonUpdated"
 			}
 		}
 
+		steps {
+			prepareE2eEnvironment()
+
+			runE2eTestsWithRetry(testGroup = "jetpack-wpcom-integration")
+
+			collectE2eResults()
+		}
+
 		features {
-			perfmon {
-			}
+			perfmon {}
+
 			notifications {
 				notifierSettings = slackNotifier {
 					connection = "PROJECT_EXT_11"
-					sendTo = "#e2e-jetpack-notif"
+					sendTo = "#jetpack-alerts"
 					messageFormat = verboseMessageFormat {
-						addBranch = true
 						addStatusText = true
-						maximumNumberOfChanges = 10
 					}
 				}
 				branchFilter = "+:<default>"
+				buildFailedToStart = true
 				buildFailed = true
-				buildFinishedSuccessfully = true
+				buildFinishedSuccessfully = false
+				buildProbablyHanging = true
 			}
 		}
 
 		failureConditions {
-			executionTimeoutMin = 20
-			// TeamCity will mute a test if it fails and then succeeds within the same build. Otherwise TeamCity UI will not
-			// display a difference between real errors and retries, making it hard to understand what is actually failing.
-			supportTestRetry = true
-
-			// Don't fail if the runner exists with a non zero code. This allows a build to pass if the failed tests have
-			// been muted previously.
-			nonZeroExitCode = false
-
-			// Fail if the number of passing tests is 50% or less than the last build. This will catch the case where the test runner
-			// crashes and no tests are run.
-			failOnMetricChange {
-				metric = BuildFailureOnMetric.MetricType.PASSED_TEST_COUNT
-				threshold = 50
-				units = BuildFailureOnMetric.MetricUnit.PERCENTS
-				comparison = BuildFailureOnMetric.MetricComparison.LESS
-				compareTo = build {
-					buildRule = lastSuccessful()
-				}
-			}
+			defaultE2eFailureConditions()
 		}
-	}
+	});
 }
 
-private object VisualRegressionTests : BuildType({
-	name = "Visual Regression Tests"
-	description = "Runs visual regression tests"
+fun jetpackAtomicDeploymentE2eBuildType( targetDevice: String, buildUuid: String ): BuildType {
+	val atomicVariations = listOf("default", "php-old", "php-new", "wp-beta", "wp-previous", "private", "ecomm-plan")
 
-	artifactRules = """
-		vr-report.zip => vr-report.zip
-	""".trimIndent()
+	return BuildType({
+		id("WPComTests_jetpack_atomic_deployment_e2e_$targetDevice")
+		uuid = buildUuid
+		name = "Jetpack Atomic Deployment E2E Tests ($targetDevice)"
+		description = "Runs E2E tests validating a Jetpack release candidate for full WPCOM Atomic deployment. Runs all tests on all Atomic environment variations."
 
-	vcs {
-		root(Settings.WpCalypso)
-		cleanCheckout = true
-	}
+		artifactRules = defaultE2eArtifactRules();
 
-	steps {
-		bashNodeScript {
-			name = "Prepare environment"
-			scriptContent = """
-				export NODE_ENV="test"
-
-				# Install modules
-				${_self.yarn_install_cmd}
-			"""
+		vcs {
+			root(Settings.WpCalypso)
+			cleanCheckout = true
 		}
-		bashNodeScript {
-			name = "Run Visual Regression Tests"
-			scriptContent = """
-				set -x
-				export NODE_ENV="test"
-				export CAPTURE_LIMIT=16
-				export COMPARE_LIMIT=150
 
-				apt-get install -y docker-compose
-
-				# Decrypt config
-				openssl aes-256-cbc -md sha1 -d -in ./test/visual/config/encrypted.enc -out ./test/visual/config/development.json -k "%E2E_CONFIG_ENCRYPTION_KEY%"
-
-				# Run the test
-				yarn test-visual
-			""".trimIndent()
-			dockerRunParameters = "-v /var/run/docker.sock:/var/run/docker.sock"
+		params {
+			defaultE2eParams()
+			calypsoBaseUrlParam()
+			param("env.VIEWPORT_NAME", "$targetDevice")
+			param("env.JETPACK_TARGET", "wpcom-deployment")
+			param("env.TEST_ON_ATOMIC", "true")
+			// We run all the tests on all variations, and go through each variation sequentially.
+			// We can easily overwhlem the target Atomic site under test if we have too much parallelization.
+			// This number of works plays nicely with the expected load handling on these Atomic sites.
+			// See: pMz3w-ix0-p2
+			param("JEST_E2E_WORKERS", "5")
 		}
-		bashNodeScript {
-			name = "Collect results"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				set -x
 
-				zip -r vr-report.zip test/visual/backstop_data/html_report test/visual/backstop_data/bitmaps_test test/visual/backstop_data/bitmaps_reference
+		steps {
+			prepareE2eEnvironment()
 
-			""".trimIndent()
-		}
-	}
-
-	failureConditions {
-		executionTimeoutMin = 30
-	}
-
-	features {
-		notifications {
-			notifierSettings = slackNotifier {
-				connection = "PROJECT_EXT_11"
-				sendTo = "#visual-regression-automated-tests"
-				messageFormat = simpleMessageFormat()
+			atomicVariations.forEach { variation ->
+				runE2eTestsWithRetry(
+					testGroup = "jetpack-wpcom-integration",
+					additionalEnvVars = mapOf(
+						"ATOMIC_VARIATION" to variation,
+						"RUN_ID" to "Atomic: $variation"
+					),
+					stepName = "Run Atomic Jetpack E2E Tests: $variation",
+				)
 			}
-			branchFilter = "trunk"
-			buildFailed = true
-			buildFinishedSuccessfully = true
-			buildFailedToStart = true
-			firstSuccessAfterFailure = true
-			buildProbablyHanging = true
+
+			collectE2eResults()
 		}
-	}
-})
+
+		features {
+			perfmon {}
+
+			notifications {
+				notifierSettings = slackNotifier {
+					connection = "PROJECT_EXT_11"
+					sendTo = "#jetpack-alerts"
+					messageFormat = verboseMessageFormat {
+						addStatusText = true
+					}
+				}
+				branchFilter = "+:<default>"
+				buildFailedToStart = true
+				buildFailed = true
+				buildFinishedSuccessfully = false
+				buildProbablyHanging = true
+			}
+		}
+
+		failureConditions {
+			defaultE2eFailureConditions()
+			// These are long-running tests, and we have to scale back the parallelization too.
+			// Let's give them some more breathing room.
+			// This number is arbitrary, but tests in mid-2024 tend to run longer than 30 minutes.
+			executionTimeoutMin = 51
+		}
+	});
+}
+
+fun jetpackAtomicBuildSmokeE2eBuildType( targetDevice: String, buildUuid: String ): BuildType {
+	return BuildType({
+		id("WPComTests_jetpack_atomic_build_smoke_e2e_$targetDevice")
+		uuid = buildUuid
+		name = "Jetpack Atomic Build Smoke E2E Tests ($targetDevice)"
+		description = "Runs E2E tests to smoke test the most recent Jetpack build on Atomic staging sites. It uses a randomized mix of Atomic environment variations."
+
+		artifactRules = defaultE2eArtifactRules();
+
+		vcs {
+			root(Settings.WpCalypso)
+			cleanCheckout = true
+		}
+
+		params {
+			defaultE2eParams()
+			calypsoBaseUrlParam()
+			param("env.VIEWPORT_NAME", "$targetDevice")
+			param("env.JETPACK_TARGET", "wpcom-deployment")
+			param("env.TEST_ON_ATOMIC", "true")
+			param("env.ATOMIC_VARIATION", "mixed")
+			// We need to be careful of overwhelming the Atomic sites under test.
+			// The mixing of Atomic variations happens per-worker.
+			// There are currently 7 variations. So let's do 2 workers per variation for 14 workers total.
+			param("JEST_E2E_WORKERS", "14")
+		}
+
+		steps {
+			prepareE2eEnvironment()
+
+			runE2eTestsWithRetry(testGroup = "jetpack-wpcom-integration")
+
+			collectE2eResults()
+		}
+
+		features {
+			perfmon {}
+
+			notifications {
+				notifierSettings = slackNotifier {
+					connection = "PROJECT_EXT_11"
+					sendTo = "#jetpack-alerts"
+					messageFormat = verboseMessageFormat {
+						addStatusText = true
+					}
+				}
+				branchFilter = "+:<default>"
+				buildFailedToStart = true
+				buildFailed = true
+				buildFinishedSuccessfully = false
+				buildProbablyHanging = true
+			}
+		}
+
+		failureConditions {
+			defaultE2eFailureConditions()
+		}
+	});
+}
+
 
 private object I18NTests : E2EBuildType(
 	buildId = "WPComTests_i18n",
@@ -530,7 +378,7 @@ private object I18NTests : E2EBuildType(
 	testGroup = "i18n",
 	buildParams = {
 		text(
-			name = "env.URL",
+			name = "env.CALYPSO_BASE_URL",
 			value = "https://wordpress.com",
 			label = "Test URL",
 			description = "URL to test against",
@@ -549,7 +397,7 @@ private object I18NTests : E2EBuildType(
 		notifications {
 			notifierSettings = slackNotifier {
 				connection = "PROJECT_EXT_11"
-				sendTo = "#i18n-bots"
+				sendTo = "#i18n-devs"
 				messageFormat = simpleMessageFormat()
 			}
 			branchFilter = "trunk"
@@ -582,7 +430,7 @@ object P2E2ETests : E2EBuildType(
 	testGroup = "p2",
 	buildParams = {
 		param("env.VIEWPORT_NAME", "desktop")
-		param("env.URL", "https://wpcalypso.wordpress.com")
+		param("env.CALYPSO_BASE_URL", "https://wpcalypso.wordpress.com")
 	},
 	buildFeatures = {
 		notifications {
@@ -592,9 +440,9 @@ object P2E2ETests : E2EBuildType(
 				messageFormat = simpleMessageFormat()
 			}
 			branchFilter = "trunk"
-			buildFailed = true
-			buildFinishedSuccessfully = true
 			buildFailedToStart = true
+			buildFailed = true
+			buildFinishedSuccessfully = false
 			buildProbablyHanging = true
 		}
 		notifications {
@@ -619,4 +467,3 @@ object P2E2ETests : E2EBuildType(
 		}
 	}
 )
-

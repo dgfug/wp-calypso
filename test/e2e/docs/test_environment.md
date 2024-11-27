@@ -10,82 +10,77 @@
 
 - [Test Environment](#test-environment)
   - [Environment Variables](#environment-variables)
-  - [Secrets file](#secrets-file)
-  - [Non-secret configuration file](#non-secret-configuration-file)
-    - [Default config](#default-config)
-    - [Local configs](#local-configs)
+  - [Secrets File](#secrets-file)
+    - [Decrypting the Secrets](#decrypting-the-secrets)
+    - [Using the Secrets](#using-the-secrets)
 
 <!-- /TOC -->
 
+The environment configuration for these tests comes from two different sources: environment variables and an encrypted secrets file.
+
 ## Environment Variables
 
-Required:
+Most non-sensitive runtime configuration comes from environment variables. All of our environment variables have fallback defaults.
+
+For example:
 
 ```
-export NODE_CONFIG_ENV=<name_of_decrypted_config_to_use>
-export CONFIG_KEY=<decryption_key_from_a8c_store>
+VIEWPORT_NAME=mobile yarn jest specs/<etc>
 ```
 
-Optional:
+The list of supported environment variables are found in [`env-variables.ts`](../../../packages/calypso-e2e//src/env-variables.ts). This file also adds static type checking and is the most up-to-date resource. The [Environment Variables](./environment_variables.md) page may be out of date but will contain explanations of what the individual variables mean.
 
+To use:
+
+```typescript
+import { envVariables } from '@automattic/calypso-e2e';
+
+// Later
+
+if ( envVariables.VIEWPORT_NAME === 'mobile' ) {
+	// Do x ;
+}
 ```
-export AUTHENTICATE_ACCOUNTS=p2User,i18nUser
-```
 
-For a list of supported environment variables, please refer to [this page](environment_variables.md).
+## Secrets File
 
-## Secrets file
+### Decrypting the Secrets
 
-Within `test/e2e/config` is an encrypted file that holds test account credentials. This must be decrypted prior to use.
+Within `@automattic/calypso-e2e/src/secrets` is an encrypted file that holds various sensitive secrets, such as API keys and test account information. This must be decrypted prior to use.
 
-**Automatticians**: please refer to the Field Guide page for instructions on decrypting this file.
+**Automatticians**: please refer to the Field Guide page - PCYsg-vnR-p2 for more information.
 
 **Trialmatticians**: please contact a team member in your Slack chat for the decryption key.
 
-## Non-secret configuration file
+First set the environment variable `E2E_SECRETS_KEY` to the "Calypso E2E Config decode key" from the Automattic secret store.
 
-The node [config](https://www.npmjs.com/package/config) library is used to automatically load the appropriate configuration file depending on the execution environment.
-
-Under the `tests/e2e/config` directory are JSON files for predefined environments:
-
-- `default.json` contains common values that should persist across environments.
-- `development.json` is for local.
-- `test.json` for CI.
-
-### Default config
-
-The default configuration will suffice for most purposes. To use the default configuration, nothing needs to be changed.
-
-### Local configs
-
-> :warning: **ensure username/passwords and other secret values are not committed by accident!**
-
-Local config files are optional and should be added under `test/e2e/config/` using the following naming scheme:
-
-```
-test/e2e/config/local-<whatever_you_want>.json
+```bash
+export E2E_SECRETS_KEY='<Calypso E2E Config decode key from the secret store>'
 ```
 
-The `local-` prefix ensure these custom configurations [are ignored by git](https://github.com/automattic/wp-calypso/blob/trunk/test/e2e/.gitignore#l12).
+Then run the following command to decrypt the secrets:
 
-Using local configs, values found in the default configs can be overridden without modifying (and thus accidentally committing) the default config files.
+```bash
+# If within test/e2e directory
+yarn decrypt-secrets
 
-Example
-
-In `test/e2e/config/default.json`:
-
-```json
-{
-	"calypsoBaseURL": "https://wordpress.com"
-}
+# If at repo root
+yarn workspace wp-e2e-tests decrypt-secrets
 ```
 
-In `test/e2e/config/local-custom-base-url.json`:
+The decrypted file must **NEVER be committed.** There are `.gitignore` rules to protect against this, but be vigilant nonetheless!
 
-```json
-{
-	"calypsoBaseURL": "https://some-custom-base-url.com"
-}
+### Using the Secrets
+
+The secrets are read and validated at runtime. They are accessed through the [`SecretsManager`](../../../packages/calypso-e2e/src/secrets/secrets-manager.ts) static class, which presents the secrets with static typings.
+
+To use:
+
+```typescript
+import { SecretsManager } from '@automattic/calypso-e2e';
+
+// Later in the spec
+
+const credentials = SecretsManager.secrets.testAccounts.<test_account_name>;
+
 ```
-
-For the full list of possible configuration values, refer to the following page: [config values](config_values.md) or the files under `test/e2e/config`.

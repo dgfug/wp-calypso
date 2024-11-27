@@ -2,16 +2,14 @@
  * Replaces lodash modular imports with ES2015-style imports
  *
  * Note: this does not attempt to merge imports into existing
- *       'lodash' imports in the same module. This process
- *       should be handled in a separate codemod
- *
+ * 'lodash' imports in the same module. This process
+ * should be handled in a separate codemod
  * @example
  * // input
  * import _map from 'lodash/map';
  *
  * // output
  * import { map as _map } from 'lodash'
- *
  * @param file
  * @param api
  * @returns {string}

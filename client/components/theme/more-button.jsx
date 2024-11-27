@@ -1,8 +1,8 @@
 import { Gridicon } from '@automattic/components';
-import classNames from 'classnames';
-import { map } from 'lodash';
+import clsx from 'clsx';
 import PropTypes from 'prop-types';
 import { createRef, Component } from 'react';
+import QueryCanonicalTheme from 'calypso/components/data/query-canonical-theme';
 import PopoverMenu from 'calypso/components/popover-menu';
 import PopoverMenuItem from 'calypso/components/popover-menu/item';
 import PopoverMenuSeparator from 'calypso/components/popover-menu/separator';
@@ -12,7 +12,6 @@ import PopoverMenuSeparator from 'calypso/components/popover-menu/separator';
  * Note that the check this function implements is incomplete --
  * it only returns false for absolute URLs, so it misses
  * relative URLs, or pure query strings, or hashbangs.
- *
  * @param  url URL to check
  * @returns     true if the given URL is located outside of Calypso
  */
@@ -21,14 +20,20 @@ function isOutsideCalypso( url ) {
 }
 
 class ThemeMoreButton extends Component {
-	state = { showPopover: false };
+	state = { showPopover: false, hasPopoverOpened: false };
 
 	moreButtonRef = createRef();
 
 	togglePopover = () => {
-		this.setState( { showPopover: ! this.state.showPopover } );
-		! this.state.showPopover &&
+		const shouldOpen = ! this.state.showPopover;
+		this.setState( { showPopover: shouldOpen } );
+
+		if ( shouldOpen ) {
 			this.props.onMoreButtonClick( this.props.themeId, this.props.index, 'popup_open' );
+			if ( ! this.state.hasPopoverOpened ) {
+				this.setState( { hasPopoverOpened: true } );
+			}
+		}
 	};
 
 	closePopover = ( action ) => {
@@ -38,43 +43,52 @@ class ThemeMoreButton extends Component {
 		}
 	};
 
-	popoverAction( action, label ) {
+	popoverAction( action, label, key ) {
 		return () => {
-			action( this.props.themeId );
+			action( this.props.themeId, 'more button' );
 			this.props.onMoreButtonClick( this.props.themeId, this.props.index, 'popup_' + label );
+			this.props.onMoreButtonItemClick?.( this.props.themeId, this.props.index, key );
 		};
 	}
 
 	render() {
-		const classes = classNames(
+		const { siteId, themeId, themeName, hasStyleVariations, options, active } = this.props;
+		const { showPopover, hasPopoverOpened } = this.state;
+		const classes = clsx(
 			'theme__more-button',
-			{ 'is-active': this.props.active },
-			{ 'is-open': this.state.showPopover }
+			{ 'is-active': active },
+			{ 'is-open': showPopover }
 		);
 
 		return (
 			<span className={ classes }>
-				<button ref={ this.moreButtonRef } onClick={ this.togglePopover }>
+				<button
+					aria-label={ `More options for theme ${ themeName }` }
+					ref={ this.moreButtonRef }
+					onClick={ this.togglePopover }
+				>
 					<Gridicon icon="ellipsis" size={ 24 } />
 				</button>
-
-				{ this.state.showPopover && (
+				{ hasPopoverOpened && hasStyleVariations && (
+					<QueryCanonicalTheme themeId={ themeId } siteId={ siteId } />
+				) }
+				{ showPopover && (
 					<PopoverMenu
 						context={ this.moreButtonRef.current }
 						isVisible
 						onClose={ this.closePopover }
 						position="top left"
 					>
-						{ map( this.props.options, ( option, key ) => {
+						{ Object.entries( options ).map( ( [ key, option ] ) => {
 							if ( option.separator ) {
 								return <PopoverMenuSeparator key={ key } />;
 							}
 							if ( option.getUrl ) {
-								const url = option.getUrl( this.props.themeId );
+								const url = option.getUrl( themeId );
 								return (
 									<PopoverMenuItem
-										key={ `${ option.label }-geturl` }
-										action={ this.popoverAction( option.action, option.label ) }
+										key={ `${ key }-geturl` }
+										action={ this.popoverAction( option.action, option.label, option.key ) }
 										href={ url }
 										target={ isOutsideCalypso( url ) ? '_blank' : null }
 									>
@@ -85,8 +99,8 @@ class ThemeMoreButton extends Component {
 							if ( option.action ) {
 								return (
 									<PopoverMenuItem
-										key={ `${ option.label }-action` }
-										action={ this.popoverAction( option.action, option.label ) }
+										key={ `${ key }-action` }
+										action={ this.popoverAction( option.action, option.label, option.key ) }
 									>
 										{ option.label }
 									</PopoverMenuItem>
@@ -103,12 +117,17 @@ class ThemeMoreButton extends Component {
 }
 
 ThemeMoreButton.propTypes = {
+	siteId: PropTypes.number,
+	// Name of theme to give image context.
+	themeName: PropTypes.string,
 	themeId: PropTypes.string,
+	hasStyleVariations: PropTypes.bool,
 	// Index of theme in results list
 	index: PropTypes.number,
 	// More elaborate onClick action, used for tracking.
 	// Made to not interfere with DOM onClick
 	onMoreButtonClick: PropTypes.func,
+	onMoreButtonItemClick: PropTypes.func,
 	// Options to populate the popover menu with
 	options: PropTypes.objectOf(
 		PropTypes.shape( {

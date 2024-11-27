@@ -1,7 +1,6 @@
 import { ProgressBar } from '@automattic/components';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import { localize } from 'i18n-calypso';
-import { get } from 'lodash';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -42,19 +41,9 @@ class VideoEditor extends Component {
 		pauseVideo: false,
 	};
 
-	// @TODO: Please update https://github.com/Automattic/wp-calypso/issues/58453 if you are refactoring away from UNSAFE_* lifecycle methods!
-	UNSAFE_componentWillReceiveProps( nextProps ) {
-		if ( nextProps.shouldShowError && ! this.props.shouldShowError ) {
-			this.setState( {
-				error: true,
-				pauseVideo: false,
-			} );
-
-			return;
-		}
-
-		if ( this.props.posterUrl !== nextProps.posterUrl ) {
-			this.props.onUpdatePoster( this.getVideoEditorProps( nextProps.posterUrl ) );
+	componentDidUpdate( prevProps ) {
+		if ( prevProps.posterUrl !== this.props.posterUrl ) {
+			this.props.onUpdatePoster( this.getVideoEditorProps() );
 		}
 	}
 
@@ -75,7 +64,6 @@ class VideoEditor extends Component {
 
 	/**
 	 * Updates the poster by selecting a particular frame of the video.
-	 *
 	 * @param {number} currentTime - Time at which to capture the frame
 	 * @param {boolean} isMillisec - Whether the time is in milliseconds
 	 */
@@ -85,7 +73,7 @@ class VideoEditor extends Component {
 		}
 
 		const { media } = this.props;
-		const guid = get( media, 'videopress_guid', null );
+		const guid = media?.videopress_guid;
 
 		if ( guid ) {
 			this.props.updatePoster(
@@ -107,6 +95,8 @@ class VideoEditor extends Component {
 		this.setState( { isLoading: false } );
 	};
 
+	setIsPlaying = ( isPlaying ) => this.setState( { pauseVideo: ! isPlaying } );
+
 	pauseVideo = () => {
 		this.setState( {
 			error: false,
@@ -117,8 +107,7 @@ class VideoEditor extends Component {
 
 	/**
 	 * Uploads an image to use as the poster for the video.
-	 *
-	 * @param {object} file - Uploaded image
+	 * @param {Object} file - Uploaded image
 	 */
 	uploadImage = ( file ) => {
 		if ( ! file ) {
@@ -126,15 +115,15 @@ class VideoEditor extends Component {
 		}
 
 		const { media } = this.props;
-		const guid = get( media, 'videopress_guid', null );
+		const guid = media?.videopress_guid;
 
 		if ( guid ) {
 			this.props.updatePoster( guid, { file }, { mediaId: media.ID } );
 		}
 	};
 
-	getVideoEditorProps( posterUrl ) {
-		const { media } = this.props;
+	getVideoEditorProps() {
+		const { media, posterUrl } = this.props;
 		const videoProperties = { posterUrl };
 
 		if ( media && media.ID ) {
@@ -151,7 +140,7 @@ class VideoEditor extends Component {
 			<Notice
 				className="video-editor__notice"
 				status="is-error"
-				showDismiss={ true }
+				showDismiss
 				text={ translate( 'We are unable to edit this video.' ) }
 				isCompact={ false }
 				onDismissClick={ onCancel }
@@ -160,10 +149,10 @@ class VideoEditor extends Component {
 	}
 
 	render() {
-		const { className, media, onCancel, uploadProgress, translate } = this.props;
+		const { className, media, onCancel, uploadProgress, translate, shouldShowError } = this.props;
 		const { error, isLoading, isSelectingFrame, pauseVideo } = this.state;
 
-		const classes = classNames( 'video-editor', className );
+		const classes = clsx( 'video-editor', className );
 
 		return (
 			<div className={ classes }>
@@ -173,6 +162,8 @@ class VideoEditor extends Component {
 							<DetailPreviewVideo
 								className="video-editor__preview"
 								isPlaying={ ! pauseVideo }
+								setIsPlaying={ this.setIsPlaying }
+								isSelectingFrame={ isSelectingFrame }
 								item={ media }
 								onPause={ this.updatePoster }
 								onScriptLoadError={ this.setError }
@@ -182,13 +173,13 @@ class VideoEditor extends Component {
 						{ uploadProgress && ! error && (
 							<ProgressBar
 								className="video-editor__progress-bar"
-								isPulsing={ true }
+								isPulsing
 								total={ 100 }
 								value={ uploadProgress }
 							/>
 						) }
 						<span className="video-editor__text">
-							{ translate( 'Select a frame to use as the thumbnail image or upload your own.' ) }
+							{ translate( 'Select a frame to use as the poster image or upload your own.' ) }
 						</span>
 						<VideoEditorControls
 							isPosterUpdating={ isSelectingFrame || ( uploadProgress && ! error ) }
@@ -201,7 +192,7 @@ class VideoEditor extends Component {
 					</div>
 				</figure>
 
-				{ error && this.renderError() }
+				{ ( error || shouldShowError ) && this.renderError() }
 			</div>
 		);
 	}

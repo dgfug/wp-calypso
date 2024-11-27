@@ -14,9 +14,8 @@ import 'calypso/state/profile-links/init';
 
 /**
  * Dispatches a request to add profile links for the current user
- *
- * @param   {object} action Redux action
- * @returns {object} Dispatched http action
+ * @param   {Object} action Redux action
+ * @returns {Object} Dispatched http action
  */
 export const addUserProfileLinks = ( action ) =>
 	http(
@@ -36,10 +35,9 @@ export const addUserProfileLinks = ( action ) =>
  * This will also cover some specific error cases:
  * - duplicate links
  * - malformed links
- *
- * @param   {object} action Redux action
+ * @param   {Object} action Redux action
  * @param   {Array}  data   Response from the endpoint
- * @returns {object} Dispatched user profile links add action
+ * @returns {Object} Dispatched user profile links add action
  */
 export const handleAddSuccess = ( action, data ) => {
 	const actions = [ addUserProfileLinksSuccess( action.profileLinks ) ];
@@ -57,11 +55,10 @@ export const handleAddSuccess = ( action, data ) => {
 
 /**
  * Dispatches a user profile links add error action when the request failed.
- *
- * @param   {object} action              Redux action
- * @param   {object} action.profileLinks Profile links
- * @param   {object} error               Error returned
- * @returns {object} Dispatched user profile links add error action
+ * @param   {Object} action              Redux action
+ * @param   {Object} action.profileLinks Profile links
+ * @param   {Object} error               Error returned
+ * @returns {Object} Dispatched user profile links add error action
  */
 export const handleAddError = ( { profileLinks }, error ) =>
 	addUserProfileLinksError( profileLinks, error );

@@ -1,107 +1,165 @@
-import { useQuery, UseQueryResult, UseQueryOptions, QueryKey } from 'react-query';
+import {
+	useQuery,
+	UseQueryResult,
+	UseQueryOptions,
+	QueryKey,
+	QueryFunction,
+	useQueries,
+} from '@tanstack/react-query';
 import {
 	extractSearchInformation,
 	normalizePluginsList,
 	normalizePluginData,
 } from 'calypso/lib/plugins/utils';
 import wpcom from 'calypso/lib/wp';
+import { BASE_STALE_TIME } from 'calypso/state/constants';
 
-type Type = 'all' | 'featured';
+type Type = 'all' | 'featured' | 'launched';
 
-const plugisApiBase = '/marketplace/products';
+const pluginsApiBase = '/marketplace/products';
 const featuredPluginsApiBase = '/plugins/featured';
 const pluginsApiNamespace = 'wpcom/v2';
 
-const baseStaleTime = 1000 * 60 * 60 * 2; // 2h
+const WPCOM_PLUGINS_CACHE_VERSION = 2;
+const getCacheKey = ( key: string ): QueryKey => [
+	WPCOM_PLUGINS_CACHE_VERSION.toString(),
+	'wpcom-plugins',
+	key,
+];
 
-const getCacheKey = ( key: string ): QueryKey => [ 'wpcom-plugins', key ];
-
-const fetchWPCOMPlugins = ( type: Type, searchTerm?: string ) => {
+const fetchWPCOMPlugins = ( type: Type, searchTerm?: string, tag?: string ) => {
 	const [ search, author ] = extractSearchInformation( searchTerm );
 
 	return wpcom.req.get(
 		{
-			path: plugisApiBase,
+			path: pluginsApiBase,
 			apiNamespace: pluginsApiNamespace,
 		},
 		{
 			type: type,
 			...( search && { q: search } ),
 			...( author && { author } ),
+			...( tag && ! search && { tag } ),
 		}
 	);
 };
 
+export const getWPCOMPluginsQueryParams = (
+	type: Type,
+	searchTerm?: string,
+	tag?: string
+): { queryKey: QueryKey; queryFn: QueryFunction< any[] > } => {
+	const queryKey = getCacheKey( type + searchTerm + tag + '-normalized' );
+	const queryFn = () =>
+		fetchWPCOMPlugins( type, searchTerm, tag ).then( ( data: { results: any[] } ) =>
+			normalizePluginsList( data.results )
+		);
+	return { queryKey, queryFn };
+};
+
 /**
  * Returns marketplace plugins list filtered by searchterm and type.
- *
  * @param {Type} type Optional The query type
  * @param {string} searchTerm Optional The term to search for
+ * @param {string} tag Optional The tag to search for
  * @param {{enabled: boolean, staleTime: number, refetchOnMount: boolean}} {} Optional options to pass to the underlying query engine
  * @returns {{ data, error, isLoading: boolean ...}} Returns various parameters piped from `useQuery`
  */
-export const useWPCOMPlugins = (
+export const useWPCOMPluginsList = (
 	type: Type,
 	searchTerm?: string,
-	{ enabled = true, staleTime = baseStaleTime, refetchOnMount = true }: UseQueryOptions = {}
+	tag?: string,
+	{
+		enabled = true,
+		staleTime = BASE_STALE_TIME,
+		refetchOnMount = true,
+	}: Omit< UseQueryOptions< any >, 'queryKey' > = {}
 ): UseQueryResult => {
-	return useQuery( getCacheKey( type + searchTerm ), () => fetchWPCOMPlugins( type, searchTerm ), {
-		select: ( data ) => normalizePluginsList( data.results ),
+	return useQuery( {
+		...getWPCOMPluginsQueryParams( type, searchTerm, tag ),
 		enabled: enabled,
 		staleTime: staleTime,
 		refetchOnMount: refetchOnMount,
 	} );
 };
 
-const fetchWPCOMPlugin = ( slug: string ) => {
-	return wpcom.req.get( {
-		path: `${ plugisApiBase }/${ slug }`,
+const fetchWPCOMPlugin = ( slug: string ) =>
+	wpcom.req.get( {
+		path: `${ pluginsApiBase }/${ slug }`,
 		apiNamespace: pluginsApiNamespace,
 	} );
+
+export const getWPCOMPluginQueryParams = (
+	slug: string
+): { queryKey: QueryKey; queryFn: QueryFunction } => {
+	const queryKey = getCacheKey( slug + '-normalized' );
+	const queryFn = () =>
+		fetchWPCOMPlugin( slug ).then( ( data: any ) =>
+			normalizePluginData( { detailsFetched: Date.now() }, data )
+		);
+
+	return { queryKey, queryFn };
 };
 
 /**
  * Returns a marketplace plugin data
- *
  * @param {Type} slug The plugin slug to query
  * @param {{enabled: boolean, staleTime: number, refetchOnMount: boolean}} {} Optional options to pass to the underlying query engine
  * @returns {{ data, error, isLoading: boolean ...}} Returns various parameters piped from `useQuery`
  */
 export const useWPCOMPlugin = (
 	slug: string,
-	{ enabled = true, staleTime = baseStaleTime, refetchOnMount = true }: UseQueryOptions = {}
+	{
+		enabled = true,
+		staleTime = BASE_STALE_TIME,
+		refetchOnMount = true,
+	}: Omit< UseQueryOptions, 'queryKey' > = {}
 ): UseQueryResult< any > => {
-	return useQuery( getCacheKey( slug ), () => fetchWPCOMPlugin( slug ), {
-		select: ( data ) => normalizePluginData( { detailsFetched: Date.now() }, data ),
+	return useQuery( {
+		...getWPCOMPluginQueryParams( slug ),
 		enabled: enabled,
 		staleTime: staleTime,
 		refetchOnMount: refetchOnMount,
 	} );
 };
 
+export const useWPCOMPlugins = ( slugs: Array< string > ): Array< UseQueryResult< any > > => {
+	return useQueries( {
+		queries: slugs.map( ( slug ) => {
+			return getWPCOMPluginQueryParams( slug );
+		} ),
+	} );
+};
+
+export const getWPCOMFeaturedPluginsQueryParams = (): {
+	queryKey: QueryKey;
+	queryFn: QueryFunction;
+} => {
+	const queryKey = [ 'plugins-featured-list-normalized' ];
+	const queryFn = () =>
+		wpcom.req
+			.get( {
+				path: featuredPluginsApiBase,
+				apiNamespace: pluginsApiNamespace,
+			} )
+			.then( normalizePluginsList );
+	return { queryKey, queryFn };
+};
+
 /**
  * Returns the featured list of plugins from WPCOM
- *
  * @param {{enabled: boolean, staleTime: number, refetchOnMount: boolean}} {} Optional options to pass to the underlying query engine
  * @returns {{ data, error, isLoading: boolean ...}} Returns various parameters piped from `useQuery`
  */
 export const useWPCOMFeaturedPlugins = ( {
 	enabled = true,
-	staleTime = baseStaleTime,
+	staleTime = BASE_STALE_TIME,
 	refetchOnMount = true,
-}: UseQueryOptions = {} ): UseQueryResult => {
-	return useQuery(
-		'plugins-featured-list',
-		() =>
-			wpcom.req.get( {
-				path: featuredPluginsApiBase,
-				apiNamespace: pluginsApiNamespace,
-			} ),
-		{
-			select: ( data ) => normalizePluginsList( data ),
-			enabled,
-			staleTime,
-			refetchOnMount,
-		}
-	);
+}: Omit< UseQueryOptions, 'queryKey' > = {} ): UseQueryResult => {
+	return useQuery( {
+		...getWPCOMFeaturedPluginsQueryParams(),
+		enabled,
+		staleTime,
+		refetchOnMount,
+	} );
 };

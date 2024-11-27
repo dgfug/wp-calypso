@@ -1,6 +1,6 @@
+import page from '@automattic/calypso-router';
 import { Card } from '@automattic/components';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -161,7 +161,7 @@ export class SearchPurchase extends Component {
 					onSubmit={ this.handleUrlSubmit }
 					isError={ status }
 					isFetching={ this.props.isCurrentUrlFetching || this.state.waitingForSites }
-					isInstall={ true }
+					isInstall
 					isSearch={ isSearch }
 					candidateSites={ this.state.candidateSites }
 				/>
@@ -175,7 +175,7 @@ export class SearchPurchase extends Component {
 		return (
 			<MainWrapper>
 				<div className="purchase-product__site-url-entry-container">
-					<MainHeader type={ 'jetpack_search' } />
+					<MainHeader type="jetpack_search" />
 
 					{ this.renderSiteInput( status ) }
 					{ renderFooter() }

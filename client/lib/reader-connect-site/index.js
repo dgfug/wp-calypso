@@ -10,12 +10,11 @@ import { getSite } from 'calypso/state/reader/sites/selectors';
  * A HoC function that will take in reader identifiers siteId or feedId and
  * pass down all of the fetched data objects they represent
  *
- *  It supports two
- *  1. feedId --> feedId, siteId, feed, site
- *  2. blogId --> feedId, siteId, feed, site
- *
- * @param {object} Component the component to wrap
- * @returns {object} wrapped component that hands down feed/site to its child
+ * It supports two
+ * 1. feedId --> feedId, siteId, feed, site
+ * 2. blogId --> feedId, siteId, feed, site
+ * @param {Object} Component the component to wrap
+ * @returns {Object} wrapped component that hands down feed/site to its child
  */
 const connectSite = ( Component ) => {
 	class connectSiteFetcher extends PureComponent {
@@ -26,11 +25,11 @@ const connectSite = ( Component ) => {
 
 		render() {
 			return (
-				<div>
+				<>
 					{ !! this.props.feedId && <QueryReaderFeed feedId={ this.props.feedId } /> }
 					{ !! this.props.siteId && <QueryReaderSite siteId={ this.props.siteId } /> }
 					<Component { ...this.props } />
-				</div>
+				</>
 			);
 		}
 	}

@@ -28,7 +28,6 @@ const root = '/sites';
 class Site {
 	/**
 	 * Create a Site instance
-	 *
 	 * @param {string} id - site id
 	 * @param wpcom - wpcom instance
 	 * @returns {null} null
@@ -47,8 +46,7 @@ class Site {
 
 	/**
 	 * Require site information
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -58,7 +56,6 @@ class Site {
 
 	/**
 	 * Create a `Post` instance
-	 *
 	 * @param {string} id - post id
 	 * @returns {Post} Post instance
 	 */
@@ -68,8 +65,7 @@ class Site {
 
 	/**
 	 * Add a new blog post
-	 *
-	 * @param {object} body - body object parameter
+	 * @param {Object} body - body object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -80,7 +76,6 @@ class Site {
 
 	/**
 	 * Delete a blog post
-	 *
 	 * @param {string} id - post id
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
@@ -92,7 +87,6 @@ class Site {
 
 	/**
 	 * Create a `Media` instance
-	 *
 	 * @param {string} id - post id
 	 * @returns {Media} Media instance
 	 */
@@ -102,8 +96,7 @@ class Site {
 
 	/**
 	 * Add a media from a file
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Array|string} files - media files to add
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
@@ -115,8 +108,7 @@ class Site {
 
 	/**
 	 * Add a new media from url
-	 *
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Array|string} files - media files to add
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
@@ -128,7 +120,6 @@ class Site {
 
 	/**
 	 * Delete a blog media
-	 *
 	 * @param {string} id - media id
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
@@ -140,7 +131,6 @@ class Site {
 
 	/**
 	 * Create a `Comment` instance
-	 *
 	 * @param {string} id - comment id
 	 * @returns {Comment} Comment instance
 	 */
@@ -150,7 +140,6 @@ class Site {
 
 	/**
 	 * Create a `Follow` instance
-	 *
 	 * @returns {Follow} Follow instance
 	 */
 	follow() {
@@ -159,7 +148,6 @@ class Site {
 
 	/**
 	 * Create a `SitePlugin` instance
-	 *
 	 * @param {string} slug - plugin identifier
 	 * @returns {SitePlugin} SitePlugin instance
 	 */
@@ -169,7 +157,6 @@ class Site {
 
 	/**
 	 * Create a `SiteWPComPlugin` instance
-	 *
 	 * @param {string} slug - plugin identifier
 	 * @returns {SiteWPComPlugin} SiteWPComPlugin instance
 	 */
@@ -180,7 +167,6 @@ class Site {
 	/**
 	 * Create a `Category` instance
 	 * Set `cat` alias
-	 *
 	 * @param {string} [slug] - category slug
 	 * @returns {Category} Category instance
 	 */
@@ -190,7 +176,6 @@ class Site {
 
 	/**
 	 * Create a `Tag` instance
-	 *
 	 * @param {string} [slug] - tag slug
 	 * @returns {Tag} Tag instance
 	 */
@@ -200,7 +185,6 @@ class Site {
 
 	/**
 	 * Create a `Taxonomy` instance
-	 *
 	 * @param {string} [slug] - taxonomy slug
 	 * @returns {SiteTaxonomy} SiteTaxonomy instance
 	 */
@@ -210,7 +194,6 @@ class Site {
 
 	/**
 	 * Create a `SiteCreditVouchers` instance
-	 *
 	 * @returns {SiteCreditVouchers} SiteCreditVouchers instance
 	 */
 	creditVouchers() {
@@ -219,7 +202,6 @@ class Site {
 
 	/**
 	 * Create a `SitePostType` instance
-	 *
 	 * @param {string} [slug] - post type slug
 	 * @returns {SitePostType} SitePostType instance
 	 */
@@ -229,7 +211,6 @@ class Site {
 
 	/**
 	 * Create a `SiteSettings` instance
-	 *
 	 * @returns {SiteSettings} SiteSettings instance
 	 */
 	settings() {
@@ -238,7 +219,6 @@ class Site {
 
 	/**
 	 * Create a `SiteDomain` instance
-	 *
 	 * @returns {SiteDomain} SiteDomain instance
 	 */
 	domain() {
@@ -249,15 +229,14 @@ class Site {
 	 * Get number of posts in the post type groups by post status
 	 *
 	 * Example:*
-	 *   // Get number post of pages
-	 *    wpcom
-	 *    .site( 'my-blog.wordpress.com' )
-	 *    .postCounts( 'page', function( err, data ) {
-	 *      // `counts` data object
-	 *    } );
-	 *
+	 * // Get number post of pages
+	 * wpcom
+	 * .site( 'my-blog.wordpress.com' )
+	 * .postCounts( 'page', function( err, data ) {
+	 * // `counts` data object
+	 * } );
 	 * @param {string} type - post type
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -274,9 +253,8 @@ class Site {
 	 * Get a rendered shortcode for a site.
 	 *
 	 * Note: The current user must have publishing access.
-	 *
 	 * @param {string} url - shortcode url
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -300,9 +278,8 @@ class Site {
 	 * Get a rendered embed for a site.
 	 *
 	 * Note: The current user must have publishing access.
-	 *
 	 * @param {string} url - embed url
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -324,7 +301,6 @@ class Site {
 
 	/**
 	 * Mark a referrering domain as spam
-	 *
 	 * @param {string} domain - domain
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
@@ -336,7 +312,6 @@ class Site {
 
 	/**
 	 * Remove referrering domain from spam
-	 *
 	 * @param {string} domain - domain
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
@@ -348,9 +323,8 @@ class Site {
 
 	/**
 	 * Get detailed stats about a VideoPress video
-	 *
 	 * @param {string} videoId - video id
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -367,9 +341,8 @@ class Site {
 
 	/**
 	 * Get detailed stats about a particular post
-	 *
 	 * @param {string} postId - post id
-	 * @param {object} [query] - query object parameter
+	 * @param {Object} [query] - query object parameter
 	 * @param {Function} fn - callback function
 	 * @returns {Function} request handler
 	 */
@@ -385,15 +358,61 @@ class Site {
 	}
 
 	/**
+	 * Get detailed stats about a specific email and period
+	 * This fetches the timeline, according to the query passed
+	 * @param {string} postId - id of the post which email we are querying
+	 * @param  {string} statType The type of stat we are working with. For example: 'opens' for Email Open stats
+	 * @param {Object} [query] - query object parameter
+	 * @param {Function?} fn - callback function
+	 * @returns {Function} request handler
+	 */
+	emailStatsForPeriod( postId, statType, query, fn ) {
+		const path = `${ this.path }/stats/${ statType }/emails/${ postId }`;
+		const statFields = [ 'timeline' ];
+		return Promise.all(
+			statFields.map( ( field ) =>
+				this.wpcom.req.get( path, { ...query, stats_fields: field }, fn )
+			)
+		).then( ( statsArray ) =>
+			statsArray.reduce( ( result, item ) => {
+				return { ...result, ...item };
+			}, {} )
+		);
+	}
+
+	/**
+	 * Get detailed all time stats about a specific email and period
+	 * This fetchesthe clients, devices & countries
+	 * @param {string} postId - id of the post which email we are querying
+	 * @param  {string} statType The type of stat we are working with. For example: 'opens' for Email Open stats
+	 * @param {Function?} fn - callback function
+	 * @returns {Function} request handler
+	 */
+	emailStatsAlltime( postId, statType, fn ) {
+		const basePath = `${ this.path }/stats/${ statType }/emails/${ postId }`;
+		const statFields = [ 'client', 'device', 'country', 'rate' ];
+		if ( statType === 'clicks' ) {
+			statFields.push( 'link' );
+			statFields.push( 'user-content-link' );
+		}
+		return Promise.all(
+			statFields.map( ( field ) => this.wpcom.req.get( `${ basePath }/${ field }`, fn ) )
+		).then( ( statsArray ) =>
+			statsArray.reduce( ( result, item ) => {
+				return { ...result, ...item };
+			}, {} )
+		);
+	}
+
+	/**
 	 * Return a `SiteWordAds` instance.
 	 *
 	 * Example:*
-	 *    // Create a SiteWordAds instance
+	 * // Create a SiteWordAds instance
 	 *
-	 *    const wordAds = wpcom
-	 *      .site( 'my-blog.wordpress.com' )
-	 *      .wordAds();
-	 *
+	 * const wordAds = wpcom
+	 * .site( 'my-blog.wordpress.com' )
+	 * .wordAds();
 	 * @returns {SiteWordAds} SiteWordAds instance
 	 */
 	wordAds() {

@@ -1,8 +1,10 @@
-import { Button } from '@automattic/components';
+import page from '@automattic/calypso-router';
+import { Button, MaterialIcon } from '@automattic/components';
+import { localizeUrl } from '@automattic/i18n-utils';
+import { MAP_EXISTING_DOMAIN } from '@automattic/urls';
 import { createElement, createInterpolateElement } from '@wordpress/element';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
-import page from 'page';
 import { useEffect, useState, useRef } from 'react';
 import { connect } from 'react-redux';
 import CardHeading from 'calypso/components/card-heading';
@@ -12,10 +14,8 @@ import {
 	getDomainInboundTransferStatusInfo,
 	getDomainTransferrability,
 } from 'calypso/components/domains/use-my-domain/utilities';
-import MaterialIcon from 'calypso/components/material-icon';
 import Notice from 'calypso/components/notice';
 import { domainAvailability } from 'calypso/lib/domains/constants';
-import { MAP_EXISTING_DOMAIN } from 'calypso/lib/url/support';
 import wpcom from 'calypso/lib/wp';
 import { getSelectedSite } from 'calypso/state/ui/selectors';
 import ConnectDomainStepWrapper from './connect-domain-step-wrapper';
@@ -32,23 +32,27 @@ function TransferDomainStepStart( {
 	domain,
 	isFetchingAvailability,
 	selectedSite,
-}: StartStepProps ): JSX.Element {
+}: StartStepProps ) {
 	const { __ } = useI18n();
-	const switchToDomainConnect = () => page( MAP_EXISTING_DOMAIN );
+	const switchToDomainConnect = () => page( localizeUrl( MAP_EXISTING_DOMAIN ) );
 	const [ inboundTransferStatusInfo, setInboundTransferStatusInfo ] = useState<
 		Maybe< typeof domainInboundTransferStatusInfo >
 	>( domainInboundTransferStatusInfo );
 	const [ isFetching, setIsFetching ] = useState( isFetchingAvailability );
-	const isDomainTransferrable = getDomainTransferrability( inboundTransferStatusInfo )
-		.transferrable;
+	const isDomainTransferrable =
+		getDomainTransferrability( inboundTransferStatusInfo ).transferrable;
 
 	const initialValidation = useRef( false );
 
 	// retrieves the availability data by itself if not provided by the parent component
 	useEffect( () => {
 		( async () => {
-			if ( initialValidation.current ) return;
-			if ( isFetching ) return;
+			if ( initialValidation.current ) {
+				return;
+			}
+			if ( isFetching ) {
+				return;
+			}
 
 			if ( ! inboundTransferStatusInfo ) {
 				setIsFetching( true );

@@ -1,4 +1,4 @@
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { forwardRef } from 'react';
 import withUserMentions from 'calypso/blocks/user-mentions/index';
 import AutoDirection from 'calypso/components/auto-direction';
@@ -17,12 +17,12 @@ const AutoresizingFormTextarea = (
 		onFocus,
 		onBlur,
 		onChange,
-		siteId,
 		enableAutoFocus,
+		...otherProps
 	},
 	forwardedRef
 ) => {
-	const classes = classnames( 'expanding-area', { focused: hasFocus } );
+	const classes = clsx( 'expanding-area', { focused: hasFocus } );
 
 	return (
 		<div className={ classes }>
@@ -32,6 +32,7 @@ const AutoresizingFormTextarea = (
 			</pre>
 			<AutoDirection>
 				<FormTextarea
+					{ ...otherProps }
 					value={ value }
 					placeholder={ placeholder }
 					onKeyUp={ onKeyUp }
@@ -39,7 +40,6 @@ const AutoresizingFormTextarea = (
 					onFocus={ onFocus }
 					onBlur={ onBlur }
 					onChange={ onChange }
-					siteId={ siteId }
 					// eslint-disable-next-line jsx-a11y/no-autofocus
 					autoFocus={ enableAutoFocus }
 					forwardedRef={ forwardedRef }
@@ -49,4 +49,6 @@ const AutoresizingFormTextarea = (
 	);
 };
 
-export default withPasteToLink( withUserMentions( forwardRef( AutoresizingFormTextarea ) ) );
+export const ForwardedAutoresizingFormTextarea = forwardRef( AutoresizingFormTextarea );
+
+export default withPasteToLink( withUserMentions( ForwardedAutoresizingFormTextarea ) );

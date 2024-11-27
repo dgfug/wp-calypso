@@ -10,9 +10,8 @@ import 'calypso/state/document-head/init';
 /**
  * Returns an action object used in signalling that the document head title
  * should be assigned to the specified value.
- *
  * @param  {string} title Document title
- * @returns {object}       Action object
+ * @returns {Object}       Action object
  */
 export function setDocumentHeadTitle( title ) {
 	return {
@@ -24,9 +23,8 @@ export function setDocumentHeadTitle( title ) {
 /**
  * Returns an action object used in signalling that the unread count to be
  * shown in the document title should be assigned to the specified value.
- *
  * @param  {number} count Unread count
- * @returns {object}       Action object
+ * @returns {Object}       Action object
  */
 export function setDocumentHeadUnreadCount( count ) {
 	return {
@@ -38,9 +36,8 @@ export function setDocumentHeadUnreadCount( count ) {
 /**
  * Returns an action object used in signalling that the specified link object
  * should be included in the set of document head links.
- *
- * @param  {object|Array<object>} link Link object (or array of link objects)
- * @returns {object}      Action object
+ * @param  {Object | Array<Object>} link Link object (or array of link objects)
+ * @returns {Object}      Action object
  */
 export function setDocumentHeadLink( link ) {
 	return {
@@ -52,9 +49,8 @@ export function setDocumentHeadLink( link ) {
 /**
  * Returns an action object used in signalling that the specified meta object
  * should be included in the set of document head metas.
- *
- * @param  {object} meta Meta object
- * @returns {object}      Action object
+ * @param  {Object} meta Meta object
+ * @returns {Object}      Action object
  */
 export function setDocumentHeadMeta( meta ) {
 	return {

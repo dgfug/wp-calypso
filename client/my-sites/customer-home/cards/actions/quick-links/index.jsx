@@ -1,25 +1,35 @@
+import config from '@automattic/calypso-config';
+import { getAllFeaturesForPlan } from '@automattic/calypso-products/';
+import { JetpackLogo, FoldableCard } from '@automattic/components';
+import { GeneratorModal } from '@automattic/jetpack-ai-calypso';
 import i18n, { getLocaleSlug, useTranslate } from 'i18n-calypso';
-import { useEffect } from 'react';
-import { connect } from 'react-redux';
+import { useEffect, useState } from 'react';
+import { connect, useSelector } from 'react-redux';
 import { useDebouncedCallback } from 'use-debounce';
-import anchorLogoIcon from 'calypso/assets/images/customer-home/anchor-logo-grey.svg';
 import fiverrIcon from 'calypso/assets/images/customer-home/fiverr-logo-grey.svg';
-import FoldableCard from 'calypso/components/foldable-card';
-import withBlockEditorSettings from 'calypso/data/block-editor/with-block-editor-settings';
+import blazeIcon from 'calypso/assets/images/icons/blaze-icon.svg';
+import withIsFSEActive from 'calypso/data/themes/with-is-fse-active';
 import { canCurrentUserAddEmail } from 'calypso/lib/domains';
 import { hasPaidEmailWithUs } from 'calypso/lib/emails';
+import { usePromoteWidget, PromoteWidgetStatus } from 'calypso/lib/promote-post';
+import useAdvertisingUrl from 'calypso/my-sites/advertising/useAdvertisingUrl';
 import { bumpStat, composeAnalytics, recordTracksEvent } from 'calypso/state/analytics/actions';
 import { savePreference } from 'calypso/state/preferences/actions';
 import { getPreference } from 'calypso/state/preferences/selectors';
 import { canCurrentUser } from 'calypso/state/selectors/can-current-user';
 import { getSelectedEditor } from 'calypso/state/selectors/get-selected-editor';
+import getSiteEditorUrl from 'calypso/state/selectors/get-site-editor-url';
 import isSiteAtomic from 'calypso/state/selectors/is-site-wpcom-atomic';
+import isSiteWpcomStaging from 'calypso/state/selectors/is-site-wpcom-staging';
 import { getDomainsBySiteId } from 'calypso/state/sites/domains/selectors';
 import {
 	getSiteFrontPage,
 	getCustomizerUrl,
 	getSiteOption,
 	isNewSite,
+	getSitePlanSlug,
+	getSite,
+	isAdminInterfaceWPAdmin,
 } from 'calypso/state/sites/selectors';
 import getSiteAdminUrl from 'calypso/state/sites/selectors/get-site-admin-url';
 import { getSelectedSiteId, getSelectedSiteSlug } from 'calypso/state/ui/selectors';
@@ -34,12 +44,13 @@ export const QuickLinks = ( {
 	canManageSite,
 	canModerateComments,
 	customizeUrl,
-	isAtomic,
+	isWpcomStagingSite,
 	isStaticHomePage,
 	canAddEmail,
 	menusUrl,
 	trackEditHomepageAction,
 	trackWritePostAction,
+	trackPromotePostAction,
 	trackAddPageAction,
 	trackManageCommentsAction,
 	trackEditMenusAction,
@@ -47,26 +58,38 @@ export const QuickLinks = ( {
 	trackCustomizeThemeAction,
 	trackChangeThemeAction,
 	trackDesignLogoAction,
-	trackAnchorPodcastAction,
 	trackAddEmailAction,
 	trackAddDomainAction,
+	trackManageAllDomainsAction,
 	trackExplorePluginsAction,
 	isExpanded,
 	updateHomeQuickLinksToggleStatus,
 	siteAdminUrl,
 	editHomePageUrl,
 	siteSlug,
-	blockEditorSettings,
-	areBlockEditorSettingsLoading,
+	isFSEActive,
+	siteEditorUrl,
+	isAtomic,
+	adminInterface,
 } ) => {
-	const isFSEActive = blockEditorSettings?.is_fse_active ?? false;
-
 	const translate = useTranslate();
 	const [
 		debouncedUpdateHomeQuickLinksToggleStatus,
 		,
 		flushDebouncedUpdateHomeQuickLinksToggleStatus,
 	] = useDebouncedCallback( updateHomeQuickLinksToggleStatus, 1000 );
+	const isPromotePostActive = usePromoteWidget() === PromoteWidgetStatus.ENABLED;
+	const siteId = useSelector( getSelectedSiteId );
+	const currentSitePlanSlug = useSelector( ( state ) => getSitePlanSlug( state, siteId ) );
+	const site = useSelector( ( state ) => getSite( state, siteId ) );
+	const hasBackups = getAllFeaturesForPlan( currentSitePlanSlug ).includes( 'backups' );
+	const hasBoost = site?.options?.jetpack_connection_active_plugins?.includes( 'jetpack-boost' );
+	const [ isAILogoGeneratorOpen, setIsAILogoGeneratorOpen ] = useState( false );
+	const advertisingUrl = useAdvertisingUrl();
+
+	const addNewDomain = () => {
+		trackAddDomainAction();
+	};
 
 	const customizerLinks =
 		isStaticHomePage && canEditPages ? (
@@ -79,11 +102,16 @@ export const QuickLinks = ( {
 			/>
 		) : null;
 
+	const usesWpAdminInterface = adminInterface === 'wp-admin';
+	const adminInterfaceIsWPAdmin = useSelector( ( state ) =>
+		isAdminInterfaceWPAdmin( state, siteId )
+	);
+
 	const quickLinks = (
 		<div className="quick-links__boxes">
 			{ isFSEActive && canManageSite ? (
 				<ActionBox
-					href={ `/site-editor/${ siteSlug }` }
+					href={ siteEditorUrl }
 					hideLinkIndicator
 					onClick={ trackEditSiteAction }
 					label={ translate( 'Edit site' ) }
@@ -93,15 +121,26 @@ export const QuickLinks = ( {
 				customizerLinks
 			) }
 			<ActionBox
-				href={ `/post/${ siteSlug }` }
+				href={ usesWpAdminInterface ? `${ siteAdminUrl }post-new.php` : `/post/${ siteSlug }` }
 				hideLinkIndicator
 				onClick={ trackWritePostAction }
 				label={ translate( 'Write blog post' ) }
 				materialIcon="edit"
 			/>
+			{ isPromotePostActive && ! isWpcomStagingSite && (
+				<ActionBox
+					href={ advertisingUrl }
+					hideLinkIndicator
+					onClick={ trackPromotePostAction }
+					label={ translate( 'Promote with Blaze' ) }
+					iconSrc={ blazeIcon }
+				/>
+			) }
 			{ ! isStaticHomePage && canModerateComments && (
 				<ActionBox
-					href={ `/comments/${ siteSlug }` }
+					href={
+						usesWpAdminInterface ? `${ siteAdminUrl }edit-comments.php` : `/comments/${ siteSlug }`
+					}
 					hideLinkIndicator
 					onClick={ trackManageCommentsAction }
 					label={ translate( 'Manage comments' ) }
@@ -110,7 +149,11 @@ export const QuickLinks = ( {
 			) }
 			{ canEditPages && (
 				<ActionBox
-					href={ `/page/${ siteSlug }` }
+					href={
+						usesWpAdminInterface
+							? `${ siteAdminUrl }post-new.php?post_type=page`
+							: `/page/${ siteSlug }`
+					}
 					hideLinkIndicator
 					onClick={ trackAddPageAction }
 					label={ translate( 'Add a page' ) }
@@ -144,7 +187,7 @@ export const QuickLinks = ( {
 					materialIcon="view_quilt"
 				/>
 			) }
-			{ canManageSite && (
+			{ canManageSite && ! isWpcomStagingSite && (
 				<>
 					{ canAddEmail ? (
 						<ActionBox
@@ -158,12 +201,21 @@ export const QuickLinks = ( {
 						<ActionBox
 							href={ `/domains/add/${ siteSlug }` }
 							hideLinkIndicator
-							onClick={ trackAddDomainAction }
+							onClick={ addNewDomain }
 							label={ translate( 'Add a domain' ) }
-							gridicon="domains"
+							gridicon="add-outline"
 						/>
 					) }
 				</>
+			) }
+			{ canManageSite && (
+				<ActionBox
+					href="/domains/manage"
+					hideLinkIndicator
+					onClick={ trackManageAllDomainsAction }
+					label={ translate( 'Manage all domains' ) }
+					gridicon="domains"
+				/>
 			) }
 			{ siteAdminUrl && (
 				<ActionBox
@@ -176,7 +228,9 @@ export const QuickLinks = ( {
 			{ canManageSite && (
 				<>
 					<ActionBox
-						href={ `/plugins/${ siteSlug }` }
+						href={
+							usesWpAdminInterface ? `${ siteAdminUrl }plugins.php` : `/plugins/${ siteSlug }`
+						}
 						hideLinkIndicator
 						onClick={ trackExplorePluginsAction }
 						label={ translate( 'Explore Plugins' ) }
@@ -196,16 +250,42 @@ export const QuickLinks = ( {
 						external
 						iconSrc={ fiverrIcon }
 					/>
+					{ config.isEnabled( 'jetpack/ai-logo-generator' ) && (
+						<>
+							<ActionBox
+								hideLinkIndicator
+								gridicon="plans"
+								label={ translate( 'Create a logo with Jetpack AI' ) }
+								onClick={ () => setIsAILogoGeneratorOpen( true ) }
+							/>
+							<GeneratorModal
+								siteDetails={ site }
+								isOpen={ isAILogoGeneratorOpen }
+								onClose={ () => setIsAILogoGeneratorOpen( false ) }
+								context="calypso"
+							/>
+						</>
+					) }
 				</>
 			) }
-			{ canManageSite && ! isAtomic && (
+			{ isAtomic && hasBoost && (
 				<ActionBox
-					href="https://anchor.fm/wordpressdotcom"
-					onClick={ trackAnchorPodcastAction }
-					target="_blank"
-					label={ translate( 'Create a podcast with Anchor' ) }
-					external
-					iconSrc={ anchorLogoIcon }
+					href={ `https://${ siteSlug }/wp-admin/admin.php?page=jetpack-boost` }
+					hideLinkIndicator
+					label={ translate( 'Speed up your site' ) }
+					iconComponent={ <JetpackLogo monochrome className="quick-links__action-box-icon" /> }
+				/>
+			) }
+			{ isAtomic && hasBackups && (
+				<ActionBox
+					href={
+						adminInterfaceIsWPAdmin
+							? `https://jetpack.com/redirect/?source=calypso-backups&site=${ siteSlug }`
+							: `/backup/${ siteSlug }`
+					}
+					hideLinkIndicator
+					label={ translate( 'Restore a backup' ) }
+					iconComponent={ <JetpackLogo monochrome className="quick-links__action-box-icon" /> }
 				/>
 			) }
 		</div>
@@ -217,13 +297,9 @@ export const QuickLinks = ( {
 		};
 	}, [] );
 
-	if ( areBlockEditorSettingsLoading ) {
-		return null;
-	}
-
 	return (
 		<FoldableCard
-			className="quick-links"
+			className="quick-links customer-home__card"
 			headerTagName="h2"
 			header={ translate( 'Quick links' ) }
 			clickableHeader
@@ -256,6 +332,10 @@ const trackWritePostAction = ( isStaticHomePage ) => ( dispatch ) => {
 			bumpStat( 'calypso_customer_home', 'my_site_write_post' )
 		)
 	);
+};
+
+const trackPromotePostAction = () => ( dispatch ) => {
+	dispatch( recordTracksEvent( 'calypso_customer_home_my_site_quick_link_blaze' ) );
 };
 
 const trackAddPageAction = ( isStaticHomePage ) => ( dispatch ) => {
@@ -351,7 +431,7 @@ const trackExplorePluginsAction = ( isStaticHomePage ) => ( dispatch ) => {
 	);
 };
 
-const trackAddDomainAction = ( isStaticHomePage ) => ( dispatch ) => {
+export const trackAddDomainAction = ( isStaticHomePage ) => ( dispatch ) => {
 	dispatch(
 		composeAnalytics(
 			recordTracksEvent( 'calypso_customer_home_my_site_add_domain_click', {
@@ -362,10 +442,20 @@ const trackAddDomainAction = ( isStaticHomePage ) => ( dispatch ) => {
 	);
 };
 
+export const trackManageAllDomainsAction = ( isStaticHomePage ) => ( dispatch ) => {
+	dispatch(
+		composeAnalytics(
+			recordTracksEvent( 'calypso_customer_home_my_site_manage_all_domains_click', {
+				is_static_home_page: isStaticHomePage,
+			} ),
+			bumpStat( 'calypso_customer_home', 'my_site_manage_all_domains' )
+		)
+	);
+};
+
 /**
  * Select a list of domains that are eligible to add email to from a larger list.
  * WPCOM-specific domains like free and staging sub-domains are filtered from this list courtesy of `canCurrentUserAddEmail`
- *
  * @param domains An array domains to filter
  */
 const getDomainsThatCanAddEmail = ( domains ) =>
@@ -386,6 +476,7 @@ const mapStateToProps = ( state ) => {
 	const canAddEmail = getDomainsThatCanAddEmail( domains ).length > 0;
 
 	return {
+		siteId,
 		canEditPages: canCurrentUser( state, siteId, 'edit_pages' ),
 		canCustomize: canCurrentUser( state, siteId, 'customize' ),
 		canSwitchThemes: canCurrentUser( state, siteId, 'switch_themes' ),
@@ -399,14 +490,18 @@ const mapStateToProps = ( state ) => {
 		isStaticHomePage,
 		editHomePageUrl,
 		isAtomic: isSiteAtomic( state, siteId ),
+		isWpcomStagingSite: isSiteWpcomStaging( state, siteId ),
 		isExpanded: getPreference( state, 'homeQuickLinksToggleStatus' ) !== 'collapsed',
 		siteAdminUrl: getSiteAdminUrl( state, siteId ),
+		siteEditorUrl: getSiteEditorUrl( state, siteId ),
+		adminInterface: getSiteOption( state, siteId, 'wpcom_admin_interface' ),
 	};
 };
 
 const mapDispatchToProps = {
 	trackEditHomepageAction,
 	trackWritePostAction,
+	trackPromotePostAction,
 	trackAddPageAction,
 	trackManageCommentsAction,
 	trackEditMenusAction,
@@ -417,6 +512,7 @@ const mapDispatchToProps = {
 	trackAnchorPodcastAction,
 	trackAddEmailAction,
 	trackAddDomainAction,
+	trackManageAllDomainsAction,
 	trackExplorePluginsAction,
 	updateHomeQuickLinksToggleStatus: ( status ) =>
 		savePreference( 'homeQuickLinksToggleStatus', status ),
@@ -429,6 +525,7 @@ const mergeProps = ( stateProps, dispatchProps, ownProps ) => {
 		...dispatchProps,
 		trackEditHomepageAction: () => dispatchProps.trackEditHomepageAction( isStaticHomePage ),
 		trackWritePostAction: () => dispatchProps.trackWritePostAction( isStaticHomePage ),
+		trackPromotePostAction: () => dispatchProps.trackPromotePostAction( isStaticHomePage ),
 		trackAddPageAction: () => dispatchProps.trackAddPageAction( isStaticHomePage ),
 		trackManageCommentsAction: () => dispatchProps.trackManageCommentsAction( isStaticHomePage ),
 		trackEditMenusAction: () => dispatchProps.trackEditMenusAction( isStaticHomePage ),
@@ -438,6 +535,8 @@ const mergeProps = ( stateProps, dispatchProps, ownProps ) => {
 		trackAnchorPodcastAction: () => dispatchProps.trackAnchorPodcastAction( isStaticHomePage ),
 		trackAddEmailAction: () => dispatchProps.trackAddEmailAction( isStaticHomePage ),
 		trackAddDomainAction: () => dispatchProps.trackAddDomainAction( isStaticHomePage ),
+		trackManageAllDomainsAction: () =>
+			dispatchProps.trackManageAllDomainsAction( isStaticHomePage ),
 		trackExplorePluginsAction: () => dispatchProps.trackExplorePluginsAction( isStaticHomePage ),
 		...ownProps,
 	};
@@ -447,6 +546,6 @@ const ConnectedQuickLinks = connect(
 	mapStateToProps,
 	mapDispatchToProps,
 	mergeProps
-)( QuickLinks );
+)( withIsFSEActive( QuickLinks ) );
 
-export default withBlockEditorSettings( ConnectedQuickLinks );
+export default ConnectedQuickLinks;

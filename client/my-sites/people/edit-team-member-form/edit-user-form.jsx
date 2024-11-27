@@ -1,12 +1,13 @@
+import { FormLabel } from '@automattic/components';
 import { createHigherOrderComponent } from '@wordpress/compose';
 import debugModule from 'debug';
 import { localize } from 'i18n-calypso';
+import { defer, omit } from 'lodash';
 import { Component } from 'react';
 import { connect } from 'react-redux';
 import FormButton from 'calypso/components/forms/form-button';
 import FormButtonsBar from 'calypso/components/forms/form-buttons-bar';
 import FormFieldset from 'calypso/components/forms/form-fieldset';
-import FormLabel from 'calypso/components/forms/form-label';
 import FormTextInput from 'calypso/components/forms/form-text-input';
 import useAddExternalContributorMutation from 'calypso/data/external-contributors/use-add-external-contributor-mutation';
 import useExternalContributorsQuery from 'calypso/data/external-contributors/use-external-contributors';
@@ -15,6 +16,7 @@ import ContractorSelect from 'calypso/my-sites/people/contractor-select';
 import RoleSelect from 'calypso/my-sites/people/role-select';
 import { recordGoogleEvent } from 'calypso/state/analytics/actions';
 import { getCurrentUser } from 'calypso/state/current-user/selectors';
+import isSiteAutomatedTransfer from 'calypso/state/selectors/is-site-automated-transfer';
 import isSiteWPForTeams from 'calypso/state/selectors/is-site-wpforteams';
 import isVipSite from 'calypso/state/selectors/is-vip-site';
 import { getSite } from 'calypso/state/sites/selectors';
@@ -85,6 +87,7 @@ class EditUserForm extends Component {
 		const {
 			currentUser,
 			user,
+			isAtomic,
 			isJetpack,
 			hasWPCOMAccountLinked,
 			isVip,
@@ -98,10 +101,11 @@ class EditUserForm extends Component {
 		}
 
 		/*
-		 * If this is not a Jetpack site and the current user is not viewing their own profile,
+		 * On Atomic and non-Jetpack sites, if the current user is not viewing their own profile,
 		 * the user should not be able to edit the site owner's details.
 		 */
-		if ( ! isJetpack && user.ID === siteOwner && user.ID !== currentUser.ID ) {
+		const userId = user.linked_user_ID || user.ID;
+		if ( ( ! isJetpack || isAtomic ) && userId === siteOwner && userId !== currentUser.ID ) {
 			return [];
 		}
 
@@ -145,7 +149,7 @@ class EditUserForm extends Component {
 	}
 
 	updateUser = ( event ) => {
-		event.preventDefault();
+		event && event.preventDefault();
 
 		const { siteId, user, markSaved } = this.props;
 		const changedSettings = this.getChangedSettings();
@@ -159,8 +163,12 @@ class EditUserForm extends Component {
 		const changedAttributes = changedSettings.roles
 			? Object.assign( changedSettings, { roles: [ changedSettings.roles ] } )
 			: changedSettings;
+		// User object doesn't support isExternalContributor field
+		const changedUserAttributes = omit( changedAttributes, 'isExternalContributor' );
 
-		this.props.updateUser( user.ID, changedAttributes );
+		if ( Object.keys( changedUserAttributes ).length ) {
+			this.props.updateUser( user.ID, changedUserAttributes );
+		}
 
 		if ( true === changedSettings.isExternalContributor ) {
 			this.props.addExternalContributor(
@@ -198,6 +206,8 @@ class EditUserForm extends Component {
 				returnField = (
 					<RoleSelect
 						key="role-select"
+						formControlType={ this.props.roleSelectControlType }
+						explanation
 						id={ fieldKeys.roles }
 						name={ fieldKeys.roles }
 						siteId={ this.props.siteId }
@@ -205,6 +215,8 @@ class EditUserForm extends Component {
 						onChange={ this.handleChange }
 						onFocus={ this.recordFieldFocus( fieldKeys.roles ) }
 						disabled={ isDisabled }
+						includeFollower={ this.state.roles === 'follower' }
+						includeSubscriber={ this.state.roles === 'subscriber' }
 					/>
 				);
 				break;
@@ -214,7 +226,7 @@ class EditUserForm extends Component {
 						key="isExternalContributor"
 						id={ fieldKeys.isExternalContributor }
 						onChange={ this.handleExternalChange }
-						checked={ this.state.isExternalContributor }
+						checked={ !! this.state.isExternalContributor }
 						disabled={ isDisabled || this.state.isExternalContributor === undefined }
 					/>
 				);
@@ -281,6 +293,14 @@ class EditUserForm extends Component {
 		return returnField;
 	};
 
+	onFormChange() {
+		this.props.markChanged();
+		if ( this.props.autoSave ) {
+			// defer to pick up the most recent form values
+			defer( () => this.updateUser() );
+		}
+	}
+
 	render() {
 		if ( ! this.props.user.ID ) {
 			return null;
@@ -292,30 +312,33 @@ class EditUserForm extends Component {
 			return null;
 		}
 
-		const { translate, hasWPCOMAccountLinked, disabled, markChanged, isUpdating } = this.props;
+		const { autoSave, currentUser, user, translate, hasWPCOMAccountLinked, disabled, isUpdating } =
+			this.props;
 
 		return (
 			<form
 				className="edit-team-member-form__form" // eslint-disable-line
 				disabled={ disabled }
 				onSubmit={ this.updateUser }
-				onChange={ markChanged }
+				onChange={ () => this.onFormChange() }
 			>
 				{ editableFields.map( ( fieldId ) => this.renderField( fieldId, isUpdating ) ) }
-				{ hasWPCOMAccountLinked && (
+				{ hasWPCOMAccountLinked && user.ID !== currentUser.ID && (
 					<p className="edit-team-member-form__explanation">
 						{ translate(
-							'This user has a WordPress.com account, only they are allowed to update their personal information through their WordPress.com profile settings.'
+							'This user has a WordPress.com account. Only they are allowed to update their personal information through their WordPress.com profile settings.'
 						) }
 					</p>
 				) }
-				<FormButtonsBar>
-					<FormButton disabled={ ! this.hasUnsavedSettings() || isUpdating }>
-						{ this.props.translate( 'Save changes', {
-							context: 'Button label that prompts user to save form',
-						} ) }
-					</FormButton>
-				</FormButtonsBar>
+				{ ! autoSave && (
+					<FormButtonsBar>
+						<FormButton disabled={ ! this.hasUnsavedSettings() || isUpdating }>
+							{ this.props.translate( 'Save changes', {
+								context: 'Button label that prompts user to save form',
+							} ) }
+						</FormButton>
+					</FormButtonsBar>
+				) }
 			</form>
 		);
 	}
@@ -358,6 +381,7 @@ export default localize(
 			return {
 				siteOwner: site?.site_owner,
 				currentUser: getCurrentUser( state ),
+				isAtomic: isSiteAutomatedTransfer( state, siteId ),
 				isVip: isVipSite( state, siteId ),
 				isWPForTeamsSite: isSiteWPForTeams( state, siteId ),
 				hasWPCOMAccountLinked: false !== user?.linked_user_ID,

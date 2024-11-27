@@ -5,10 +5,9 @@ import 'calypso/state/domains/init';
 
 /**
  * Returns registrant's domain contact details if we've successfully requested them.
- *
- * @param  {object}  state       Global state tree
+ * @param  {Object}  state       Global state tree
  * @param  {string}  domain      Domain to query details
- * @returns {object}              Contact details
+ * @returns {Object}              Contact details
  */
 export default function getRegistrantWhois( state, domain ) {
 	const whoisContacts = get( state, [ 'domains', 'management', 'items', domain ], [] );

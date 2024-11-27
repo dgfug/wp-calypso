@@ -4,23 +4,13 @@ import Settings
 import _self.bashNodeScript
 import _self.lib.customBuildType.E2EBuildType
 import _self.lib.utils.mergeTrunk
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.FailureAction
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.PullRequests
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.commitStatusPublisher
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.notifications
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.perfmon
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.pullRequests
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.ScriptBuildStep
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.dockerCommand
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.schedule
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 
 object WebApp : Project({
 	id("WebApp")
@@ -33,16 +23,35 @@ object WebApp : Project({
 	buildType(playwrightPrBuildType("desktop", "23cc069f-59e5-4a63-a131-539fb55264e7"))
 	buildType(playwrightPrBuildType("mobile", "90fbd6b7-fddb-4668-9ed0-b32598143616"))
 	buildType(PreReleaseE2ETests)
+	buildType(AuthenticationE2ETests)
 	buildType(QuarantinedE2ETests)
 })
 
 object BuildDockerImage : BuildType({
 	uuid = "89fff49e-c79b-4e68-a012-a7ba405359b6"
 	name = "Docker image"
-	description = "Build docker image containing Calypso"
+	description = "Build the primary Docker image for Calypso which will be deployed to calypso.live (for PRs) or to production (on trunk)."
 
 	params {
 		text("base_image", "registry.a8c.com/calypso/base:latest", label = "Base docker image", description = "Base docker image", allowEmpty = false)
+		text("base_image_publish_tag", "latest", label = "Tag to use for the published base image", description = "Base docker image tag", allowEmpty = false)
+		checkbox(
+			name = "MANUAL_SENTRY_RELEASE",
+			value = "false",
+			label = "Create a sentry release.",
+			description = "Generate and upload sourcemaps to Sentry as a new release for this commit.",
+			checked = "true",
+			unchecked = "false"
+		)
+		checkbox(
+			name = "UPDATE_BASE_IMAGE_CACHE",
+			value = "false",
+			label = "Update the base image from the cache.",
+			description = "Updates the base image by copying .cache files from the current build. Runs on trunk by default if the cache invalidates during the build.",
+			checked = "true",
+			unchecked = "false"
+		)
+		param("env.WEBPACK_CACHE_INVALIDATED", "false")
 	}
 
 	vcs {
@@ -50,16 +59,29 @@ object BuildDockerImage : BuildType({
 		cleanCheckout = true
 	}
 
-	steps {
+	// Normally, this build can be triggered via snapshot dependencies, such as
+	// the e2e tests. If those builds don't run (e.g. if they're disabled for certain
+	// directories), then we still want the docker image to be triggered for the
+	// deploy system. This build chain sends requests to missioncontrol which start
+	// different aspects of the deploy system. So the entire deploy system depends
+	// on this build getting triggered either here or via snapshot dependencies.
+	triggers {
+		vcs {
+			branchFilter = """
+				+:*
+				-:pull*
+			""".trimIndent()
+		}
+	}
 
+	steps {
 		script {
 			name = "Webhook Start"
+			conditions {
+				equals("teamcity.build.branch.is_default", "true")
+			}
 			scriptContent = """
 				#!/usr/bin/env bash
-
-				if [[ "%teamcity.build.branch.is_default%" != "true" ]]; then
-					exit 0
-				fi
 
 				payload=${'$'}(jq -n \
 					--arg action "start" \
@@ -69,17 +91,17 @@ object BuildDockerImage : BuildType({
 				)
 				signature=`echo -n "%teamcity.build.id%" | openssl sha256 -hmac "%mc_auth_secret%" | sed 's/^.* //'`
 
-				curl -s -X POST -d "${'$'}payload" -H "TEAMCITY_SIGNATURE: ${'$'}signature" "%mc_teamcity_webhook%calypso/?build_id=%teamcity.build.id%"
+				curl -s -X POST -d "${'$'}payload" -H "TEAMCITY-SIGNATURE: ${'$'}signature" "%mc_teamcity_webhook%calypso/?build_id=%teamcity.build.id%"
 			"""
 		}
 
 		script {
 			name = "Post PR comment"
+			conditions {
+				doesNotEqual("teamcity.build.branch.is_default", "true")
+			}
 			scriptContent = """
 				#!/usr/bin/env bash
-				if [[ "%teamcity.build.branch.is_default%" == "true" ]]; then
-					exit 0
-				fi
 
 				export GH_TOKEN="%matticbot_oauth_token%"
 				chmod +x ./bin/add-pr-comment.sh
@@ -89,6 +111,12 @@ object BuildDockerImage : BuildType({
 				EOF
 			"""
 		}
+
+		// We want calypso.live and Calypso e2e tests to run even if there's a merge conflict,
+		// just to keep things going. However, if we can merge, the webpack cache
+		// can be better utilized, since it's kept up-to-date for trunk commits.
+		// Note that this only happens on non-trunk
+		mergeTrunk( skipIfConflict = true )
 
 		script {
 			name = "Restore git mtime"
@@ -103,6 +131,20 @@ object BuildDockerImage : BuildType({
 			dockerImagePlatform = ScriptBuildStep.ImagePlatform.Linux
 		}
 
+		val commonArgs = """
+			--label com.a8c.image-builder=teamcity
+			--label com.a8c.build-id=%teamcity.build.id%
+			--build-arg workers=32
+			--build-arg node_memory=16384
+			--build-arg use_cache=true
+			--build-arg base_image=%base_image%
+			--build-arg commit_sha=${Settings.WpCalypso.paramRefs.buildVcsNumber}
+			--build-arg manual_sentry_release=%MANUAL_SENTRY_RELEASE%
+			--build-arg is_default_branch=%teamcity.build.branch.is_default%
+			--build-arg sentry_auth_token=%SENTRY_AUTH_TOKEN%
+			--build-arg generate_cache_image=%UPDATE_BASE_IMAGE_CACHE%
+		""".trimIndent().replace("\n"," ")
+
 		dockerCommand {
 			name = "Build docker image"
 			commandType = build {
@@ -114,16 +156,7 @@ object BuildDockerImage : BuildType({
 					registry.a8c.com/calypso/app:commit-${Settings.WpCalypso.paramRefs.buildVcsNumber}
 					registry.a8c.com/calypso/app:latest
 				""".trimIndent()
-				commandArgs = """
-					--pull
-					--label com.a8c.image-builder=teamcity
-					--label com.a8c.target=calypso-live
-					--label com.a8c.build-id=%teamcity.build.id%
-					--build-arg workers=32
-					--build-arg node_memory=32768
-					--build-arg use_cache=true
-					--build-arg base_image=%base_image%
-				""".trimIndent().replace("\n"," ")
+				commandArgs = "--pull --label com.a8c.target=calypso-live $commonArgs"
 			}
 			param("dockerImage.platform", "linux")
 		}
@@ -140,18 +173,17 @@ object BuildDockerImage : BuildType({
 		script {
 			name = "Webhook fail OR webhook done and push trunk tag for deploy"
 			executionMode = BuildStep.ExecutionMode.ALWAYS
+			conditions {
+				equals("teamcity.build.branch.is_default", "true")
+			}
 			scriptContent = """
 				#!/usr/bin/env bash
 
-				if [[ "%teamcity.build.branch.is_default%" != "true" ]]; then
-					exit 0
-				fi
-
-				docker push "registry.a8c.com/calypso/app:latest"
-				ACTION="done";
-				FAILURES=$(curl --silent -X GET -H "Content-Type: text/plain" https://teamcity.a8c.com/guestAuth/app/rest/builds/?locator=id:%teamcity.build.id% | grep -c "FAILURE")
-				if [ ${'$'}FAILURES -ne 0 ]; then
-					ACTION="fail"
+				ACTION="fail"
+				SUCCESS=$(curl --silent -X GET -H "Content-Type: text/plain" https://teamcity.a8c.com/guestAuth/app/rest/builds/?locator=id:%teamcity.build.id% | grep -c 'status="SUCCESS"')
+				if [ ${'$'}SUCCESS -eq 1 ]; then
+					docker push "registry.a8c.com/calypso/app:latest"
+					ACTION="done"
 				fi
 
 				payload=${'$'}(jq -n \
@@ -162,17 +194,17 @@ object BuildDockerImage : BuildType({
 				)
 				signature=`echo -n "%teamcity.build.id%" | openssl sha256 -hmac "%mc_auth_secret%" | sed 's/^.* //'`
 
-				curl -s -X POST -d "${'$'}payload" -H "TEAMCITY_SIGNATURE: ${'$'}signature" "%mc_teamcity_webhook%calypso/?build_id=%teamcity.build.id%"
+				curl -s -X POST -d "${'$'}payload" -H "TEAMCITY-SIGNATURE: ${'$'}signature" "%mc_teamcity_webhook%calypso/?build_id=%teamcity.build.id%"
 			"""
 		}
 
 		script {
 			name = "Post PR comment with link"
+			conditions {
+				doesNotEqual("teamcity.build.branch.is_default", "true")
+			}
 			scriptContent = """
 				#!/usr/bin/env bash
-				if [[ "%teamcity.build.branch.is_default%" == "true" ]]; then
-					exit 0
-				fi
 
 				export GH_TOKEN="%matticbot_oauth_token%"
 				chmod +x ./bin/add-pr-comment.sh
@@ -203,8 +235,76 @@ object BuildDockerImage : BuildType({
 						</tr>
 					</table>
 				</details>
+				<details>
+					<summary>Automattic for Agencies live <a href="https://calypso.live?image=registry.a8c.com/calypso/app:build-%build.number%&env=a8c-for-agencies">(direct link)</a></summary>
+					<table>
+						<tr>
+							<td>
+								<img src="https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=https%3A%2F%2Fcalypso.live%3Fimage%3Dregistry.a8c.com%2Fcalypso%2Fapp%3Abuild-%build.number%%26env%3Da8c-for-agencies%26flags%3Doauth&choe=UTF-8" />
+							</td>
+							<td>
+								<a href="https://calypso.live?image=registry.a8c.com/calypso/app:build-%build.number%&env=a8c-for-agencies">https://calypso.live?image=registry.a8c.com/calypso/app:build-%build.number%&env=a8c-for-agencies</a>
+							</td>
+						</tr>
+					</table>
+				</details>
 				EOF
 			"""
+		}
+
+		// TODO: Cache rebuilding is currently disabled. It takes a long time and
+		// causes timeouts on trunk. It needs to run more quickly to be worth it.
+		// For now, the cache will be rebuilt a couple times a day by the dedicated
+		// cache build.
+
+		// Conditions don't seem to support and/or, so we do this in a separate step.
+		// Essentially, UPDATE_BASE_IMAGE_CACHE will remain false by default, but
+		// if we're on trunk and get WEBPACK_CACHE_INVALIDATED set by the docker build,
+		// then we can flip it to true to trigger the cache rebuild.
+		// script {
+		// 	name = "Set cache update"
+		// 	conditions {
+		// 		equals("env.WEBPACK_CACHE_INVALIDATED", "true")
+		// 		equals("teamcity.build.branch.is_default", "true")
+		// 	}
+		// 	scriptContent = """
+		// 		echo "##teamcity[setParameter name='UPDATE_BASE_IMAGE_CACHE' value='true']"
+		// 	"""
+		// }
+
+		// This updates the base docker image when the webpack cache invalidates.
+		// It does so by re-using the layers already generated above, and simply
+		// copying the .cache directory as a new layer into the base image. On
+		// trunk, this will update the latest base image for future builds.
+		//
+		// Runs after everything else to avoid blocking the deploy system or calypso.live.
+		dockerCommand {
+			name = "Rebuild cache image"
+			conditions {
+				equals("UPDATE_BASE_IMAGE_CACHE", "true")
+			}
+			commandType = build {
+				source = file {
+					path = "Dockerfile"
+				}
+				namesAndTags = "registry.a8c.com/calypso/base:%base_image_publish_tag%"
+				commandArgs = """
+					--target update-base-cache
+					--cache-from=registry.a8c.com/calypso/app:commit-${Settings.WpCalypso.paramRefs.buildVcsNumber},%base_image%
+					$commonArgs
+				""".trimIndent().replace("\n"," ")
+			}
+			param("dockerImage.platform", "linux")
+		}
+
+		dockerCommand {
+			name = "Push cache image"
+			conditions {
+				equals("UPDATE_BASE_IMAGE_CACHE", "true")
+			}
+			commandType = push {
+				namesAndTags = "registry.a8c.com/calypso/base:%base_image_publish_tag%"
+			}
 		}
 	}
 
@@ -224,10 +324,40 @@ object BuildDockerImage : BuildType({
 				filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
 			}
 		}
+
+		commitStatusPublisher {
+			vcsRootExtId = "${Settings.WpCalypso.id}"
+			publisher = github {
+				githubUrl = "https://api.github.com"
+				authType = personalToken {
+					token = "credentialsJSON:57e22787-e451-48ed-9fea-b9bf30775b36"
+				}
+			}
+		}
+		notifications {
+			notifierSettings = slackNotifier {
+				connection = "PROJECT_EXT_11"
+				sendTo = "#calypso"
+				messageFormat = verboseMessageFormat {
+					addChanges = true
+					addStatusText = true
+					addBranch = true
+				}
+			}
+			branchFilter = """
+				+:trunk
+			""".trimIndent()
+			buildFailedToStart = true
+			buildFailed = true
+			buildFinishedSuccessfully = true
+			firstSuccessAfterFailure = true
+			buildProbablyHanging = true
+		}
 	}
 })
 
 object RunAllUnitTests : BuildType({
+	id("calypso_WebApp_Run_All_Unit_Tests")
 	uuid = "beb75760-2786-472b-8909-ec33457bdece"
 	name = "Unit tests"
 	description = "Run unit tests (client + server + packages)"
@@ -235,7 +365,6 @@ object RunAllUnitTests : BuildType({
 	artifactRules = """
 		test_results => test_results
 		artifacts => artifacts
-		checkstyle_results => checkstyle_results
 	""".trimIndent()
 
 	vcs {
@@ -249,6 +378,9 @@ object RunAllUnitTests : BuildType({
 			name = "Prepare environment"
 			scriptContent = """
 				export NODE_ENV="test"
+				echo -n "Node version: " && node --version
+				echo -n "Yarn version: " && yarn --version
+				echo -n "NPM version: " && npm --version
 
 				# Install modules
 				${_self.yarn_install_cmd}
@@ -288,106 +420,43 @@ object RunAllUnitTests : BuildType({
 			"""
 		}
 		bashNodeScript {
-			name = "Prevent uncommited changes"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+			name = "Check for yarn.lock changes and duplicated packages"
 			scriptContent = """
-				export NODE_ENV="test"
+				function prevent_uncommitted_changes {
+					DIRTY_FILES=${'$'}(git status --porcelain 2>/dev/null)
+					if [ ! -z "${'$'}DIRTY_FILES" ]; then
+						echo "Repository contains uncommitted changes: "
+						echo "${'$'}DIRTY_FILES"
+						echo "You need to checkout the branch, run 'yarn' and commit those files."
+						return 1
+					fi
+				}
 
-				# Prevent uncommited changes
-				DIRTY_FILES=${'$'}(git status --porcelain 2>/dev/null)
-				if [ ! -z "${'$'}DIRTY_FILES" ]; then
-					echo "Repository contains uncommitted changes: "
-					echo "${'$'}DIRTY_FILES"
-					echo "You need to checkout the branch, run 'yarn' and commit those files."
-					exit 1
-				fi
-			"""
-		}
-		bashNodeScript {
-			name = "Prevent duplicated packages"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				# Duplicated packages
-				if ! DUPLICATED_PACKAGES=${'$'}(
-					set +e
-					yarn dedupe --check
-				); then
-					echo "Repository contains duplicated packages: "
-					echo ""
-					echo "${'$'}DUPLICATED_PACKAGES"
-					echo ""
-					echo "To fix them, you need to checkout the branch, run 'yarn dedupe',"
-					echo "verify that the new packages work and commit the changes in 'yarn.lock'."
-					exit 1
-				else
-					echo "No duplicated packages found."
-				fi
-			"""
-		}
-		bashNodeScript {
-			name = "Run type checks"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				set -x
-				export NODE_ENV="test"
+				function prevent_duplicated_packages {
+					if ! DUPLICATED_PACKAGES=${'$'}(
+						set +e
+						yarn dedupe --check
+					); then
+						echo "Repository contains duplicated packages: "
+						echo ""
+						echo "${'$'}DUPLICATED_PACKAGES"
+						echo ""
+						echo "To fix them, you need to checkout the branch, run 'yarn dedupe',"
+						echo "verify that the new packages work and commit the changes in 'yarn.lock'."
+						return 1
+					else
+						echo "No duplicated packages found."
+					fi
+				}
 
-				# These are not expected to fail
-				yarn tsc --build packages/*/tsconfig.json
-				yarn tsc --build apps/editing-toolkit/tsconfig.json
-				yarn tsc --build client/tsconfig.json
-			"""
+				prevent_uncommitted_changes & prevent_duplicated_packages
+				wait
+			""".trimIndent()
 		}
 		bashNodeScript {
-			name = "Run unit tests for client"
+			name = "Run parallelized tests"
 			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				unset NODE_ENV
-				unset CALYPSO_ENV
-
-				# Run client tests
-				yarn test-client --maxWorkers=${'$'}JEST_MAX_WORKERS --ci --reporters=default --reporters=jest-teamcity --silent
-			"""
-		}
-		bashNodeScript {
-			name = "Run unit tests for server"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				unset NODE_ENV
-				unset CALYPSO_ENV
-
-				# Run server tests
-				yarn test-server --maxWorkers=${'$'}JEST_MAX_WORKERS --ci --reporters=default --reporters=jest-teamcity --silent
-			"""
-		}
-		bashNodeScript {
-			name = "Run unit tests for packages"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				unset NODE_ENV
-				unset CALYPSO_ENV
-
-				# Run packages tests
-				yarn test-packages --maxWorkers=${'$'}JEST_MAX_WORKERS --ci --reporters=default --reporters=jest-teamcity --silent
-			"""
-		}
-		bashNodeScript {
-			name = "Run unit tests for build tools"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				unset NODE_ENV
-				unset CALYPSO_ENV
-
-				# Run build-tools tests
-				yarn test-build-tools --maxWorkers=${'$'}JEST_MAX_WORKERS --ci --reporters=default --reporters=jest-teamcity --silent
-			"""
-		}
-		bashNodeScript {
-			name = "Run storybook tests"
-			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
-			scriptContent = """
-				set -x
-				yarn workspaces foreach --verbose --parallel run storybook --ci --smoke-test
-			"""
+			scriptContent = "./bin/unit-test-suite.mjs"
 		}
 		bashNodeScript {
 			name = "Tag build"
@@ -417,8 +486,6 @@ object RunAllUnitTests : BuildType({
 	features {
 		feature {
 			type = "xml-report-plugin"
-			param("xmlReportParsing.reportType", "checkstyle")
-			param("xmlReportParsing.reportDirs", "checkstyle_results/*.xml")
 			param("xmlReportParsing.verboseOutput", "true")
 		}
 		perfmon {
@@ -461,6 +528,7 @@ object RunAllUnitTests : BuildType({
 })
 
 object CheckCodeStyleBranch : BuildType({
+	id("calypso_WebApp_Check_Code_Style_Branch")
 	uuid = "dfee7987-6bbc-4250-bb10-ef9dd7322bd2"
 	name = "Code style"
 	description = "Check code style"
@@ -474,6 +542,10 @@ object CheckCodeStyleBranch : BuildType({
 			checked = "true",
 			unchecked = "false"
 		)
+	}
+
+	cleanup {
+		artifacts(days = 14)
 	}
 
 	artifactRules = """
@@ -496,24 +568,35 @@ object CheckCodeStyleBranch : BuildType({
 			"""
 		}
 		bashNodeScript {
-			name = "Run linters"
+			name = "Run eslint"
 			scriptContent = """
+				set -x
 				export NODE_ENV="test"
 
 				# Find files to lint
-				if [ "%run_full_eslint%" = "true" ]; then
-					FILES_TO_LINT="."
-				else
-					FILES_TO_LINT=${'$'}(git diff --name-only --diff-filter=d refs/remotes/origin/trunk...HEAD | grep -E '(\.[jt]sx?|\.md)${'$'}' || exit 0)
-				fi
-				echo "Files to lint:"
-				echo ${'$'}FILES_TO_LINT
-				echo ""
+				TOTAL_FILES_TO_LINT=$(git diff --name-only --diff-filter=d refs/remotes/origin/trunk...HEAD | grep -cE '\.[jt]sx?' || true)
 
-				# Lint files
-				if [ ! -z "${'$'}FILES_TO_LINT" ]; then
-					yarn run eslint --format checkstyle --output-file "./checkstyle_results/eslint/results.xml" ${'$'}FILES_TO_LINT
+				# Avoid running more than 16 parallel eslint tasks as it could OOM
+				if [ "%run_full_eslint%" = "true" ] || [ "${'$'}TOTAL_FILES_TO_LINT" -gt 16 ] || [ "${'$'}TOTAL_FILES_TO_LINT" == "0" ]; then
+					echo "Linting all files"
+					yarn run eslint --format checkstyle --output-file "./checkstyle_results/eslint/results.xml" .
+				else
+					# To avoid `ENAMETOOLONG` errors linting files, we have to lint them one by one,
+					# instead of passing the full list of files to eslint directly.
+					for file in ${'$'}(git diff --name-only --diff-filter=d refs/remotes/origin/trunk...HEAD | grep -E '(\.[jt]sx?)${'$'}' || true); do
+						( echo "Linting ${'$'}file"
+						yarn run eslint --format checkstyle --output-file "./checkstyle_results/eslint/${'$'}{file//\//_}.xml" "${'$'}file" ) &
+					done
+					wait
 				fi
+			"""
+		}
+
+		bashNodeScript {
+			name = "Run stylelint"
+			scriptContent = """
+				# In the future, we may add the stylelint cache here.
+				yarn run lint:css
 			"""
 		}
 	}
@@ -530,6 +613,13 @@ object CheckCodeStyleBranch : BuildType({
 
 	failureConditions {
 		executionTimeoutMin = 20
+		failOnMetricChange {
+			metric = BuildFailureOnMetric.MetricType.INSPECTION_ERROR_COUNT
+			threshold = 0
+			units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
+			comparison = BuildFailureOnMetric.MetricComparison.MORE
+			compareTo = value()
+		}
 	}
 
 	features {
@@ -563,6 +653,7 @@ object CheckCodeStyleBranch : BuildType({
 })
 
 object Translate : BuildType({
+	id("calypso_WebApp_Translate")
 	name = "Translate"
 	description = "Extract translatable strings from the source code and build POT file"
 
@@ -642,9 +733,9 @@ object Translate : BuildType({
 	triggers {
 		vcs {
 			branchFilter = """
-			+:*
-			-:pull*
-		""".trimIndent()
+				+:*
+				-:pull*
+			""".trimIndent()
 		}
 	}
 
@@ -674,22 +765,22 @@ object Translate : BuildType({
 
 fun playwrightPrBuildType( targetDevice: String, buildUuid: String ): E2EBuildType {
 	return E2EBuildType(
-		buildId = "Calypso_E2E_Playwright_$targetDevice",
+		buildId = "calypso_WebApp_Calypso_E2E_Playwright_$targetDevice",
 		buildUuid = buildUuid,
 		buildName = "E2E Tests ($targetDevice)",
 		buildDescription = "Runs Calypso e2e tests on $targetDevice size",
 		getCalypsoLiveURL = """
 			chmod +x ./bin/get-calypso-live-url.sh
-			URL=${'$'}(./bin/get-calypso-live-url.sh ${BuildDockerImage.depParamRefs.buildNumber})
+			CALYPSO_LIVE_URL=${'$'}(./bin/get-calypso-live-url.sh ${BuildDockerImage.depParamRefs.buildNumber})
 			if [[ ${'$'}? -ne 0 ]]; then
-				// Command failed. URL contains stderr
-				echo ${'$'}URL
+				// Command failed. CALYPSO_LIVE_URL contains stderr
+				echo ${'$'}CALYPSO_LIVE_URL
 				exit 1
 			fi
 		""".trimIndent(),
 		testGroup = "calypso-pr",
 		buildParams = {
-			param("env.AUTHENTICATE_ACCOUNTS", "simpleSitePersonalPlanUser,defaultUser,eCommerceUser")
+			param("env.AUTHENTICATE_ACCOUNTS", "simpleSitePersonalPlanUser,gutenbergSimpleSiteUser,defaultUser")
 			param("env.LIVEBRANCHES", "true")
 			param("env.VIEWPORT_NAME", "$targetDevice")
 		},
@@ -704,12 +795,16 @@ fun playwrightPrBuildType( targetDevice: String, buildUuid: String ): E2EBuildTy
 				}
 			}
 		},
+		enableCommitStatusPublisher = true,
 		buildTriggers = {
 			vcs {
 				branchFilter = """
 					+:*
 					-:pull*
 					-:trunk
+				""".trimIndent()
+				triggerRules = """
+					-:**.md
 				""".trimIndent()
 			}
 		},
@@ -721,34 +816,223 @@ fun playwrightPrBuildType( targetDevice: String, buildUuid: String ): E2EBuildTy
 	)
 }
 
-object PreReleaseE2ETests : E2EBuildType(
-	buildId = "Calypso_E2E_Pre_Release",
-	buildUuid = "9c2f634f-6582-4245-bb77-fb97d9f16533",
-	buildName = "Pre-Release E2E Tests",
-	buildDescription = "Runs a pre-release suite of E2E tests against trunk on staging, intended to be run after PR merge, but before deployment to production.",
+object PreReleaseE2ETests : BuildType({
+	id("calypso_WebApp_Calypso_E2E_Pre_Release")
+	uuid = "9c2f634f-6582-4245-bb77-fb97d9f16533"
+	name = "Pre-Release E2E Tests"
+	description = "Runs a pre-release suite of E2E tests against trunk on staging, intended to be run after PR merge, but before deployment to production."
+	artifactRules = """
+		logs => logs.tgz
+		screenshots => screenshots
+		trace => trace
+		allure-results => allure-results.tgz
+	""".trimIndent()
+
+	vcs {
+		root(Settings.WpCalypso)
+		cleanCheckout = true
+	}
+
+	params {
+		param("env.NODE_CONFIG_ENV", "test")
+		param("env.PLAYWRIGHT_BROWSERS_PATH", "0")
+		param("env.HEADLESS", "true")
+		param("env.LOCALE", "en")
+		param("env.VIEWPORT_NAME", "desktop")
+		param("env.CALYPSO_BASE_URL", "https://wpcalypso.wordpress.com")
+		param("env.ALLURE_RESULTS_PATH", "allure-results")
+	}
+
+	steps {
+		bashNodeScript {
+			name = "Prepare environment"
+			scriptContent = """
+				# Install deps
+				yarn workspaces focus wp-e2e-tests @automattic/calypso-e2e
+
+				# Decrypt secrets
+				# Must do before build so the secrets are in the dist output
+				E2E_SECRETS_KEY="%E2E_SECRETS_ENCRYPTION_KEY_CURRENT%" yarn workspace @automattic/calypso-e2e decrypt-secrets
+
+				# Build packages
+				yarn workspace @automattic/calypso-e2e build
+			""".trimIndent()
+			dockerImage = "%docker_image_e2e%"
+		}
+
+		bashNodeScript {
+			name = "Run tests"
+			scriptContent = """
+				# Configure bash shell.
+				shopt -s globstar
+				set -x
+
+				# Enter testing directory.
+				cd test/e2e
+				mkdir temp
+
+				# Disable exit on error to support retries.
+				set +o errexit
+
+				# Run suite.
+				xvfb-run yarn jest --reporters=jest-teamcity --reporters=default --maxWorkers=%JEST_E2E_WORKERS% --workerIdleMemoryLimit=1GB --group=calypso-release
+
+				# Restore exit on error.
+				set -o errexit
+
+				# Retry failed tests only.
+				RETRY_COUNT=1 xvfb-run yarn jest --reporters=jest-teamcity --reporters=default --maxWorkers=%JEST_E2E_WORKERS% --workerIdleMemoryLimit=1GB --group=calypso-release --onlyFailures --json --outputFile=pre-release-test-results.json
+			"""
+			dockerImage = "%docker_image_e2e%"
+		}
+
+
+		bashNodeScript {
+			name = "Collect results"
+			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+			scriptContent = """
+				set -x
+
+				mkdir -p screenshots
+				find test/e2e/results -type f \( -iname \*.webm -o -iname \*.png \) -print0 | xargs -r -0 mv -t screenshots
+
+				mkdir -p logs
+				find test/e2e/results -name '*.log' -print0 | xargs -r -0 mv -t logs
+
+				mkdir -p trace
+				find test/e2e/results -name '*.zip' -print0 | xargs -r -0 mv -t trace
+
+				mkdir -p allure-results
+				find test/e2e/allure-results -name '*.json' -print0 | xargs -r -0 mv -t allure-results
+			""".trimIndent()
+			dockerImage = "%docker_image_e2e%"
+		}
+
+		bashNodeScript {
+			name = "Upload Allure results to S3"
+			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+			scriptContent = """
+				aws configure set aws_access_key_id %CALYPSO_E2E_DASHBOARD_AWS_S3_ACCESS_KEY_ID%
+				aws configure set aws_secret_access_key %CALYPSO_E2E_DASHBOARD_AWS_S3_SECRET_ACCESS_KEY%
+
+				# Need to use -C to avoid creation of an unnecessary top level directory.
+				tar cvfz %build.counter%-%build.vcs.number%.tgz -C allure-results .
+
+				aws s3 cp %build.counter%-%build.vcs.number%.tgz %CALYPSO_E2E_DASHBOARD_AWS_S3_ROOT%
+			""".trimIndent()
+			conditions {
+				exists("env.ALLURE_RESULTS_PATH")
+				equals("teamcity.build.branch", "trunk")
+			}
+			dockerImage = "%docker_image_e2e%"
+		}
+
+		bashNodeScript {
+			name = "Send webhook to GitHub Actions"
+			executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+			scriptContent = """
+				# Issue call as matticbot.
+				# The GitHub Action workflow expects the filename of the most recent Allure report
+				# as param.
+				curl https://api.github.com/repos/Automattic/wp-calypso-test-results/actions/workflows/generate-report.yml/dispatches -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer %MATTICBOT_GITHUB_BEARER_TOKEN%" -d '{"ref":"trunk","inputs":{"allure_result_filename": "%build.counter%-%build.vcs.number%.tgz"}}'
+			""".trimIndent()
+			conditions {
+				exists("env.ALLURE_RESULTS_PATH")
+				equals("teamcity.build.branch", "trunk")
+			}
+			dockerImage = "%docker_image_e2e%"
+		}
+	}
+
+	features {
+		perfmon {
+		}
+		commitStatusPublisher {
+			vcsRootExtId = "${Settings.WpCalypso.id}"
+			publisher = github {
+				githubUrl = "https://api.github.com"
+				authType = personalToken {
+					token = "credentialsJSON:57e22787-e451-48ed-9fea-b9bf30775b36"
+				}
+			}
+		}
+		notifications {
+			notifierSettings = slackNotifier {
+				connection = "PROJECT_EXT_11"
+				sendTo = "#e2eflowtesting-notif"
+				messageFormat = verboseMessageFormat {
+					addStatusText = true
+				}
+			}
+			branchFilter = "+:<default>"
+			buildFailedToStart = true
+			buildFailed = true
+			buildFinishedSuccessfully = false
+			buildProbablyHanging = true
+		}
+	}
+
+	failureConditions {
+		executionTimeoutMin = 20
+		// Don't fail if the runner exists with a non zero code. This allows a build to pass if the failed tests have been muted previously.
+		nonZeroExitCode = false
+
+		// Support retries using the --onlyFailures flag in Jest.
+		supportTestRetry = true
+
+		// Fail if the number of passing tests is 50% or less than the last build. This will catch the case where the test runner crashes and no tests are run.
+		failOnMetricChange {
+			metric = BuildFailureOnMetric.MetricType.PASSED_TEST_COUNT
+			threshold = 50
+			units = BuildFailureOnMetric.MetricUnit.PERCENTS
+			comparison = BuildFailureOnMetric.MetricComparison.LESS
+			compareTo = build {
+				buildRule = lastSuccessful()
+			}
+		}
+	}
+})
+
+object AuthenticationE2ETests : E2EBuildType(
+	buildId = "calypso_WebApp_Calypso_E2E_Authentication",
+	buildUuid = "f5036e29-f400-49ea-b5c5-4aba9307c5e8",
+	buildName = "Authentication E2E Tests",
+	buildDescription = "Runs a suite of Authentication E2E tests.",
 	concurrentBuilds = 1,
-	testGroup = "calypso-release",
+	testGroup = "authentication",
 	buildParams = {
 		param("env.VIEWPORT_NAME", "desktop")
-		param("env.URL", "https://wpcalypso.wordpress.com")
 	},
 	buildFeatures = {
 		notifications {
 			notifierSettings = slackNotifier {
 				connection = "PROJECT_EXT_11"
 				sendTo = "#e2eflowtesting-notif"
-				messageFormat = simpleMessageFormat()
+				messageFormat = verboseMessageFormat {
+					addStatusText = true
+				}
 			}
+			branchFilter = "+:<default>"
 			buildFailedToStart = true
 			buildFailed = true
-			buildFinishedSuccessfully = true
+			buildFinishedSuccessfully = false
 			buildProbablyHanging = true
+		}
+	},
+	buildTriggers = {
+		schedule {
+			schedulingPolicy = cron {
+				hours = "*/6"
+			}
+			branchFilter = "+:<default>"
+			triggerBuild = always()
+			withPendingChangesOnly = true
 		}
 	}
 )
 
 object QuarantinedE2ETests: E2EBuildType(
-	buildId = "Quarantined_E2E_Tests",
+	buildId = "calypso_WebApp_Quarantined_E2E_Tests",
 	buildUuid = "14083675-b6de-419f-b2f6-ec89c06d3a8c",
 	buildName = "Quarantined E2E Tests",
 	buildDescription = "E2E tests quarantined due to intermittent failures.",
@@ -756,7 +1040,7 @@ object QuarantinedE2ETests: E2EBuildType(
 	testGroup = "quarantined",
 	buildParams = {
 		param("env.VIEWPORT_NAME", "desktop")
-		param("env.URL", "https://wpcalypso.wordpress.com")
+		param("env.CALYPSO_BASE_URL", "https://wpcalypso.wordpress.com")
 	},
 	buildFeatures = {
 		notifications {
@@ -772,14 +1056,6 @@ object QuarantinedE2ETests: E2EBuildType(
 		}
 	},
 	buildTriggers = {
-		schedule {
-			schedulingPolicy = cron {
-				hours = "01"
-			}
-			branchFilter = "+:trunk"
-			triggerBuild = always()
-			withPendingChangesOnly = false
-		}
 	}
 )
 

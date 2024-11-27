@@ -1,9 +1,11 @@
 import { Page } from 'playwright';
+import { reloadAndRetry } from '../../element-helper';
+import { plansPageUrl } from '../pages';
 
 const selectors = {
 	searchInput: `.search-component__input`,
-	resultPlaceholder: `.is-placeholder`,
-	resultItem: ( keyword: string ) => `.domain-suggestion__content:has-text("${ keyword }")`,
+	firstResultItem: `.domain-suggestion:first-child .domain-suggestion__content`,
+	domainSuggestionRow: '.domain-suggestion',
 };
 
 /**
@@ -32,10 +34,29 @@ export class DomainSearchComponent {
 	 * @param {string} keyword Keyword to use in domain search.
 	 */
 	async search( keyword: string ): Promise< void > {
-		await Promise.all( [
-			this.page.waitForSelector( selectors.resultPlaceholder, { state: 'detached' } ),
-			this.page.fill( selectors.searchInput, keyword ),
-		] );
+		/**
+		 *
+		 * Closure to pass into the retry method.
+		 *
+		 * @param {Page} page Page object.
+		 */
+		async function searchDomainClosure( page: Page ): Promise< void > {
+			const [ response ] = await Promise.all( [
+				page.waitForResponse( /suggestions\?/ ),
+				page.getByRole( 'searchbox' ).fill( keyword ),
+			] );
+
+			if ( ! response ) {
+				const errorText = await page.getByRole( 'status', { name: 'Notice' } ).innerText();
+				throw new Error(
+					`Encountered error while searching for domain.\nOriginal error: ${ errorText }`
+				);
+			}
+		}
+
+		// Domain lookup service is external to Automattic and sometimes it returns an error.
+		// Retry a few times when this is encountered.
+		await reloadAndRetry( this.page, searchDomainClosure );
 	}
 
 	/**
@@ -54,7 +75,40 @@ export class DomainSearchComponent {
 	 * @returns {string} Domain that was selected.
 	 */
 	async selectDomain( keyword: string ): Promise< string > {
-		const targetItem = await this.page.waitForSelector( selectors.resultItem( keyword ) );
+		const targetRow = this.page.locator( selectors.domainSuggestionRow ).filter( {
+			hasText: keyword,
+		} );
+		await targetRow.waitFor();
+
+		const target = targetRow.getByRole( 'button' );
+		await target.waitFor();
+
+		// The `heading` element represents the entire domain (including the tld).
+		const selectedDomain = await targetRow.getByRole( 'heading' ).innerText();
+
+		await target.click();
+
+		// If multiple domain selections are enabled, the Continue button appears
+		// on the right hand sidebar.
+		// See: 21483-explat-experiment
+		// Note: this page object does not currently support multiple domain selection.
+		await Promise.race( [
+			this.page
+				.getByRole( 'button', { name: 'Continue', exact: true } )
+				.click( { timeout: 30 * 1000 } ),
+			this.page.waitForURL( plansPageUrl ),
+		] );
+
+		return selectedDomain;
+	}
+
+	/**
+	 * Select the first domain suggestion.
+	 *
+	 * @returns {string} Domain that was selected.
+	 */
+	async selectFirstSuggestion(): Promise< string > {
+		const targetItem = await this.page.waitForSelector( selectors.firstResultItem );
 		// Heading element inside a given result contains the full domain name string.
 		const selectedDomain = await targetItem
 			.waitForSelector( 'h3' )
@@ -71,6 +125,6 @@ export class DomainSearchComponent {
 	 * @param {string} text Exact text to match on.
 	 */
 	async clickButton( text: string ): Promise< void > {
-		await this.page.click( `button:text-is("${ text }")` );
+		await this.page.getByRole( 'button', { name: text, exact: true } ).click();
 	}
 }

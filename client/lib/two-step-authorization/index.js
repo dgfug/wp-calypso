@@ -95,7 +95,6 @@ TwoStepAuthorization.prototype.refreshDataOnSuccessfulAuth = function () {
 		reduxDispatch( requestUserProfileLinks() );
 	}
 	this.data.two_step_reauthorization_required = false;
-	this.data.two_step_authorization_expires_soon = false;
 	this.invalidCode = false;
 
 	this.emit( 'change' );
@@ -199,34 +198,6 @@ TwoStepAuthorization.prototype.sendSMSCode = function ( callback ) {
 	} );
 };
 
-/*
- * Similar to validateCode, but without the change triggers across the
- * TwoStepAuthorization objects, so that the caller can delay state
- * transition until it is ready
- */
-TwoStepAuthorization.prototype.validateBackupCode = function ( code, callback ) {
-	const args = {
-		code: code.replace( /\s/g, '' ),
-		action: 'create-backup-receipt',
-	};
-
-	wp.req.post( '/me/two-step/validate', args, ( error, data ) => {
-		if ( error ) {
-			debug( 'Validating Two Step Code failed: ' + JSON.stringify( error ) );
-		}
-
-		if ( data ) {
-			bumpTwoStepAuthMCStat(
-				data.success ? 'backup-code-validate-success' : 'backup-code-validate-failure'
-			);
-		}
-
-		if ( callback ) {
-			callback( error, data );
-		}
-	} );
-};
-
 TwoStepAuthorization.prototype.codeValidationFailed = function () {
 	return this.invalidCode;
 };
@@ -237,10 +208,6 @@ TwoStepAuthorization.prototype.isSMSResendThrottled = function () {
 
 TwoStepAuthorization.prototype.isReauthRequired = function () {
 	return this.data.two_step_reauthorization_required ?? false;
-};
-
-TwoStepAuthorization.prototype.authExpiresSoon = function () {
-	return this.data.two_step_authorization_expires_soon ?? false;
 };
 
 TwoStepAuthorization.prototype.isTwoStepSMSEnabled = function () {

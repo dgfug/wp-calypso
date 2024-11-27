@@ -1,0 +1,40 @@
+@import "@wordpress/base-styles/breakpoints";
+@import "@wordpress/base-styles/mixins";
+
+.plugins-overview__container {
+	display: flex;
+	flex-direction: column;
+	// The -64px is to undo the padding of layout.has-no-masterbar (32px) & .layout__content (32px)
+	min-height: calc(100vh - 64px);
+
+	.current-section {
+		padding: 0 16px;
+
+		button {
+			padding: 12px 8px;
+		}
+	}
+}
+
+.plugins-overview__logo {
+	fill: var(--color-neutral-10);
+	color: var(--color-neutral-10);
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+
+	path {
+		fill: var(--color-neutral-10);
+	}
+
+	@include breakpoint-deprecated( ">960px" ) {
+		width: 100px;
+		height: 100px;
+	}
+}
+
+.plugins__page-title {
+	font-weight: 600;
+	margin-block-end: 8px;
+}

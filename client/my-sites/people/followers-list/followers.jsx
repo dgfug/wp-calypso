@@ -1,19 +1,28 @@
 /* eslint-disable wpcalypso/jsx-classname-namespace */
-
-import { Card, Button, Gridicon } from '@automattic/components';
+import { isEnabled } from '@automattic/calypso-config';
+import { FEATURE_UNLIMITED_SUBSCRIBERS } from '@automattic/calypso-products';
+import { Card, Button } from '@automattic/components';
+import { AddSubscriberForm } from '@automattic/subscriber';
 import { localize } from 'i18n-calypso';
 import { createRef, Component } from 'react';
 import { connect } from 'react-redux';
+import EmailVerificationGate from 'calypso/components/email-verification/email-verification-gate';
 import EmptyContent from 'calypso/components/empty-content';
 import InfiniteList from 'calypso/components/infinite-list';
 import ListEnd from 'calypso/components/list-end';
 import accept from 'calypso/lib/accept';
+import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import { preventWidows } from 'calypso/lib/formatting';
 import { addQueryArgs } from 'calypso/lib/url';
 import NoResults from 'calypso/my-sites/no-results';
 import PeopleListItem from 'calypso/my-sites/people/people-list-item';
 import PeopleListSectionHeader from 'calypso/my-sites/people/people-list-section-header';
+import { isBusinessTrialSite } from 'calypso/sites-dashboard/utils';
 import { recordGoogleEvent } from 'calypso/state/analytics/actions';
+import { successNotice } from 'calypso/state/notices/actions';
+import isEligibleForSubscriberImporter from 'calypso/state/selectors/is-eligible-for-subscriber-importer';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
+import InviteButton from '../invite-button';
 
 class Followers extends Component {
 	infiniteList = createRef();
@@ -91,13 +100,14 @@ class Followers extends Component {
 	}
 
 	renderInviteFollowersAction( isPrimary = true ) {
-		const { site, translate } = this.props;
+		const { site, includeSubscriberImporter } = this.props;
 
 		return (
-			<Button primary={ isPrimary } href={ `/people/new/${ site.slug }` }>
-				<Gridicon icon="user-add" />
-				<span>{ translate( 'Invite', { context: 'Verb. Button to invite more users.' } ) }</span>
-			</Button>
+			<InviteButton
+				primary={ isPrimary }
+				siteSlug={ site.slug }
+				includeSubscriberImporter={ includeSubscriberImporter }
+			/>
 		);
 	}
 
@@ -115,14 +125,53 @@ class Followers extends Component {
 		}
 
 		let emptyTitle;
+		const site = this.props.site;
+		const hasUnlimitedSubscribers = this.props.siteHasUnlimitedSubscribers;
+		const isFreeSite = site?.plan?.is_free ?? false;
+		const isBusinessTrial = site ? isBusinessTrialSite( site ) : false;
+		const hasSubscriberLimit = ( isFreeSite || isBusinessTrial ) && ! hasUnlimitedSubscribers;
+
 		if ( this.siteHasNoFollowers() ) {
 			if ( 'email' === this.props.type ) {
+				if ( this.props.includeSubscriberImporter ) {
+					return (
+						<Card>
+							<EmailVerificationGate
+								noticeText={ this.props.translate(
+									'You must verify your email to add subscribers.'
+								) }
+								noticeStatus="is-info"
+							>
+								<AddSubscriberForm
+									siteId={ this.props.site.ID }
+									hasSubscriberLimit={ hasSubscriberLimit }
+									flowName="people"
+									showSubtitle
+									showCsvUpload={ isEnabled( 'subscriber-csv-upload' ) }
+									showFormManualListLabel
+									recordTracksEvent={ recordTracksEvent }
+									onImportFinished={ () => {
+										this.props?.refetch?.();
+										this.props?.successNotice(
+											this.props.translate(
+												'Your subscriber list is being processed. Please check your email for status.'
+											)
+										);
+									} }
+								/>
+							</EmailVerificationGate>
+						</Card>
+					);
+				}
 				emptyTitle = preventWidows(
 					this.props.translate( 'No one is following you by email yet.' )
 				);
 			} else {
-				emptyTitle = preventWidows( this.props.translate( 'No WordPress.com followers yet.' ) );
+				emptyTitle = this.props.includeSubscriberImporter
+					? preventWidows( this.props.translate( 'No WordPress.com subscribers yet.' ) )
+					: preventWidows( this.props.translate( 'No WordPress.com followers yet.' ) );
 			}
+
 			return <EmptyContent title={ emptyTitle } action={ this.renderInviteFollowersAction() } />;
 		}
 
@@ -138,14 +187,22 @@ class Followers extends Component {
 			);
 
 			if ( this.props.type === 'email' ) {
-				headerText = this.props.translate(
-					'You have %(number)d follower receiving updates by email',
-					'You have %(number)d followers receiving updates by email',
-					{
-						args: { number: this.props.totalFollowers },
-						count: this.props.totalFollowers,
-					}
-				);
+				const translateArgs = {
+					args: { number: this.props.totalFollowers },
+					count: this.props.totalFollowers,
+				};
+
+				headerText = this.props.includeSubscriberImporter
+					? this.props.translate(
+							'You have %(number)d subscriber receiving updates by email',
+							'You have %(number)d subscribers receiving updates by email',
+							translateArgs
+					  )
+					: this.props.translate(
+							'You have %(number)d follower receiving updates by email',
+							'You have %(number)d followers receiving updates by email',
+							translateArgs
+					  );
 			}
 		}
 
@@ -216,4 +273,18 @@ class Followers extends Component {
 	}
 }
 
-export default connect( null, { recordGoogleEvent } )( localize( Followers ) );
+const mapStateToProps = ( state, ownProps ) => {
+	return {
+		includeSubscriberImporter: isEligibleForSubscriberImporter( state ),
+		siteHasUnlimitedSubscribers: siteHasFeature(
+			state,
+			ownProps?.site?.ID,
+			FEATURE_UNLIMITED_SUBSCRIBERS
+		),
+	};
+};
+
+export default connect( mapStateToProps, {
+	recordGoogleEvent,
+	successNotice,
+} )( localize( Followers ) );

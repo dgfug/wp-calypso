@@ -1,87 +1,78 @@
+import { FEATURE_INSTALL_THEMES } from '@automattic/calypso-products';
 import { Button } from '@automattic/components';
-import { translate } from 'i18n-calypso';
-import { connect } from 'react-redux';
+import { useTranslate } from 'i18n-calypso';
+import { useDispatch, useSelector } from 'react-redux';
 import { recordTracksEvent } from 'calypso/state/analytics/actions';
 import { isUserLoggedIn } from 'calypso/state/current-user/selectors';
+import getSiteFeatures from 'calypso/state/selectors/get-site-features';
 import isAtomicSite from 'calypso/state/selectors/is-site-automated-transfer';
-import { isJetpackSiteMultiSite, isJetpackSite } from 'calypso/state/sites/selectors';
-import siteCanUploadThemesOrPlugins from 'calypso/state/sites/selectors/can-upload-themes-or-plugins';
-import { getSelectedSiteId, getSelectedSiteSlug } from 'calypso/state/ui/selectors';
+import siteHasFeature from 'calypso/state/selectors/site-has-feature';
+import {
+	isJetpackSiteMultiSite,
+	isJetpackSite,
+	getSiteThemeInstallUrl,
+	getSiteSlug,
+} from 'calypso/state/sites/selectors';
+import { getSelectedSiteId } from 'calypso/state/ui/selectors';
 import { trackClick } from './helpers';
 
 import './install-theme-button.scss';
 
-function getInstallThemeSlug( siteSlug, canUploadThemesOrPlugins ) {
-	if ( ! siteSlug ) {
+function getInstallThemeUrl( state, siteId ) {
+	if ( ! siteId ) {
 		return '/themes/upload';
 	}
 
-	if ( canUploadThemesOrPlugins ) {
-		return `https://${ siteSlug }/wp-admin/theme-install.php`;
+	const atomicSite = isAtomicSite( state, siteId );
+	const siteCanInstallThemes = siteHasFeature( state, siteId, FEATURE_INSTALL_THEMES );
+	const siteHasFeaturesLoaded = !! getSiteFeatures( state, siteId );
+
+	if ( atomicSite && ( siteCanInstallThemes || ! siteHasFeaturesLoaded ) ) {
+		const themeInstallUrlObj = new URL( getSiteThemeInstallUrl( state, siteId ) );
+		themeInstallUrlObj.searchParams.append( 'browse', 'popular' );
+		themeInstallUrlObj.searchParams.append( 'wpcom-upload', '1' );
+		return themeInstallUrlObj.toString();
 	}
 
+	const siteSlug = getSiteSlug( state, siteId );
 	return `/themes/upload/${ siteSlug }`;
 }
 
-const InstallThemeButton = ( {
-	isMultisite,
-	jetpackSite,
-	isLoggedIn,
-	siteSlug,
-	dispatchTracksEvent,
-	canUploadThemesOrPlugins,
-	atomicSite,
-} ) => {
+function getSiteType( state, siteId ) {
+	if ( isAtomicSite( state, siteId ) ) {
+		return 'atomic';
+	} else if ( isJetpackSite( state, siteId ) ) {
+		return 'jetpack';
+	} else if ( siteId ) {
+		return 'simple';
+	}
+
+	return null;
+}
+
+export default function InstallThemeButton() {
+	const translate = useTranslate();
+	const dispatch = useDispatch();
+	const isLoggedIn = useSelector( isUserLoggedIn );
+	const selectedSiteId = useSelector( getSelectedSiteId );
+	const isMultisite = useSelector( ( state ) => isJetpackSiteMultiSite( state, selectedSiteId ) );
+	const siteType = useSelector( ( state ) => getSiteType( state, selectedSiteId ) );
+	const installThemeUrl = useSelector( ( state ) => getInstallThemeUrl( state, selectedSiteId ) );
+
 	if ( ! isLoggedIn || isMultisite ) {
 		return null;
 	}
 
-	let siteType = null;
-	if ( ! isLoggedIn ) {
-		siteType = 'logged_out';
-	} else if ( atomicSite ) {
-		siteType = 'atomic';
-	} else if ( jetpackSite ) {
-		siteType = 'jetpack';
-	} else if ( siteSlug ) {
-		siteType = 'simple';
-	}
-
 	const clickHandler = () => {
 		trackClick( 'upload theme' );
-		dispatchTracksEvent( {
-			tracksEventProps: {
-				site_type: siteType,
-			},
-		} );
+		const tracksEventProps = { site_type: siteType };
+		dispatch( recordTracksEvent( 'calypso_click_theme_upload', tracksEventProps ) );
+		dispatch( recordTracksEvent( 'calypso_themeshowcase_install_button_click', tracksEventProps ) );
 	};
 
 	return (
-		<Button
-			className="themes__upload-button"
-			onClick={ clickHandler }
-			href={ getInstallThemeSlug( siteSlug, canUploadThemesOrPlugins ) }
-		>
-			{ translate( 'Install theme' ) }
+		<Button className="themes__upload-button" onClick={ clickHandler } href={ installThemeUrl }>
+			{ translate( 'Install new theme' ) }
 		</Button>
 	);
-};
-
-const mapStateToProps = ( state ) => {
-	const selectedSiteId = getSelectedSiteId( state );
-	return {
-		siteSlug: getSelectedSiteSlug( state ),
-		isLoggedIn: isUserLoggedIn( state ),
-		isMultisite: isJetpackSiteMultiSite( state, selectedSiteId ),
-		jetpackSite: isJetpackSite( state, selectedSiteId ),
-		canUploadThemesOrPlugins: siteCanUploadThemesOrPlugins( state, selectedSiteId ),
-		atomicSite: isAtomicSite( state, selectedSiteId ),
-	};
-};
-
-const mapDispatchToProps = ( dispatch ) => ( {
-	dispatchTracksEvent: ( { tracksEventProps } ) =>
-		dispatch( recordTracksEvent( 'calypso_click_theme_upload', tracksEventProps ) ),
-} );
-
-export default connect( mapStateToProps, mapDispatchToProps )( InstallThemeButton );
+}

@@ -1,7 +1,7 @@
+import page from '@automattic/calypso-router';
 import { CompactCard } from '@automattic/components';
 import { isDesktop, subscribeIsDesktop } from '@automattic/viewport';
 import { localize } from 'i18n-calypso';
-import page from 'page';
 import PropTypes from 'prop-types';
 import { Component } from 'react';
 import { connect } from 'react-redux';
@@ -14,7 +14,7 @@ import Main from 'calypso/components/main';
 import Notice from 'calypso/components/notice';
 import VerticalNav from 'calypso/components/vertical-nav';
 import VerticalNavItemEnhanced from 'calypso/components/vertical-nav/item/enhanced';
-import PageViewTracker from 'calypso/lib/analytics/page-view-tracker';
+import { recordTracksEvent } from 'calypso/lib/analytics/tracks';
 import { getSelectedDomain } from 'calypso/lib/domains';
 import {
 	TITAN_CONTROL_PANEL_CONTEXT_CONFIGURE_CATCH_ALL_EMAIL,
@@ -24,15 +24,14 @@ import {
 	TITAN_CONTROL_PANEL_CONTEXT_IMPORT_EMAIL_DATA,
 } from 'calypso/lib/titan/constants';
 import EmailHeader from 'calypso/my-sites/email/email-header';
-import EmailPlanHeader from 'calypso/my-sites/email/email-management/home/email-plan-header';
+import { EmailPlanHeader } from 'calypso/my-sites/email/email-management/home/email-plan-header';
 import {
 	getEmailPurchaseByDomain,
 	hasEmailSubscription,
 } from 'calypso/my-sites/email/email-management/home/utils';
 import {
-	emailManagement,
-	emailManagementManageTitanMailboxes,
-	emailManagementTitanControlPanelRedirect,
+	getEmailManagementPath,
+	getTitanControlPanelRedirectPath,
 } from 'calypso/my-sites/email/paths';
 import {
 	hasLoadedSitePurchasesFromServer,
@@ -77,7 +76,7 @@ class TitanManageMailboxes extends Component {
 	handleBack = () => {
 		const { currentRoute, selectedDomainName, selectedSite } = this.props;
 
-		page( emailManagement( selectedSite.slug, selectedDomainName, currentRoute ) );
+		page( getEmailManagementPath( selectedSite.slug, selectedDomainName, currentRoute ) );
 	};
 
 	buildNavigationItem = ( { context, description, isDisabled = false, materialIcon, text } ) => ( {
@@ -85,6 +84,11 @@ class TitanManageMailboxes extends Component {
 		disabled: isDisabled,
 		materialIcon,
 		path: this.getPath( context ),
+		onClick: () => {
+			recordTracksEvent( 'calypso_email_management_titan_manage_mailboxes_link_click', {
+				context,
+			} );
+		},
 		text,
 	} );
 
@@ -143,33 +147,22 @@ class TitanManageMailboxes extends Component {
 			return '';
 		}
 
-		return emailManagementTitanControlPanelRedirect( selectedSite.slug, domain.name, currentRoute, {
+		return getTitanControlPanelRedirectPath( selectedSite.slug, domain.name, currentRoute, {
 			context,
 		} );
 	};
 
 	render() {
-		const {
-			domain,
-			hasSubscription,
-			isLoadingPurchase,
-			purchase,
-			selectedSite,
-			translate,
-		} = this.props;
+		const { domain, hasSubscription, isLoadingPurchase, purchase, selectedSite, translate } =
+			this.props;
 
 		return (
 			<>
-				<PageViewTracker
-					path={ emailManagementManageTitanMailboxes( ':site', ':domain' ) }
-					title="Email Management > Titan > Manage All Mailboxes"
-				/>
-
 				{ selectedSite && <QuerySiteDomains siteId={ selectedSite.ID } /> }
 
 				{ selectedSite && hasSubscription && <QuerySitePurchases siteId={ selectedSite.ID } /> }
 
-				<Main wideLayout={ true }>
+				<Main wideLayout>
 					<DocumentHead title={ titleCase( translate( 'Manage all mailboxes' ) ) } />
 
 					<EmailHeader />
